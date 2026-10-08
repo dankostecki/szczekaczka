@@ -87,7 +87,7 @@ export class Poller extends DurableObject<Env> {
   }
 
   private interval(feed: FeedConfig, now: number): number {
-    const usual = (feed.minAge ?? (marketHours(new Date(now)) ? CHECK_SECONDS : QUIET_CHECK_SECONDS)) * 1000
+    const usual = Math.max(feed.minAge ?? 0, marketHours(new Date(now)) ? CHECK_SECONDS : QUIET_CHECK_SECONDS) * 1000
     const failures = this.feeds.get(feedKey(feed.source, feed.label))?.failures ?? 0
     return failures ? Math.min(usual, RETRY_SECONDS * 1000 * 2 ** (failures - 1)) : usual
   }

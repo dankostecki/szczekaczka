@@ -10,7 +10,7 @@
 ## Architektura
 
 ```
-  Bankier, GPW, Stooq (RSS)
+  Bankier, GPW, Stooq, PAP (RSS)
             │  co 60 s (GPW i noc rzadziej), jeden kanał na raz
             ▼
   ┌───────────────────┐      zmiany (delta)      ┌──────────────┐
@@ -24,7 +24,7 @@
 ```
 
 - **`worker/poller.ts` (Poller)**: jeden obiekt na całą stronę. Budzi się alarmem, sprawdza **jeden** kanał, który najdłużej czeka, i ustawia następny alarm. Pyta źródło z `If-None-Match`/`If-Modified-Since`, a gdy treść jest ta sama (304 albo ten sam skrót sha1), niczego nie parsuje. Zmiany zapisuje w SQLite obiektu i nadaje numer wersji (`v`).
-- **Częstotliwość**: ESPI i Stooq co 60 s w pon.–pt. 7:00–23:00, poza tym co 3 min. GPW: komunikaty co 2 min, indeksy co 5 min, prasa i aktualności co 10 min (`src/lib/sources.ts`).
+- **Częstotliwość**: ESPI i Stooq co 60 s w pon.–pt. 7:00–23:00, poza tym co 3 min. GPW: komunikaty co 2 min, indeksy co 5 min, prasa i aktualności co 10 min. PAP MediaRoom: co 2 min. W nocy i w weekendy żaden kanał nie jest sprawdzany częściej niż co 3 min (`src/lib/sources.ts`).
 - **`worker/hub.ts` (Hub 0–3)**: trzymają połączenia WebSocket przeglądarek (cztery, żeby rozłożyć ruch). Używają WebSocket Hibernation: między wiadomościami obiekt znika z pamięci i nic nie kosztuje, a połączenia zostają otwarte. Wiadomości wychodzące do przeglądarek są darmowe.
 - **Protokół** (`src/lib/protocol.ts`, klient w `src/lib/live.ts`):
   - wejście na stronę: `GET /api/news` (cała lista z wersją `v`), równolegle WebSocket `/ws`;
@@ -44,8 +44,8 @@ Założenie: 1000 użytkowników, każdy średnio 10 połączeń dziennie (otwar
 | Limit dzienny (plan Free) | Na co idzie | Zużycie / dzień | Wykorzystanie |
 |---|---|---|---|
 | Workers: 100 tys. zapytań | `/ws` (10 tys.) + `/api/news` (około 10 tys.) | około 20 tys. | około 20% |
-| Durable Objects: 100 tys. zapytań | połączenia (10 tys.), listy (10 tys.), alarmy Pollera (około 6,5 tys.), rozsyłanie do hubów (około 8 tys.) | około 35 tys. | około 35% |
-| Durable Objects: 100 tys. zapisanych wierszy | alarmy (około 6,5 tys.), zmiany kanałów (około 3 tys.) | około 10 tys. | około 10% |
+| Durable Objects: 100 tys. zapytań | połączenia (10 tys.), listy (10 tys.), alarmy Pollera (około 8 tys. przy 11 kanałach), rozsyłanie do hubów (około 8 tys.) | około 36 tys. | około 36% |
+| Durable Objects: 100 tys. zapisanych wierszy | alarmy (około 8 tys.), zmiany kanałów (około 4 tys.) | około 12 tys. | około 12% |
 | Durable Objects: 13 tys. GB-s | Poller czeka na źródło przy każdym sprawdzeniu, huby tylko chwilę przy rozsyłaniu | poniżej 1 tys. | poniżej 10% |
 | Pliki statyczne | strona, regulamin, polityka, źródła | dowolnie dużo | bez limitu |
 
@@ -55,14 +55,14 @@ Założenie: 1000 użytkowników, każdy średnio 10 połączeń dziennie (otwar
 
 ## Ryzyka
 
-- **Limit CPU na jedno wywołanie (10 ms na planie Free).** Dlatego Poller sprawdza jeden kanał na raz. Pomiar lokalny: przetworzenie jednego kanału to około 1,5–4 ms CPU, cała runda wszystkich kanałów około 13 ms. Czekanie na odpowiedź źródła nie liczy się do CPU. Prawdziwe wartości widać w panelu Cloudflare (Workers → szczekaczka → Metrics, oraz logi). Jeśli wywołania zaczną przekraczać limit, rozwiązaniem jest plan **Workers Paid (5 USD miesięcznie)**: dłuższy limit CPU i limity liczone w milionach.
+- **Limit CPU na jedno wywołanie (10 ms na planie Free).** Dlatego Poller sprawdza jeden kanał na raz. Pomiar lokalny: przetworzenie jednego kanału to około 1,5–4 ms CPU, cała runda wszystkich kanałów około 13 ms. Z jednego kanału brane jest najwyżej 100 newsów i najwyżej pierwsze 512 KB kanału, a z długich komunikatów (np. całe teksty w PAP MediaRoom) tylko pierwsze 4000 znaków. Koszt kanału ma więc górną granicę: najgorszy przypadek (kanał z pełnymi artykułami) to lokalnie około 3 ms. Czekanie na odpowiedź źródła nie liczy się do CPU. Prawdziwe wartości widać w panelu Cloudflare (Workers → szczekaczka → Metrics, oraz logi). Jeśli wywołania zaczną przekraczać limit, rozwiązaniem jest plan **Workers Paid (5 USD miesięcznie)**: dłuższy limit CPU i limity liczone w milionach.
 - **Źródła czasem nie odpowiadają** (np. GPW potrafi nie odpowiedzieć w kilka sekund). Serwer czeka 15 s, a po nieudanej próbie ponawia ją po 1, 2, 4… minutach (nie rzadziej niż zwykle). Ramkę „Chwilowo nie działa” strony pokazują dopiero po 3 nieudanych próbach z rzędu, więc pojedyncze przycięcie źródła jest niewidoczne. Ostatnie newsy z tego kanału zostają na liście. W logach Workera każda nieudana próba to wpis `feed GPW:PRASA: failed check 1 in a row`.
 - **Źródła mogą zmienić format albo blokować zapytania z chmury.** Wtedy błędy będą się powtarzać i ramka zostanie. Ostatnie newsy z tego kanału zostaną na liście, a kanał można ukryć w ustawieniach.
 - **Liczby w tabeli to szacunek.** Rzeczywiste zużycie widać w panelu Cloudflare (Workers & Pages → Overview / Usage oraz Durable Objects).
 
 ## Czemu tak, a nie inaczej
 
-- **Webhooki od źródeł:** Bankier, GPW i Stooq udostępniają tylko kanały RSS, bez powiadomień (webhooków ani WebSub, czyli `rel="hub"` w kanale). Ktoś musi je odpytywać. Tutaj robi to jeden Poller dla wszystkich.
+- **Webhooki od źródeł:** Bankier, GPW, Stooq i PAP MediaRoom udostępniają tylko kanały RSS, bez powiadomień (webhooków ani WebSub, czyli `rel="hub"` w kanale). Ktoś musi je odpytywać. Tutaj robi to jeden Poller dla wszystkich.
 - **WebSocket w Durable Object z hibernacją zamiast SSE:** strumień SSE w Workerze trzyma otwarte wywołanie przez cały czas połączenia. WebSocket z hibernacją nie kosztuje nic między wiadomościami.
 - **Durable Objects zamiast osobnej usługi Pub/Sub:** to standardowy i darmowy sposób Cloudflare na rozsyłanie wiadomości przez WebSockety, bez nowego dostawcy (a więc bez zmian w polityce prywatności).
 - **Poprzednio (Vercel):** każda przeglądarka pytała co minutę, a funkcja przetwarzała kanały przy wygaśnięciu wspólnej kopii. Na darmowym planie Vercela limitem było CPU (4 h na 30 dni) i liczba zapytań rosła z liczbą użytkowników. Pomiar przed optymalizacją: około 0,17 s CPU na wywołanie, w tym 144 ms na tworzenie formatera dat dla każdej daty; po poprawce cała runda kosztuje około 13 ms.
