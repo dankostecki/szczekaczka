@@ -1,8 +1,9 @@
-// RSS / Atom parsing on the server (Node has no DOMParser).
-import { XMLParser } from 'fast-xml-parser'
+// RSS / Atom parsing, shared by the Cloudflare Worker and the tests. A small regex
+// reader instead of a full XML parser: the feeds are simple, and on Cloudflare's free
+// plan every run must stay under 10 ms of CPU.
 import type { FeedConfig } from './sources'
 
-// What /api/news sends to the browser
+// What the server sends to the browser
 export interface NewsItem {
   id: string
   title: string
@@ -11,29 +12,6 @@ export interface NewsItem {
   pubDate: string // ISO, '' when the feed gives no usable date
   source: string
   label: string
-}
-
-const parser = new XMLParser({
-  ignoreAttributes: false,
-  attributeNamePrefix: '@_',
-  textNodeName: '#text',
-  parseTagValue: false,
-  parseAttributeValue: false,
-  trimValues: true,
-  processEntities: true,
-  htmlEntities: true,
-  isArray: (name) => ['channel', 'item', 'entry', 'link'].includes(name),
-})
-
-type Node = Record<string, unknown>
-const asArray = (v: unknown): Node[] => (Array.isArray(v) ? v : v == null ? [] : [v]) as Node[]
-
-function text(v: unknown): string {
-  if (v == null) return ''
-  if (typeof v === 'string' || typeof v === 'number') return String(v).trim()
-  if (Array.isArray(v)) return text(v[0])
-  if (typeof v === 'object') return text((v as Node)['#text'])
-  return ''
 }
 
 const NAMED: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash: '–', mdash: '—', hellip: '…', bdquo: '„', rdquo: '”', ldquo: '“', oacute: 'ó', Oacute: 'Ó' }
@@ -49,8 +27,12 @@ export function decodeEntities(s: string): string {
   })
 }
 
+// Inline tags go without a trace ("<b>rośnie</b>." -> "rośnie."), the rest becomes a space
 export const cleanText = (html: string) =>
-  decodeEntities(html.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim()
+  decodeEntities(html
+    .replace(/<\/?(?:b|i|em|strong|span|a|u|small|sup|sub|font)\b[^>]*>/gi, '')
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim()
 
 // Offset of Europe/Warsaw from UTC at a given moment, in ms
 // Creating an Intl formatter is slow (a fraction of a millisecond, for every date of
@@ -119,18 +101,6 @@ function absolute(link: string, base: string): string {
   try { return new URL(link, base).toString() } catch { return link }
 }
 
-// Collect every value stored under `key` anywhere in the tree (like querySelectorAll)
-function collect(node: unknown, key: string, out: Node[] = []): Node[] {
-  if (Array.isArray(node)) { node.forEach((n) => collect(n, key, out)); return out }
-  if (node && typeof node === 'object') {
-    for (const [k, v] of Object.entries(node as Node)) {
-      if (k === key) out.push(...asArray(v))
-      else if (!k.startsWith('@_') && k !== '#text') collect(v, key, out)
-    }
-  }
-  return out
-}
-
 function makeItem(feed: FeedConfig, title: string, link: string, description: string, date: string): NewsItem {
   const desc = cleanText(description)
   return {
@@ -143,34 +113,56 @@ function makeItem(feed: FeedConfig, title: string, link: string, description: st
   }
 }
 
+const CDATA = /<!\[CDATA\[([\s\S]*?)\]\]>/g
+
+// Text of an element: CDATA as is, everything else with XML entities decoded
+function inner(raw: string): string {
+  let out = '', last = 0
+  for (const m of raw.matchAll(CDATA)) {
+    out += decodeEntities(raw.slice(last, m.index)) + m[1]
+    last = m.index! + m[0].length
+  }
+  return (out + decodeEntities(raw.slice(last))).trim()
+}
+
+const tagCache = new Map<string, RegExp>()
+// First <name ...>…</name> in the block. `name` may have a prefix ("dc:date"); "link" does not
+// match "atom:link", because the name has to follow "<" directly.
+function tag(block: string, name: string): string {
+  let re = tagCache.get(name)
+  if (!re) { re = new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)</${name}>`, 'i'); tagCache.set(name, re) }
+  const m = block.match(re)
+  return m ? inner(m[1]) : ''
+}
+
+function attr(el: string, name: string): string {
+  const m = el.match(new RegExp(`\\s${name}\\s*=\\s*("([^"]*)"|'([^']*)')`, 'i'))
+  return m ? decodeEntities(m[2] ?? m[3] ?? '') : ''
+}
+
 export function parseFeedXml(xml: string, feed: FeedConfig): NewsItem[] {
-  let doc: unknown
-  try { doc = parser.parse(xml) } catch { return [] }
   const items: NewsItem[] = []
 
-  // RSS 2.0 keeps <item> in <channel>, RSS 1.0 (RDF) next to it
-  const rssItems = collect(doc, 'item')
-  if (rssItems.length > 0) {
-    for (const it of rssItems) {
-      const title = cleanText(text(it.title))
-      if (!title) continue
-      const enclosure = asArray(it.enclosure)[0]
-      const link = absolute(text(asArray(it.link)[0]) || (enclosure ? String(enclosure['@_url'] ?? '') : '') || text(it.guid), feed.url)
-      items.push(makeItem(feed, title, link, text(it.description) || text(it['content:encoded']),
-        text(it.pubDate) || text(it['dc:date'])))
-    }
-    return items
+  // RSS 2.0 and RSS 1.0 (RDF): <item>
+  for (const [, block] of xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)) {
+    const title = cleanText(tag(block, 'title'))
+    if (!title) continue
+    const enclosure = block.match(/<enclosure\b[^>]*>/i)?.[0]
+    const link = absolute(tag(block, 'link') || (enclosure ? attr(enclosure, 'url') : '') || tag(block, 'guid'), feed.url)
+    items.push(makeItem(feed, title, link, tag(block, 'description') || tag(block, 'content:encoded'),
+      tag(block, 'pubDate') || tag(block, 'dc:date')))
   }
+  if (items.length > 0) return items
 
   // Atom: <entry>
-  for (const en of collect(doc, 'entry')) {
-    const title = cleanText(text(en.title))
+  for (const [, block] of xml.matchAll(/<entry\b[^>]*>([\s\S]*?)<\/entry>/gi)) {
+    const title = cleanText(tag(block, 'title'))
     if (!title) continue
-    const links = asArray(en.link)
-    const linkEl = links.find((l) => l['@_rel'] === 'alternate') ?? links.find((l) => l['@_href']) ?? links[0]
-    const link = absolute(linkEl ? String(linkEl['@_href'] ?? text(linkEl)) : '', feed.url)
-    items.push(makeItem(feed, title, link, text(en.summary) || text(en.content),
-      text(en.published) || text(en.updated) || text(en['dc:date'])))
+    const links = [...block.matchAll(/<link\b[^>]*>/gi)].map((m) => m[0])
+    const linkEl = links.find((l) => attr(l, 'rel') === 'alternate') ?? links.find((l) => attr(l, 'href')) ?? ''
+    const link = absolute(linkEl ? attr(linkEl, 'href') : tag(block, 'link'), feed.url)
+    items.push(makeItem(feed, title, link, tag(block, 'summary') || tag(block, 'content'),
+      tag(block, 'published') || tag(block, 'updated') || tag(block, 'dc:date')))
   }
   return items
 }

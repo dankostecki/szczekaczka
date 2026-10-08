@@ -27,3 +27,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .vercel
+
+# local Cloudflare secrets / test settings
+.dev.vars
+.wrangler/

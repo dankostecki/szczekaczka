@@ -51,14 +51,15 @@ export const SOURCE_INFO: Record<Source, { name: string; publisher: string; site
   },
 }
 
-// The server keeps one shared copy of the list for this long (and fetches the RSS
-// feeds at most this often), whatever the number of users. Below the 1-minute
-// refresh of the page, so a page that asks every minute gets a fresh list.
-export const CACHE_SECONDS = 50
-// After that, the CDN may still hand out the old copy for this long while it fetches a new one
-export const STALE_SECONDS = 10
-// How often the page asks for the list, in minutes
-export const REFRESH_OPTIONS = [1, 5, 10, 15]
+// How often the server checks a feed (seconds); feeds with `minAge` use that instead.
+// At night and at weekends (schedule.ts) almost nothing is published, so less often.
+export const CHECK_SECONDS = 60
+export const QUIET_CHECK_SECONDS = 180
+// Browsers are connected to one of this many hubs (Durable Objects), so that sending a
+// change to everybody stays well under the 10 ms of CPU a free Cloudflare call may use
+export const HUBS = 4
+// The server sends a heartbeat at least this often; Cloudflare closes connections idle for 100 s
+export const HEARTBEAT_SECONDS = 50
 
 // Channels that are not read aloud or notified by default. The calendar lists
 // upcoming events, so its dates are not "just published".

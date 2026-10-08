@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "szczekaczka",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-09-20",
+  // The page: static files from `next build` (output: 'export'). Requests for them are free
+  // and never run the Worker; only the API and the WebSocket do.
+  "assets": {
+    "directory": "./out",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*", "/ws"],
+    "not_found_handling": "404-page"
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "POLLER", "class_name": "Poller" },
+      { "name": "HUB", "class_name": "Hub" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Poller", "Hub"] }],
+  "triggers": { "crons": ["*/10 * * * *"] },
+  "observability": { "enabled": true }
+}

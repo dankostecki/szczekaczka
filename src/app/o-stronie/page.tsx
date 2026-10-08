@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import LegalPage, { Contact } from '@/components/LegalPage'
-import { FEEDS, SOURCES, SOURCE_INFO, CACHE_SECONDS, REFRESH_OPTIONS } from '@/lib/sources'
-import { MARKET_DAYS, MARKET_FROM, MARKET_TO, QUIET_MINUTES } from '@/lib/schedule'
+import { FEEDS, SOURCES, SOURCE_INFO, CHECK_SECONDS, QUIET_CHECK_SECONDS } from '@/lib/sources'
+import { MARKET_DAYS, MARKET_FROM, MARKET_TO } from '@/lib/schedule'
 import { AUTHOR } from '@/lib/site'
 
 export const metadata: Metadata = {
@@ -45,7 +45,7 @@ export default function About() {
                   <tr key={f.url}>
                     <td>{src} · {f.label}</td>
                     <td><a href={f.url} target="_blank" rel="noopener noreferrer" className="feed-url">{f.url}</a></td>
-                    <td>{f.minAge ? `co ${f.minAge / 60} min` : `co ${CACHE_SECONDS} s`}</td>
+                    <td>{f.minAge ? `co ${f.minAge / 60} min` : `co ${CHECK_SECONDS} s`}</td>
                   </tr>
                 ))}
               </tbody>
@@ -61,28 +61,24 @@ export default function About() {
         był tu pokazywany, może się skontaktować: <Contact />.
       </p>
 
-      <h2>Jak często newsy się odświeżają</h2>
+      <h2>Jak newsy trafiają na stronę</h2>
       <ul>
         <li>
-          Strona pyta serwer o nowe newsy co {REFRESH_OPTIONS.map((m) => `${m}`).join(', ').replace(/, (\d+)$/, ' lub $1')} minut
-          (do wyboru w ustawieniach) albo po kliknięciu „Odśwież”.
+          Serwer sam sprawdza kanały RSS: każdy co około {CHECK_SECONDS} sekund, kanały GPW, które zmieniają się
+          rzadko, rzadziej (tabele wyżej). W nocy i w weekendy (poza {MARKET_DAYS} {MARKET_FROM}:00–{MARKET_TO}:00)
+          co {QUIET_CHECK_SECONDS / 60} minuty, bo wtedy prawie nic nie jest publikowane.
         </li>
         <li>
-          Domyślnie w nocy i w weekendy (poza {MARKET_DAYS} {MARKET_FROM}:00–{MARKET_TO}:00) strona pyta najwyżej co
-          {' '}{QUIET_MINUTES} minut, bo wtedy prawie nic nie jest publikowane. Można to wyłączyć w ustawieniach.
+          Gdy w kanale pojawi się coś nowego, serwer od razu wysyła to do wszystkich otwartych stron przez stałe
+          połączenie (WebSocket). Strona niczego nie odświeża sama. Przycisk „Odśwież” pobiera całą listę jeszcze raz.
         </li>
         <li>
-          Serwer pobiera kanały RSS najwyżej co {CACHE_SECONDS} sekund i trzyma jedną wspólną kopię listy dla
-          wszystkich użytkowników. Kanały GPW, które zmieniają się rzadko, sprawdza rzadziej (tabele wyżej). Dzięki
-          temu serwisy źródłowe dostają kilka zapytań na minutę, niezależnie od tego, ile osób korzysta ze Szczekaczki.
+          Serwisy źródłowe dostają te same kilka zapytań na minutę niezależnie od tego, ile osób korzysta ze
+          Szczekaczki.
         </li>
         <li>
           News pojawia się więc z opóźnieniem: tyle, ile wydawca potrzebuje na aktualizację swojego kanału, plus do
-          około minuty na serwerze, plus wybrany czas odświeżania.
-        </li>
-        <li>
-          Gdy karta jest ukryta, a czytanie na głos i powiadomienia są wyłączone, strona nie odświeża listy. Robi
-          to od razu po powrocie do karty.
+          około minuty, zanim serwer go sprawdzi.
         </li>
         <li>Godziny są w czasie polskim, według dat podanych w kanałach.</li>
       </ul>

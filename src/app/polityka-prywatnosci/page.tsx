@@ -17,7 +17,7 @@ export default function PrivacyPolicy() {
           <li>Nie zakładasz konta i nie podajesz nam żadnych danych.</li>
           <li>Nie używamy plików cookies, analityki, reklam ani żadnych narzędzi śledzących.</li>
           <li>Twoje ustawienia, przeczytane i zapisane newsy są tylko w pamięci Twojej przeglądarki. Nie wysyłamy ich na serwer.</li>
-          <li>Serwer, na którym działa strona (Vercel), technicznie widzi Twój adres IP przy każdym zapytaniu, jak każda strona internetowa.</li>
+          <li>Serwer, na którym działa strona (Cloudflare), technicznie widzi Twój adres IP przy każdym połączeniu, jak każda strona internetowa.</li>
         </ul>
       </div>
 
@@ -32,10 +32,10 @@ export default function PrivacyPolicy() {
       <h2>2. Jakie dane przetwarzamy, w jakim celu i na jakiej podstawie</h2>
       <h3>a) Dane techniczne w logach serwera</h3>
       <p>
-        Każde otwarcie strony i każde odświeżenie listy newsów (co 1, 5, 10 lub 15 minut, zależnie od ustawień, gdy
-        strona jest otwarta i odświeżanie jest włączone) to zapytanie do serwera. Dostawca hostingu zapisuje przy tym w logach dane techniczne: adres IP,
-        datę i godzinę zapytania, adres podstrony, informacje o przeglądarce i systemie (nagłówek User-Agent)
-        oraz kod odpowiedzi serwera.
+        Otwarcie strony to kilka zapytań do serwera: pobranie plików strony i listy newsów oraz nawiązanie stałego
+        połączenia (WebSocket), przez które serwer przysyła nowe newsy, dopóki strona jest otwarta. Dostawca hostingu
+        przetwarza przy tym dane techniczne: adres IP, datę i godzinę, adres podstrony, informacje o przeglądarce
+        i systemie (nagłówek User-Agent) oraz kod odpowiedzi serwera. Mogą one trafić do jego logów.
       </p>
       <p>
         <b>Cel:</b> dostarczenie strony, zapewnienie bezpieczeństwa i stabilności Serwisu, wykrywanie błędów i nadużyć.
@@ -57,7 +57,7 @@ export default function PrivacyPolicy() {
       <h3>c) Czego nie przetwarzamy</h3>
       <p>
         Serwis nie ma kont użytkowników, formularzy, newslettera ani płatności. Nie korzysta z narzędzi analitycznych
-        (np. Google Analytics, Vercel Analytics), pikseli reklamowych, wtyczek serwisów społecznościowych, zewnętrznych
+        (np. Google Analytics, Cloudflare Web Analytics), pikseli reklamowych, wtyczek serwisów społecznościowych, zewnętrznych
         czcionek ani innych skryptów ładowanych z cudzych serwerów. Przeglądarka łączy się wyłącznie z serwerem Serwisu.
       </p>
 
@@ -106,12 +106,17 @@ export default function PrivacyPolicy() {
       </p>
 
       <h2>4. Komu przekazujemy dane</h2>
-      <h3>Hosting: Vercel Inc. (USA)</h3>
+      <h3>Hosting: Cloudflare, Inc. (USA)</h3>
       <p>
-        Serwis działa na serwerach Vercel Inc., który przetwarza dane z logów (pkt 2a) w imieniu Administratora jako
-        podmiot przetwarzający. Dane mogą być przekazywane do USA. Podstawą przekazania są mechanizmy z rozdziału V
-        RODO: decyzja Komisji Europejskiej w sprawie ram ochrony danych UE–USA (EU-US Data Privacy Framework) albo
-        standardowe klauzule umowne, które Vercel stosuje w umowie powierzenia danych.
+        Serwis działa na serwerach Cloudflare, Inc. (Cloudflare Workers), który przetwarza dane techniczne
+        (pkt 2a) w imieniu Administratora jako podmiot przetwarzający. Dane mogą być przekazywane do USA. Podstawą
+        przekazania są mechanizmy z rozdziału V RODO: decyzja Komisji Europejskiej w sprawie ram ochrony danych UE–USA
+        (EU-US Data Privacy Framework) albo standardowe klauzule umowne, które Cloudflare stosuje w umowie
+        powierzenia danych.
+      </p>
+      <p>
+        Lista newsów, którą serwer przechowuje, zawiera wyłącznie treści z publicznych kanałów RSS. Serwer nie zapisuje,
+        kto jest połączony, i nie przechowuje żadnych danych o użytkownikach.
       </p>
 
       <h3>Źródła newsów: Bankier.pl, GPW, Stooq</h3>
@@ -140,7 +145,7 @@ export default function PrivacyPolicy() {
       <h2>5. Jak długo przechowujemy dane</h2>
       <ul>
         <li>
-          <b>Logi serwera:</b> przez ograniczony czas określony przez dostawcę hostingu (Vercel). Administrator
+          <b>Logi serwera:</b> przez ograniczony czas określony przez dostawcę hostingu (Cloudflare). Administrator
           nie kopiuje ani nie archiwizuje logów.
         </li>
         <li>
