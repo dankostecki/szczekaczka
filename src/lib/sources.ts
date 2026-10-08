@@ -61,6 +61,6 @@ export const HUBS = 4
 // The server sends a heartbeat at least this often; Cloudflare closes connections idle for 100 s
 export const HEARTBEAT_SECONDS = 50
 
-// Channels that are not read aloud or notified by default. The calendar lists
-// upcoming events, so its dates are not "just published".
+// Channels hidden from the list (and so not read aloud or notified) by default. The
+// calendar lists upcoming events: its dates are the days of the events, often tomorrow.
 export const QUIET_BY_DEFAULT = [feedKey('GPW', 'KALENDARZ')]

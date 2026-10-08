@@ -8,7 +8,7 @@ import { polishVoices, pickVoice, speak, stopSpeaking, voiceLabel } from '@/lib/
 import { AUTHOR, STORAGE_PREFIX } from '@/lib/site'
 import type { AwakeState } from '@/lib/wakeLock'
 import type { LiveStatus } from '@/lib/live'
-import { Close, Speaker, Bell, Play } from './Icons'
+import { Close, Speaker, Bell, Play, Eye } from './Icons'
 
 interface Props {
   prefs: Prefs
@@ -84,7 +84,7 @@ export default function Settings(p: Props) {
     window.location.reload()
   }
 
-  function toggleChannel(list: 'speakFeeds' | 'notifyFeeds', key: string) {
+  function toggleChannel(list: 'hiddenFeeds' | 'speakFeeds' | 'notifyFeeds', key: string) {
     const cur = prefs[list]
     onChange({ [list]: cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key] })
   }
@@ -96,6 +96,41 @@ export default function Settings(p: Props) {
           <h2>Ustawienia</h2>
           <button className="act icon" onClick={p.onClose} title="Zamknij"><Close /></button>
         </div>
+
+        <section>
+          <h3>Kanały</h3>
+          <table className="channels">
+            <thead>
+              <tr>
+                <th>Kanał</th>
+                <th title="Pokazuj na liście"><Eye size={16} /></th>
+                <th title="Czytaj na głos"><Speaker on size={16} /></th>
+                <th title="Powiadomienia"><Bell on size={16} /></th>
+              </tr>
+            </thead>
+            <tbody>
+              {SOURCES.map((src) => FEEDS.filter((f) => f.source === src).map((f) => {
+                const key = feedKey(f.source, f.label)
+                const name = labelsOf(src).length === 1 ? src : `${src} · ${f.label}`
+                const hidden = prefs.hiddenFeeds.includes(key)
+                return (
+                  <tr key={key} className={hidden ? 'off' : ''} style={{ ['--c' as string]: `var(--src-${src.toLowerCase()})` }}>
+                    <td><span className="ch"><i className="dot" />{name}<span className="n">{p.counts[key] ?? 0}</span></span></td>
+                    <td><input type="checkbox" checked={!hidden} onChange={() => toggleChannel('hiddenFeeds', key)} aria-label={`Pokazuj na liście: ${name}`} /></td>
+                    <td><input type="checkbox" checked={!hidden && prefs.speakFeeds.includes(key)} disabled={hidden}
+                      onChange={() => toggleChannel('speakFeeds', key)} aria-label={`Czytaj na głos: ${name}`} /></td>
+                    <td><input type="checkbox" checked={!hidden && prefs.notifyFeeds.includes(key)} disabled={hidden}
+                      onChange={() => toggleChannel('notifyFeeds', key)} aria-label={`Powiadomienia: ${name}`} /></td>
+                  </tr>
+                )
+              }))}
+            </tbody>
+          </table>
+          <p className="hint">
+            Oko: kanał na liście. Odznaczony kanał od razu znika z listy i nie jest czytany ani pokazywany
+            w powiadomieniach. KALENDARZ GPW jest domyślnie ukryty: to zapowiedzi zdarzeń, więc ma daty z kolejnych dni.
+          </p>
+        </section>
 
         <section>
           <h3>Głos</h3>
@@ -156,26 +191,6 @@ export default function Settings(p: Props) {
           {p.perm === 'granted' && <button className="btn" onClick={p.onNotifyTest}>Wyślij testowe</button>}
         </section>
 
-        <section>
-          <h3>Co czytać i pokazywać</h3>
-          <table className="channels">
-            <thead>
-              <tr><th>Kanał</th><th title="Czytaj na głos"><Speaker on size={16} /></th><th title="Powiadomienia"><Bell on size={16} /></th></tr>
-            </thead>
-            <tbody>
-              {SOURCES.map((src) => FEEDS.filter((f) => f.source === src).map((f) => {
-                const key = feedKey(f.source, f.label)
-                return (
-                  <tr key={key} style={{ ['--c' as string]: `var(--src-${src.toLowerCase()})` }}>
-                    <td><span className="ch"><i className="dot" />{labelsOf(src).length === 1 ? src : `${src} · ${f.label}`}<span className="n">{p.counts[key] ?? 0}</span></span></td>
-                    <td><input type="checkbox" checked={prefs.speakFeeds.includes(key)} onChange={() => toggleChannel('speakFeeds', key)} aria-label={`Czytaj ${key}`} /></td>
-                    <td><input type="checkbox" checked={prefs.notifyFeeds.includes(key)} onChange={() => toggleChannel('notifyFeeds', key)} aria-label={`Powiadomienia ${key}`} /></td>
-                  </tr>
-                )
-              }))}
-            </tbody>
-          </table>
-        </section>
 
         <section>
           <h3>Obserwowane spółki (ESPI)</h3>
