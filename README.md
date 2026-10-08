@@ -9,7 +9,6 @@ Prosty czytnik newsów z polskiego rynku: komunikaty spółek (ESPI/EBI), komuni
 | ESPI | ESPI/EBI | `https://www.bankier.pl/rss/espi.xml` |
 | GPW | KOMUNIKATY | `https://www.gpw.pl/rss_komunikaty` |
 | GPW | INDEKSY | `https://www.gpw.pl/rss_komunikaty_indeksowe` |
-| GPW | KALENDARZ | `https://www.gpw.pl/rss-kalendarium-zdarzen` |
 | GPW | PRASA | `https://www.gpw.pl/rss_komunikaty_prasowe` |
 | GPW | AKTUALNOŚCI | `https://www.gpw.pl/rss_aktualnosci` |
 | STOOQ | BIZNES / KRAJ / ŚWIAT | `https://static.stooq.pl/rss/pl/{b,c,w}.rss` |
@@ -25,7 +24,7 @@ Lista jest w `src/lib/sources.ts`.
 - **Głos** (Web Speech API): do wyboru wszystkie polskie głosy przeglądarki i systemu, z opisem (kobieta / mężczyzna, naturalny) i odsłuchem. Zestaw zależy od przeglądarki: Edge ma naturalne głosy Microsoft (np. Zofia, Marek), Chrome „Google polski”, Mac i iPhone np. Zosię. Automatycznie wybierany jest najlepszy (naturalny, potem Google). Czyta nowe newsy z zaznaczonych kanałów. W ustawieniach: sam tytuł albo tytuł i lead (pełne zdania, bez daty i „(PAP)” na początku), „GPW:” przed komunikatami GPW. Stooq i ESPI bez nazwy źródła. Przy wielu naraz czyta najnowsze, a resztę podsumowuje.
 - **Powiadomienia na pulpicie**: działają, dopóki strona jest otwarta w karcie.
 - **Obserwowane spółki**: ESPI przysyła bardzo dużo raportów, więc na głos i w powiadomieniach są tylko spółki z tej listy (nazwy lub tickery po przecinku). Na liście widać wszystkie.
-- **Kanały na liście**: w ustawieniach („Kanały”) każdy kanał można ukryć lub pokazać (oko), a osobno włączyć mu czytanie na głos i powiadomienia. Ukryty kanał od razu znika z listy i nie jest czytany ani pokazywany w powiadomieniach. KALENDARZ GPW jest domyślnie ukryty (zapowiedzi zdarzeń z datami z kolejnych dni).
+- **Kanały na liście**: w ustawieniach („Kanały”) każdy kanał można ukryć lub pokazać (oko), a osobno włączyć mu czytanie na głos i powiadomienia. Ukryty kanał od razu znika z listy i nie jest czytany ani pokazywany w powiadomieniach. Serwer i tak wysyła wszystkie kanały, więc ukrywanie i pokazywanie działa od razu i nic nie kosztuje.
 - Do tego: filtry źródeł i kanałów, wyszukiwarka (`/`), zapisane na później, oznaczanie przeczytanych, jasny i ciemny motyw, „nie wygaszaj ekranu”.
 
 Ustawienia, przeczytane i zapisane są trzymane tylko w przeglądarce (localStorage).

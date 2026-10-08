@@ -242,7 +242,7 @@ export default function App() {
     return c
   }, [shown, items, saved])
 
-  // Errors of hidden channels are not shown either ("GPW · KALENDARZ" is the channel GPW:KALENDARZ)
+  // Errors of hidden channels are not shown either ("STOOQ · BIZNES" is the channel STOOQ:BIZNES)
   const shownErrors = errors.filter((e) => !hidden.has(e.feed.replace(' · ', ':')))
 
   const subLabels = activeFilter !== 'ALL' && activeFilter !== 'SAVED' ? labelsShown(activeFilter) : []
