@@ -53,13 +53,26 @@ export const cleanText = (html: string) =>
   decodeEntities(html.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim()
 
 // Offset of Europe/Warsaw from UTC at a given moment, in ms
+// Creating an Intl formatter is slow (a fraction of a millisecond, for every date of
+// every feed), so there is one, and offsets are remembered per hour: the offset only
+// changes on the hour (summer / winter time).
+const warsawFmt = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Europe/Warsaw', hourCycle: 'h23',
+  year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+})
+const offsetByHour = new Map<number, number>()
+
 function warsawOffset(utcMs: number): number {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Europe/Warsaw', hourCycle: 'h23',
-    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
-  }).formatToParts(new Date(utcMs))
-  const n = (t: string) => Number(parts.find((p) => p.type === t)?.value)
-  return Date.UTC(n('year'), n('month') - 1, n('day'), n('hour'), n('minute'), n('second')) - utcMs
+  const hour = Math.floor(utcMs / 3_600_000)
+  let offset = offsetByHour.get(hour)
+  if (offset === undefined) {
+    const parts = warsawFmt.formatToParts(new Date(hour * 3_600_000))
+    const n = (t: string) => Number(parts.find((p) => p.type === t)?.value)
+    offset = Date.UTC(n('year'), n('month') - 1, n('day'), n('hour'), n('minute')) - hour * 3_600_000
+    if (offsetByHour.size > 5000) offsetByHour.clear()
+    offsetByHour.set(hour, offset)
+  }
+  return offset
 }
 
 function warsawToUtc(y: number, mo: number, d: number, h = 0, mi = 0, s = 0): number {

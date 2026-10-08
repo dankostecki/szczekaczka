@@ -7,6 +7,7 @@ export interface Prefs {
   theme: Theme
   auto: boolean          // refresh by itself
   refreshMin: number     // every this many minutes (REFRESH_OPTIONS)
+  slowOffHours: boolean  // at night and at weekends at least every 10 minutes (schedule.ts)
   notify: boolean        // desktop notifications (permission survives reloads, so this is stored)
   keepAwake: boolean     // keep the screen on while the page is visible
   voiceURI: string       // '' = first Polish Google voice
@@ -26,6 +27,7 @@ export const DEFAULT_PREFS: Prefs = {
   theme: 'system',
   auto: true,
   refreshMin: 1,
+  slowOffHours: true,
   notify: false,
   keepAwake: true,
   voiceURI: '',

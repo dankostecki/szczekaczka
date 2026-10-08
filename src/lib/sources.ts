@@ -8,15 +8,16 @@ export interface FeedConfig {
   source: Source
   label: string
   url: string
+  minAge?: number // seconds: a feed that rarely changes is checked at most this often
 }
 
 export const FEEDS: FeedConfig[] = [
   { source: 'ESPI',  label: 'ESPI/EBI',    url: 'https://www.bankier.pl/rss/espi.xml' },
-  { source: 'GPW',   label: 'KOMUNIKATY',  url: 'https://www.gpw.pl/rss_komunikaty' },
-  { source: 'GPW',   label: 'INDEKSY',     url: 'https://www.gpw.pl/rss_komunikaty_indeksowe' },
-  { source: 'GPW',   label: 'KALENDARZ',   url: 'https://www.gpw.pl/rss-kalendarium-zdarzen' },
-  { source: 'GPW',   label: 'PRASA',       url: 'https://www.gpw.pl/rss_komunikaty_prasowe' },
-  { source: 'GPW',   label: 'AKTUALNOŚCI', url: 'https://www.gpw.pl/rss_aktualnosci' },
+  { source: 'GPW',   label: 'KOMUNIKATY',  url: 'https://www.gpw.pl/rss_komunikaty',             minAge: 120 },
+  { source: 'GPW',   label: 'INDEKSY',     url: 'https://www.gpw.pl/rss_komunikaty_indeksowe',   minAge: 300 },
+  { source: 'GPW',   label: 'KALENDARZ',   url: 'https://www.gpw.pl/rss-kalendarium-zdarzen',    minAge: 900 },
+  { source: 'GPW',   label: 'PRASA',       url: 'https://www.gpw.pl/rss_komunikaty_prasowe',     minAge: 600 },
+  { source: 'GPW',   label: 'AKTUALNOŚCI', url: 'https://www.gpw.pl/rss_aktualnosci',           minAge: 600 },
   { source: 'STOOQ', label: 'BIZNES',      url: 'https://static.stooq.pl/rss/pl/b.rss' },
   { source: 'STOOQ', label: 'KRAJ',        url: 'https://static.stooq.pl/rss/pl/c.rss' },
   { source: 'STOOQ', label: 'ŚWIAT',       url: 'https://static.stooq.pl/rss/pl/w.rss' },
@@ -51,8 +52,11 @@ export const SOURCE_INFO: Record<Source, { name: string; publisher: string; site
 }
 
 // The server keeps one shared copy of the list for this long (and fetches the RSS
-// feeds at most this often), whatever the number of users
-export const CACHE_SECONDS = 30
+// feeds at most this often), whatever the number of users. Below the 1-minute
+// refresh of the page, so a page that asks every minute gets a fresh list.
+export const CACHE_SECONDS = 50
+// After that, the CDN may still hand out the old copy for this long while it fetches a new one
+export const STALE_SECONDS = 10
 // How often the page asks for the list, in minutes
 export const REFRESH_OPTIONS = [1, 5, 10, 15]
 
