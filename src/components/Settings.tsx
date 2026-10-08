@@ -3,10 +3,10 @@
 import { useEffect } from 'react'
 import { FEEDS, SOURCES, feedKey, labelsOf } from '@/lib/sources'
 import type { Prefs, Theme } from '@/lib/prefs'
-import { googleVoices, pickVoice, speak } from '@/lib/speech'
+import { polishVoices, pickVoice, speak, stopSpeaking, voiceLabel } from '@/lib/speech'
 import { AUTHOR } from '@/lib/site'
 import type { AwakeState } from '@/lib/wakeLock'
-import { Close, Speaker, Bell } from './Icons'
+import { Close, Speaker, Bell, Play } from './Icons'
 
 interface Props {
   prefs: Prefs
@@ -55,8 +55,14 @@ const THEMES: [Theme, string][] = [['system', 'Systemowy'], ['light', 'Jasny'], 
 
 export default function Settings(p: Props) {
   const { prefs, onChange } = p
-  const google = googleVoices(p.voices)
+  const pl = polishVoices(p.voices)
   const auto = pickVoice(p.voices, '')
+  const chosen = pl.some((v) => v.voiceURI === prefs.voiceURI) ? prefs.voiceURI : ''
+
+  function preview(uri: string) {
+    stopSpeaking()
+    speak('Dzień dobry, tu Szczekaczka. Tak brzmi ten głos.', { ...prefs, voiceURI: uri }, p.voices)
+  }
 
   const { onClose } = p
   useEffect(() => {
@@ -83,16 +89,26 @@ export default function Settings(p: Props) {
           {p.canSpeak ? (
             <>
               <Switch label="Czytaj nowe newsy na głos" checked={p.voiceOn} onChange={p.onVoiceToggle} />
-              <label className="setting">
-                <span>Głos</span>
-                <select value={prefs.voiceURI} onChange={(e) => onChange({ voiceURI: e.target.value })}>
-                  <option value="">{auto ? `Automatyczny (${auto.name})` : 'Domyślny przeglądarki'}</option>
-                  {google.length > 1 && google.map((v) => <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>)}
-                </select>
-              </label>
-              {google.length === 0
-                ? <p className="hint">Głosy Google są dostępne w Chrome. Ta przeglądarka ich nie ma, więc użyje swojego domyślnego polskiego głosu.</p>
-                : google.length === 1 && <p className="hint">Chrome ma jeden polski głos Google.</p>}
+              <div className="voices" role="radiogroup" aria-label="Głos">
+                <label className="voice">
+                  <input type="radio" name="voice" checked={!chosen} onChange={() => onChange({ voiceURI: '' })} />
+                  <span>Automatyczny<small>{auto ? voiceLabel(auto) : 'domyślny głos przeglądarki'}</small></span>
+                </label>
+                {pl.map((v) => (
+                  <label key={v.voiceURI} className="voice">
+                    <input type="radio" name="voice" checked={chosen === v.voiceURI} onChange={() => onChange({ voiceURI: v.voiceURI })} />
+                    <span>{voiceLabel(v)}</span>
+                    <button className="play" title="Odsłuchaj" aria-label={`Odsłuchaj: ${voiceLabel(v)}`}
+                      onClick={(e) => { e.preventDefault(); preview(v.voiceURI) }}><Play size={15} /></button>
+                  </label>
+                ))}
+              </div>
+              <p className="hint">
+                {pl.length === 0 ? 'Ta przeglądarka nie ma polskich głosów, więc czyta swoim domyślnym. '
+                  : `Polskie głosy w tej przeglądarce: ${pl.length}. `}
+                Zestaw zależy od przeglądarki i systemu: najwięcej naturalnych głosów (np. Zofia, Marek) ma Microsoft Edge,
+                Chrome ma „Google polski”, a Mac i iPhone np. Zosię.
+              </p>
               <div className="setting">
                 <span>Czytaj</span>
                 <div className="segmented">
