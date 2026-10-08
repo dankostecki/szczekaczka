@@ -80,13 +80,15 @@ export function stopSpeaking() {
   if (speechSupported()) window.speechSynthesis.cancel()
 }
 
-// The lead as it should sound: without a "8.10.2026, Warszawa (PAP) -" dateline, only whole
-// sentences (feeds often cut the text mid-word with "..."), at most about 400 characters.
+// The lead as it should sound: without a "8.10.2026, Warszawa (PAP) -" dateline and without
+// the title repeated at its start, whole sentences, at most about 400 characters. A lead the
+// feed cut before the first sentence ended ("…") is read up to the cut rather than skipped.
 export function spokenLead(description: string, title: string): string {
-  const text = description
+  let text = description
     .replace(/^\s*\d{1,2}\.\d{1,2}\.\d{4}\s*(?:r\.)?,?\s*[^-–—(]{0,40}\(([^)]{1,30})\)\s*[-–—]\s*/, '')
     .trim()
-  if (!text || title.includes(text) || text.startsWith(title)) return ''
+  if (title && text.startsWith(title)) text = text.slice(title.length).replace(/^[\s.:;,!?–—-]+/, '').trim()
+  if (!text || title.includes(text)) return ''
   // A sentence ends at . ! ? before a capital letter, so "S.A." or "8.10.2026" stay whole
   const sentences = text.split(/(?<=[.!?…])\s+(?=[A-ZĄĆĘŁŃÓŚŹŻ„"(])/).map((s) => s.trim()).filter(Boolean)
   const whole = sentences.filter((s) => /[.!?]$/.test(s) && !/(\.\.\.|…)$/.test(s))
@@ -94,6 +96,10 @@ export function spokenLead(description: string, title: string): string {
   for (const s of whole) {
     if (lead && lead.length + s.length > 400) break
     lead = lead ? `${lead} ${s}` : s
+  }
+  if (!lead) {
+    const cut = text.replace(/\s*(\.\.\.|…)\s*$/, '')
+    lead = cut.length <= 400 ? cut : cut.slice(0, cut.lastIndexOf(' ', 400))
   }
   return lead
 }

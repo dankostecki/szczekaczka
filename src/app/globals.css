@@ -134,9 +134,10 @@ button:disabled { cursor: default; opacity: 0.5; }
 
 .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding-bottom: 12px; }
 
+.chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 /* The tabs keep their full width; when they and the search do not fit in one line, the
    search moves to the next one instead of cutting the last tab */
-.chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; flex: 0 0 auto; max-width: 100%; }
+.filters .chips { flex: 0 0 auto; max-width: 100%; }
 .chips::-webkit-scrollbar { display: none; }
 .chips.sub { padding-bottom: 12px; }
 
@@ -148,9 +149,7 @@ button:disabled { cursor: default; opacity: 0.5; }
 }
 .chip.small { height: 28px; font-size: 12.5px; padding: 0 10px; }
 .chip:hover { background: var(--hover); color: var(--text); }
-.chip .n { font-weight: 500; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .chip.on { background: var(--c, var(--text)); border-color: transparent; color: var(--bg); }
-.chip.on .n { color: inherit; opacity: 0.75; }
 .chip.on .dot { background: currentColor; }
 
 .search {
@@ -177,6 +176,9 @@ button:disabled { cursor: default; opacity: 0.5; }
   position: relative;
   padding: 14px 0 15px;
   border-bottom: 1px solid var(--border);
+  /* A day of news is a long list: rows off screen are not laid out or painted */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 96px;
 }
 .row::before { /* left marker for new and watched items */
   content: ""; position: absolute; left: -12px; top: 16px; bottom: 16px;
@@ -428,8 +430,7 @@ button:disabled { cursor: default; opacity: 0.5; }
   .updated { display: none; }
   .actions { gap: 4px; }
   .filters { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 10px; }
-  .chips { margin: 0 -16px; padding: 0 16px; max-width: none; }
-  .chips.sub { margin: 0; } /* the channel row is itself the .wrap: no bleed past the screen */
+  .filters .chips { margin: 0 -16px; padding: 0 16px; max-width: none; }
   .search { margin-left: 0; flex: none; max-width: none; }
   .title { font-size: 15.5px; }
   .ago { display: none; }

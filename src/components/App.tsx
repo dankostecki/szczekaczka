@@ -234,13 +234,12 @@ export default function App() {
     return q ? base.filter((i) => `${i.title} ${i.description} ${i.source} ${i.label}`.toLowerCase().includes(q)) : base
   }, [shown, saved, activeFilter, activeLabel, q])
 
-  // Tabs count what is on the list; channels (also in the settings) count everything that came
+  // News per channel, for the settings (also for hidden channels)
   const counts = useMemo(() => {
-    const c: Record<string, number> = { ALL: shown.length, SAVED: saved.length }
-    for (const i of shown) c[i.source] = (c[i.source] ?? 0) + 1
+    const c: Record<string, number> = {}
     for (const i of items) c[keyOf(i)] = (c[keyOf(i)] ?? 0) + 1
     return c
-  }, [shown, items, saved])
+  }, [items])
 
   // Errors of hidden channels are not shown either ("STOOQ · BIZNES" is the channel STOOQ:BIZNES)
   const shownErrors = errors.filter((e) => !hidden.has(e.feed.replace(' · ', ':')))
@@ -308,7 +307,6 @@ export default function App() {
                 style={{ ['--c' as string]: filterColor(f) }} onClick={() => choose(f)}>
                 {f === 'SAVED' ? <Star filled={activeFilter === f} size={13} /> : f !== 'ALL' && <i className="dot" />}
                 {filterName(f)}
-                <span className="n">{counts[f] ?? 0}</span>
               </button>
             ))}
           </div>
@@ -327,7 +325,6 @@ export default function App() {
               <button key={l ?? '*'} className={`chip small ${activeLabel === l ? 'on' : ''}`}
                 style={{ ['--c' as string]: filterColor(activeFilter) }} onClick={() => setLabel(l)}>
                 {l ?? 'Wszystkie'}
-                <span className="n">{l ? counts[`${activeFilter}:${l}`] ?? 0 : counts[activeFilter] ?? 0}</span>
               </button>
             ))}
           </div>
