@@ -1,21 +1,12 @@
-// Browser side: loading the list from /api/news and formatting dates.
+// Browser side: items as the page uses them, and formatting dates.
 import type { NewsItem } from './parse'
-import type { FeedError } from './fetchNews'
 import { SOURCES, feedKey, labelsOf, type Source } from './sources'
 
 export interface Item extends NewsItem {
   time: number // ms since epoch, 0 = no date
 }
 
-export type { FeedError }
-
-export async function loadNews(): Promise<{ items: Item[]; errors: FeedError[] }> {
-  // no-cache: the browser keeps a copy and asks the server whether it changed (304 if not)
-  const res = await fetch('/api/news', { cache: 'no-cache' })
-  if (!res.ok) throw new Error(`Serwer odpowiedział ${res.status}`)
-  const data: { items: NewsItem[]; errors: FeedError[] } = await res.json()
-  return { items: data.items.map(withTime), errors: data.errors }
-}
+export interface FeedError { feed: string; message: string }
 
 export const withTime = (it: NewsItem): Item => ({ ...it, time: it.pubDate ? Date.parse(it.pubDate) : 0 })
 

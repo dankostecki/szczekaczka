@@ -3,12 +3,12 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { SOURCES, labelsOf, type Source } from '@/lib/sources'
 import type { NewsItem } from '@/lib/parse'
-import { type Item, type FeedError, loadNews, freshItems, keyOf, dayKey, dayLabel, clock, withTime } from '@/lib/news'
+import { type Item, type FeedError, freshItems, keyOf, dayKey, dayLabel, clock, withTime } from '@/lib/news'
+import { connectLive, type LiveStatus } from '@/lib/live'
 import { type Prefs, DEFAULT_PREFS, loadPrefs, savePrefs, loadJson, saveJson, watchMatcher } from '@/lib/prefs'
 import { speechSupported, speak, speakItem, announce, stopSpeaking } from '@/lib/speech'
 import { notifyPermission, requestNotifyPermission, notifyHeadlines, testNotification } from '@/lib/notify'
 import { useWakeLock } from '@/lib/wakeLock'
-import { refreshMinutes } from '@/lib/schedule'
 import { AUTHOR } from '@/lib/site'
 import NewsRow from './NewsRow'
 import Settings from './Settings'
@@ -30,8 +30,9 @@ const filterColor = (f: Filter) => (f === 'ALL' || f === 'SAVED' ? undefined : `
 export default function App() {
   const [items,     setItems]     = useState<Item[]>([])
   const [errors,    setErrors]    = useState<FeedError[]>([])
-  const [loading,   setLoading]   = useState(false)
+  const [loading,   setLoading]   = useState(false) // the refresh button is fetching the whole list
   const [loaded,    setLoaded]    = useState(false)
+  const [status,    setStatus]    = useState<LiveStatus>('connecting')
   const [updatedAt, setUpdatedAt] = useState<number | null>(null)
   const [prefs,     setPrefs]     = useState<Prefs>(DEFAULT_PREFS)
   const [ready,     setReady]     = useState(false) // prefs restored from this browser
@@ -52,8 +53,7 @@ export default function App() {
 
   const seen = useRef<Set<string> | null>(null) // null until the first fetch: nothing is announced on page load
   const knownFeeds = useRef(new Set<string>())   // channels that came back before (a channel that recovers from an error is not "all new")
-  const lastFetch = useRef(0)
-  const inFlight = useRef(false) // one fetch at a time, so nothing is announced twice
+  const liveConn = useRef<ReturnType<typeof connectLive> | null>(null)
   const live = useRef({ prefs, voiceOn, voices })
   useEffect(() => { live.current = { prefs, voiceOn, voices } }, [prefs, voiceOn, voices])
   const searchRef = useRef<HTMLInputElement>(null)
@@ -94,70 +94,51 @@ export default function App() {
   }, [ready, prefs.theme])
   const dark = prefs.theme === 'dark' || (prefs.theme === 'system' && systemDark)
 
-  // ── Loading, then voice and notifications for what is new ──
-  const refresh = useCallback(async () => {
-    if (inFlight.current) return
-    inFlight.current = true
-    setLoading(true)
-    lastFetch.current = Date.now()
-    try {
-      const { items: fetched, errors: errs } = await loadNews()
-      setItems(fetched); setErrors(errs); setUpdatedAt(Date.now())
-      const prev = seen.current
-      if (prev) {
-        const fresh = freshItems(fetched.filter((i) => knownFeeds.current.has(keyOf(i))), prev)
-        if (fresh.length) {
-          const t = Date.now()
-          setFreshAt((f) => ({ ...f, ...Object.fromEntries(fresh.map((i) => [i.id, t])) }))
-          if (document.visibilityState !== 'visible') setUnseen((u) => u + fresh.length)
-          const { prefs: p, voiceOn: on, voices: vs } = live.current
-          const watched = watchMatcher(p.watchlist)
-          // ESPI: only companies on the watch list
-          const wanted = (channels: string[]) => (i: Item) =>
-            channels.includes(keyOf(i)) && (i.source !== 'ESPI' || watched(`${i.title} ${i.description}`))
-          if (on) { const s = fresh.filter(wanted(p.speakFeeds)); if (s.length) announce(s, p, vs) }
-          if (p.notify) notifyHeadlines(fresh.filter(wanted(p.notifyFeeds)))
-        }
+  // ── New list from the server (the first one, every change, a resync): voice and notifications for what is new ──
+  const onData = useCallback((fetched: Item[], errs: FeedError[]) => {
+    setItems(fetched); setErrors(errs); setUpdatedAt(Date.now()); setLoaded(true)
+    const prev = seen.current
+    if (prev) {
+      const fresh = freshItems(fetched.filter((i) => knownFeeds.current.has(keyOf(i))), prev)
+      if (fresh.length) {
+        const t = Date.now()
+        setFreshAt((f) => ({ ...f, ...Object.fromEntries(fresh.map((i) => [i.id, t])) }))
+        if (document.visibilityState !== 'visible') setUnseen((u) => u + fresh.length)
+        const { prefs: p, voiceOn: on, voices: vs } = live.current
+        const watched = watchMatcher(p.watchlist)
+        // ESPI: only companies on the watch list
+        const wanted = (channels: string[]) => (i: Item) =>
+          channels.includes(keyOf(i)) && (i.source !== 'ESPI' || watched(`${i.title} ${i.description}`))
+        if (on) { const s = fresh.filter(wanted(p.speakFeeds)); if (s.length) announce(s, p, vs) }
+        if (p.notify) notifyHeadlines(fresh.filter(wanted(p.notifyFeeds)))
       }
-      seen.current = new Set([...(prev ?? []), ...fetched.map((i) => i.id)])
-      fetched.forEach((i) => knownFeeds.current.add(keyOf(i)))
-    } catch (e) {
-      setErrors([{ feed: 'Serwer', message: e instanceof Error ? e.message : 'Nieznany błąd' }])
-    } finally {
-      inFlight.current = false
-      setLoading(false); setLoaded(true)
     }
+    seen.current = new Set([...(prev ?? []), ...fetched.map((i) => i.id)])
+    fetched.forEach((i) => knownFeeds.current.add(keyOf(i)))
   }, [])
 
-  useEffect(() => { refresh() }, [refresh])
-  // The next refresh is planned each time: the interval is longer at night and at weekends
+  // One live connection for as long as the page is open
   useEffect(() => {
-    if (!prefs.auto) return
-    let timer: ReturnType<typeof setTimeout>
-    const plan = () => {
-      timer = setTimeout(() => {
-        // A hidden tab that neither reads aloud nor notifies has nothing to do with new
-        // headlines yet: skip the request, and catch up when the tab is shown again
-        const { voiceOn: on, prefs: p } = live.current
-        if (document.visibilityState !== 'hidden' || on || p.notify) refresh()
-        plan()
-      }, refreshMinutes(live.current.prefs) * 60_000)
-    }
-    plan()
-    return () => clearTimeout(timer)
-  }, [prefs.auto, prefs.refreshMin, prefs.slowOffHours, refresh])
+    const conn = connectLive({
+      onData,
+      onStatus: setStatus,
+      onError: (message) => { setErrors([{ feed: 'Serwer', message }]); setLoaded(true) },
+    })
+    liveConn.current = conn
+    return () => { conn.close(); liveConn.current = null }
+  }, [onData])
 
-  // Back on the tab: reset the counter, catch up if the timer was throttled
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    try { await liveConn.current?.resync() } finally { setLoading(false) }
+  }, [])
+
+  // Back on the tab: reset the counter of headlines that came while it was hidden
   useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState !== 'visible') return
-      setUnseen(0)
-      const p = live.current.prefs
-      if (p.auto && Date.now() - lastFetch.current > refreshMinutes(p) * 60_000) refresh()
-    }
+    const onVisible = () => { if (document.visibilityState === 'visible') setUnseen(0) }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [refresh])
+  }, [])
   useEffect(() => { document.title = unseen ? `(${unseen}) ${TITLE}` : TITLE }, [unseen])
 
   // Clock for "5 min temu" and for NOWE badges running out
@@ -170,7 +151,6 @@ export default function App() {
   function toggleVoice() {
     if (voiceOn) { stopSpeaking(); setVoiceOn(false); return }
     setVoiceOn(true)
-    if (!prefs.auto) updatePrefs({ auto: true }) // voice only makes sense with refreshing
     speak('Głos włączony.', prefs, voices) // speaking inside the click unlocks speech in strict browsers
   }
   // The speaker on a headline: click to read it, click again to stop
@@ -195,7 +175,7 @@ export default function App() {
     const p = await requestNotifyPermission()
     setPerm(p)
     if (p !== 'granted') { setSettingsOpen(true); return } // the panel explains how to unblock
-    updatePrefs({ notify: true, auto: true })
+    updatePrefs({ notify: true })
     testNotification()
   }
 
@@ -270,9 +250,11 @@ export default function App() {
             </span>
           </div>
 
-          <span className="updated" title={prefs.auto ? `Odświeżanie co ${refreshMinutes(prefs)} min` : 'Odświeżanie automatyczne wyłączone'}>
-            <i className={`pulse ${prefs.auto ? 'on' : ''}`} />
-            {loading ? 'pobieram…' : updatedAt ? clock(updatedAt) : ''}
+          <span className="updated" title={status === 'live'
+              ? `Na żywo: nowe newsy przychodzą same.${updatedAt ? ` Ostatnia zmiana ${clock(updatedAt)}.` : ''}`
+              : 'Łączę z serwerem…'}>
+            <i className={`pulse ${status === 'live' ? 'on' : ''}`} />
+            {loading ? 'pobieram…' : status === 'live' ? 'na żywo' : 'łączę…'}
           </span>
 
           <nav className="actions">
@@ -376,7 +358,7 @@ export default function App() {
           prefs={prefs} onChange={updatePrefs} onClose={closeSettings}
           canSpeak={canSpeak} voices={voices} voiceOn={voiceOn} onVoiceToggle={toggleVoice}
           perm={perm} onNotifyToggle={toggleNotify} onNotifyTest={testNotification}
-          awake={awake} counts={counts}
+          awake={awake} counts={counts} status={status}
           readCount={readIds.size} savedCount={saved.length} onClearRead={clearRead} onClearSaved={clearSaved}
         />
       )}

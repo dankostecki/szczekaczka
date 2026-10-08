@@ -2,12 +2,12 @@
 
 import { useEffect } from 'react'
 import Link from 'next/link'
-import { FEEDS, SOURCES, feedKey, labelsOf, REFRESH_OPTIONS, CACHE_SECONDS } from '@/lib/sources'
+import { FEEDS, SOURCES, feedKey, labelsOf, CHECK_SECONDS, QUIET_CHECK_SECONDS } from '@/lib/sources'
 import type { Prefs, Theme } from '@/lib/prefs'
 import { polishVoices, pickVoice, speak, stopSpeaking, voiceLabel } from '@/lib/speech'
 import { AUTHOR, STORAGE_PREFIX } from '@/lib/site'
 import type { AwakeState } from '@/lib/wakeLock'
-import { MARKET_DAYS, MARKET_FROM, MARKET_TO, QUIET_MINUTES } from '@/lib/schedule'
+import type { LiveStatus } from '@/lib/live'
 import { Close, Speaker, Bell, Play } from './Icons'
 
 interface Props {
@@ -22,6 +22,7 @@ interface Props {
   onNotifyToggle: () => void
   onNotifyTest: () => void
   awake: AwakeState
+  status: LiveStatus
   counts: Record<string, number>
   readCount: number
   savedCount: number
@@ -188,28 +189,13 @@ export default function Settings(p: Props) {
 
         <section>
           <h3>Inne</h3>
-          <Switch label="Odświeżaj automatycznie" checked={prefs.auto} onChange={() => onChange({ auto: !prefs.auto })} />
-          {prefs.auto && (
-            <div className="setting">
-              <span>Co</span>
-              <div className="segmented">
-                {REFRESH_OPTIONS.map((m) => (
-                  <button key={m} className={prefs.refreshMin === m ? 'on' : ''} onClick={() => onChange({ refreshMin: m })}>{m} min</button>
-                ))}
-              </div>
-            </div>
-          )}
-          {prefs.auto && (
-            <>
-              <Switch label="Wolniej w nocy i w weekendy" checked={prefs.slowOffHours} onChange={() => onChange({ slowOffHours: !prefs.slowOffHours })} />
-              <p className="hint">
-                Co wybrany czas w {MARKET_DAYS} {MARKET_FROM}:00–{MARKET_TO}:00, poza tym najwyżej co {QUIET_MINUTES} min.
-                Wtedy prawie nic nie jest publikowane, a serwer odpoczywa.
-              </p>
-            </>
-          )}
+          <div className="setting">
+            <span>Połączenie</span>
+            <span className={`conn ${p.status === 'live' ? 'on' : ''}`}><i />{p.status === 'live' ? 'na żywo' : 'łączę…'}</span>
+          </div>
           <p className="hint">
-            Serwer pobiera kanały RSS najwyżej co {CACHE_SECONDS} s, wspólnie dla wszystkich, więc częstsze odświeżanie nic by nie dało.
+            Nowe newsy przychodzą same przez stałe połączenie z serwerem, bez odświeżania. Serwer sprawdza kanały co około
+            {' '}{CHECK_SECONDS} s (GPW rzadziej, w nocy i w weekendy co {QUIET_CHECK_SECONDS / 60} min).
           </p>
           <Switch label="Nie wygaszaj ekranu" checked={prefs.keepAwake} onChange={() => onChange({ keepAwake: !prefs.keepAwake })} />
           {prefs.keepAwake && AWAKE_TEXT[p.awake] && <p className="hint">{AWAKE_TEXT[p.awake]}</p>}

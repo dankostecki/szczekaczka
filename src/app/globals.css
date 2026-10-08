@@ -265,6 +265,11 @@ button:disabled { cursor: default; opacity: 0.5; }
 }
 .setting input[type="range"] { width: 160px; accent-color: var(--accent); }
 
+.conn { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; color: var(--text-3); }
+.conn i { width: 8px; height: 8px; border-radius: 50%; background: var(--border-strong); }
+.conn.on { color: var(--text); }
+.conn.on i { background: #22c55e; }
+
 .hint { margin: 2px 0 8px; font-size: 13px; line-height: 1.45; color: var(--text-3); }
 
 .voices { margin: 4px 0 6px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }

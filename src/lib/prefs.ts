@@ -1,16 +1,13 @@
 // User settings, kept in this browser (localStorage).
-import { FEED_KEYS, QUIET_BY_DEFAULT, REFRESH_OPTIONS } from './sources'
+import { FEED_KEYS, QUIET_BY_DEFAULT } from './sources'
 
 export type Theme = 'system' | 'light' | 'dark'
 
 export interface Prefs {
   theme: Theme
-  auto: boolean          // refresh by itself
-  refreshMin: number     // every this many minutes (REFRESH_OPTIONS)
-  slowOffHours: boolean  // at night and at weekends at least every 10 minutes (schedule.ts)
   notify: boolean        // desktop notifications (permission survives reloads, so this is stored)
   keepAwake: boolean     // keep the screen on while the page is visible
-  voiceURI: string       // '' = first Polish Google voice
+  voiceURI: string       // '' = the best Polish voice (speech.ts)
   rate: number
   maxPerRefresh: number  // read at most this many headlines per refresh, sum up the rest
   readLead: boolean      // read the lead after the title
@@ -25,9 +22,6 @@ const LOUD = FEED_KEYS.filter((k) => !QUIET_BY_DEFAULT.includes(k))
 
 export const DEFAULT_PREFS: Prefs = {
   theme: 'system',
-  auto: true,
-  refreshMin: 1,
-  slowOffHours: true,
   notify: false,
   keepAwake: true,
   voiceURI: '',
@@ -49,7 +43,6 @@ export function loadPrefs(): Prefs {
     const p = { ...DEFAULT_PREFS, ...JSON.parse(raw) } as Prefs
     p.speakFeeds = p.speakFeeds.filter((k) => FEED_KEYS.includes(k))
     p.notifyFeeds = p.notifyFeeds.filter((k) => FEED_KEYS.includes(k))
-    if (!REFRESH_OPTIONS.includes(p.refreshMin)) p.refreshMin = DEFAULT_PREFS.refreshMin
     return p
   } catch {
     return DEFAULT_PREFS

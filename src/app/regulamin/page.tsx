@@ -38,7 +38,7 @@ export default function Terms() {
           Serwis udostępnia funkcje:
           <ul>
             <li>przeglądania, filtrowania i wyszukiwania newsów oraz przechodzenia do ich źródeł,</li>
-            <li>automatycznego odświeżania listy co 1, 5, 10 lub 15 minut i oznaczania nowych newsów,</li>
+            <li>dostarczania nowych newsów na bieżąco (bez odświeżania strony) i oznaczania ich jako nowe,</li>
             <li>czytania newsów na głos syntezatorem mowy przeglądarki,</li>
             <li>powiadomień na pulpicie o nowych newsach,</li>
             <li>zapisywania newsów na później, oznaczania przeczytanych i listy obserwowanych spółek.</li>
@@ -54,7 +54,8 @@ export default function Terms() {
       <ol>
         <li>
           Do korzystania z Serwisu potrzebne są: urządzenie z dostępem do internetu i aktualna przeglądarka (np. Chrome,
-          Edge, Firefox, Safari) z włączonym JavaScriptem i pamięcią przeglądarki (localStorage).
+          Edge, Firefox, Safari) z włączonym JavaScriptem, pamięcią przeglądarki (localStorage) i obsługą połączeń
+          WebSocket. Gdy stałe połączenie nie działa (np. w niektórych sieciach firmowych), lista odświeża się co kilka minut.
         </li>
         <li>
           Czytanie na głos wymaga przeglądarki obsługującej syntezę mowy (Web Speech API). Dostępne głosy zależą od
@@ -95,7 +96,7 @@ export default function Terms() {
         </li>
         <li>
           Newsy mogą pojawiać się z opóźnieniem albo wcale, np. gdy serwis źródłowy jest niedostępny lub zmieni format
-          kanału. Serwer pobiera kanały najwyżej co 50 sekund (rzadziej zmieniające się kanały GPW rzadziej) i udostępnia wszystkim tę samą kopię listy. Godziny są
+          kanału. Serwer sprawdza kanały co około minutę (rzadziej zmieniające się kanały GPW oraz w nocy i w weekendy rzadziej). Godziny są
           wyświetlane w czasie polskim na podstawie danych z kanałów. Czytanie na głos może zawierać błędy wymowy.
         </li>
         <li>
