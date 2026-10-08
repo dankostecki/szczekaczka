@@ -124,7 +124,9 @@ export default function PrivacyPolicy() {
       </p>
       <p>
         Lista newsów, którą serwer przechowuje, zawiera wyłącznie treści z publicznych kanałów RSS. Serwer nie zapisuje,
-        kto jest połączony, i nie przechowuje żadnych danych o użytkownikach.
+        kto jest połączony, i nie przechowuje żadnych danych o użytkownikach. Liczy jedynie, ile stron Serwisu jest w danej chwili
+        połączonych, i pokazuje tę liczbę na stronie („online”). Ta liczba nie jest powiązana z żadnymi danymi o osobach
+        i nie jest zapisywana.
       </p>
 
       <h3>Pliki strony pod adresem dankostecki.github.io: GitHub, Inc. (USA)</h3>
