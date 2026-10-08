@@ -15,7 +15,6 @@ export const FEEDS: FeedConfig[] = [
   { source: 'ESPI',  label: 'ESPI/EBI',    url: 'https://www.bankier.pl/rss/espi.xml' },
   { source: 'GPW',   label: 'KOMUNIKATY',  url: 'https://www.gpw.pl/rss_komunikaty',             minAge: 120 },
   { source: 'GPW',   label: 'INDEKSY',     url: 'https://www.gpw.pl/rss_komunikaty_indeksowe',   minAge: 300 },
-  { source: 'GPW',   label: 'KALENDARZ',   url: 'https://www.gpw.pl/rss-kalendarium-zdarzen',    minAge: 900 },
   { source: 'GPW',   label: 'PRASA',       url: 'https://www.gpw.pl/rss_komunikaty_prasowe',     minAge: 600 },
   { source: 'GPW',   label: 'AKTUALNOŚCI', url: 'https://www.gpw.pl/rss_aktualnosci',           minAge: 600 },
   { source: 'STOOQ', label: 'BIZNES',      url: 'https://static.stooq.pl/rss/pl/b.rss' },
@@ -41,7 +40,7 @@ export const SOURCE_INFO: Record<Source, { name: string; publisher: string; site
     name: 'Giełda Papierów Wartościowych w Warszawie',
     publisher: 'Giełda Papierów Wartościowych w Warszawie S.A.',
     site: 'https://www.gpw.pl/_rss',
-    about: 'Komunikaty giełdy, komunikaty indeksowe, kalendarium zdarzeń rynkowych, komunikaty prasowe i aktualności z kanałów RSS GPW.',
+    about: 'Komunikaty giełdy, komunikaty indeksowe, komunikaty prasowe i aktualności z kanałów RSS GPW.',
   },
   STOOQ: {
     name: 'Stooq',
@@ -60,7 +59,3 @@ export const QUIET_CHECK_SECONDS = 180
 export const HUBS = 4
 // The server sends a heartbeat at least this often; Cloudflare closes connections idle for 100 s
 export const HEARTBEAT_SECONDS = 50
-
-// Channels hidden from the list (and so not read aloud or notified) by default. The
-// calendar lists upcoming events: its dates are the days of the events, often tomorrow.
-export const QUIET_BY_DEFAULT = [feedKey('GPW', 'KALENDARZ')]

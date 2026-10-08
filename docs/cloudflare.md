@@ -24,7 +24,7 @@
 ```
 
 - **`worker/poller.ts` (Poller)**: jeden obiekt na całą stronę. Budzi się alarmem, sprawdza **jeden** kanał, który najdłużej czeka, i ustawia następny alarm. Pyta źródło z `If-None-Match`/`If-Modified-Since`, a gdy treść jest ta sama (304 albo ten sam skrót sha1), niczego nie parsuje. Zmiany zapisuje w SQLite obiektu i nadaje numer wersji (`v`).
-- **Częstotliwość**: ESPI i Stooq co 60 s w pon.–pt. 7:00–23:00, poza tym co 3 min. GPW: komunikaty co 2 min, indeksy co 5 min, prasa i aktualności co 10 min, kalendarz co 15 min (`src/lib/sources.ts`).
+- **Częstotliwość**: ESPI i Stooq co 60 s w pon.–pt. 7:00–23:00, poza tym co 3 min. GPW: komunikaty co 2 min, indeksy co 5 min, prasa i aktualności co 10 min (`src/lib/sources.ts`).
 - **`worker/hub.ts` (Hub 0–3)**: trzymają połączenia WebSocket przeglądarek (cztery, żeby rozłożyć ruch). Używają WebSocket Hibernation: między wiadomościami obiekt znika z pamięci i nic nie kosztuje, a połączenia zostają otwarte. Wiadomości wychodzące do przeglądarek są darmowe.
 - **Protokół** (`src/lib/protocol.ts`, klient w `src/lib/live.ts`):
   - wejście na stronę: `GET /api/news` (cała lista z wersją `v`), równolegle WebSocket `/ws`;
@@ -34,6 +34,7 @@
   - gdy WebSocket nie działa (np. sieć firmowa), lista odświeża się co 3 min zwykłym zapytaniem.
 - **Cron co 10 min** tylko pilnuje, żeby pętla Pollera działała (sama startuje przy pierwszym wejściu).
 - `/ws` przyjmuje połączenia tylko ze stron tej samej domeny i z adresów z `ALLOWED_ORIGINS` (nagłówek `Origin`). Tak samo `/api/news` wysyła nagłówek CORS tylko tym adresom.
+- **Ukrywanie kanałów** (oko w ustawieniach) to tylko filtr w przeglądarce. Serwer zawsze wysyła wszystkie kanały, więc ukrycie i ponowne pokazanie kanału nie wysyła żadnego zapytania, nawet przy częstym klikaniu. Osobne subskrypcje kanałów na serwerze kosztowałyby więcej (zapytanie przy każdym kliknięciu) i oszczędziłyby tylko trochę transferu, który na Cloudflare jest darmowy.
 - **Kopia na GitHub Pages** (`dankostecki.github.io/szczekaczka`) to te same pliki strony, zbudowane z prefiksem `/szczekaczka` i adresem Workera. Korzysta z tego samego Pollera i tych samych hubów, więc limity niżej obejmują obie wersje razem. Pliki strony z GitHuba nie liczą się do limitów Cloudflare.
 
 ## Limity darmowego planu i zużycie przy 1000 użytkowników
@@ -54,7 +55,7 @@ Założenie: 1000 użytkowników, każdy średnio 10 połączeń dziennie (otwar
 
 ## Ryzyka
 
-- **Limit CPU na jedno wywołanie (10 ms na planie Free).** Dlatego Poller sprawdza jeden kanał na raz. Pomiar lokalny: przetworzenie jednego kanału to około 1,5–4 ms CPU, cała runda 9 kanałów około 13 ms. Czekanie na odpowiedź źródła nie liczy się do CPU. Prawdziwe wartości widać w panelu Cloudflare (Workers → szczekaczka → Metrics, oraz logi). Jeśli wywołania zaczną przekraczać limit, rozwiązaniem jest plan **Workers Paid (5 USD miesięcznie)**: dłuższy limit CPU i limity liczone w milionach.
+- **Limit CPU na jedno wywołanie (10 ms na planie Free).** Dlatego Poller sprawdza jeden kanał na raz. Pomiar lokalny: przetworzenie jednego kanału to około 1,5–4 ms CPU, cała runda wszystkich kanałów około 13 ms. Czekanie na odpowiedź źródła nie liczy się do CPU. Prawdziwe wartości widać w panelu Cloudflare (Workers → szczekaczka → Metrics, oraz logi). Jeśli wywołania zaczną przekraczać limit, rozwiązaniem jest plan **Workers Paid (5 USD miesięcznie)**: dłuższy limit CPU i limity liczone w milionach.
 - **Źródła mogą zmienić format albo blokować zapytania z chmury.** Wtedy w ramce na stronie pojawi się błąd kanału, a ostatnie newsy z tego kanału zostaną na liście.
 - **Liczby w tabeli to szacunek.** Rzeczywiste zużycie widać w panelu Cloudflare (Workers & Pages → Overview / Usage oraz Durable Objects).
 

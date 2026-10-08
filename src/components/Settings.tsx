@@ -128,7 +128,7 @@ export default function Settings(p: Props) {
           </table>
           <p className="hint">
             Oko: kanał na liście. Odznaczony kanał od razu znika z listy i nie jest czytany ani pokazywany
-            w powiadomieniach. KALENDARZ GPW jest domyślnie ukryty: to zapowiedzi zdarzeń, więc ma daty z kolejnych dni.
+            w powiadomieniach. Newsy wszystkich kanałów i tak przychodzą w tle, więc po zaznaczeniu kanał wraca od razu.
           </p>
         </section>
 

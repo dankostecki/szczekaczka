@@ -31,7 +31,7 @@ export default function Terms() {
         <li>
           Serwis zbiera w jednej liście nagłówki i zajawki udostępniane publicznie w kanałach RSS przez:
           Bankier.pl (komunikaty spółek ESPI/EBI), Giełdę Papierów Wartościowych w Warszawie (komunikaty, komunikaty
-          indeksowe, kalendarium, komunikaty prasowe, aktualności) oraz Stooq (biznes, kraj, świat). Pełna lista
+          indeksowe, komunikaty prasowe, aktualności) oraz Stooq (biznes, kraj, świat). Pełna lista
           kanałów z adresami jest na stronie <Link href="/o-stronie">O stronie i źródła</Link>.
         </li>
         <li>

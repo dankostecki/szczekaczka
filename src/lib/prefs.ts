@@ -1,5 +1,5 @@
 // User settings, kept in this browser (localStorage).
-import { FEED_KEYS, QUIET_BY_DEFAULT } from './sources'
+import { FEED_KEYS } from './sources'
 
 export type Theme = 'system' | 'light' | 'dark'
 
@@ -12,14 +12,12 @@ export interface Prefs {
   maxPerRefresh: number  // read at most this many headlines per refresh, sum up the rest
   readLead: boolean      // read the lead after the title
   sayGpw: boolean        // say "GPW:" before GPW headlines
-  hiddenFeeds: string[]  // channels left off the list, and so not read aloud or notified either ("GPW:KALENDARZ")
+  hiddenFeeds: string[]  // channels left off the list, and so not read aloud or notified either ("STOOQ:ŚWIAT")
   speakFeeds: string[]   // channels read aloud ("GPW:INDEKSY")
   notifyFeeds: string[]  // channels shown as notifications
   watchlist: string      // ESPI: only these companies are read aloud / notified
 }
 // Voice on/off is not stored: browsers allow speech only after a click on the page.
-
-const LOUD = FEED_KEYS.filter((k) => !QUIET_BY_DEFAULT.includes(k))
 
 export const DEFAULT_PREFS: Prefs = {
   theme: 'system',
@@ -30,9 +28,9 @@ export const DEFAULT_PREFS: Prefs = {
   maxPerRefresh: 3,
   readLead: true,
   sayGpw: true,
-  hiddenFeeds: QUIET_BY_DEFAULT,
-  speakFeeds: LOUD,
-  notifyFeeds: LOUD,
+  hiddenFeeds: [],
+  speakFeeds: FEED_KEYS,
+  notifyFeeds: FEED_KEYS,
   watchlist: '',
 }
 

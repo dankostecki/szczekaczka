@@ -24,10 +24,21 @@ export class Poller extends DurableObject<Env> {
       const sql = ctx.storage.sql
       sql.exec('CREATE TABLE IF NOT EXISTS feeds (key TEXT PRIMARY KEY, state TEXT NOT NULL)')
       sql.exec('CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v INTEGER NOT NULL)')
+      const known = new Set(FEEDS.map((f) => feedKey(f.source, f.label)))
+      const removed: string[] = []
       for (const row of sql.exec<{ key: string; state: string }>('SELECT key, state FROM feeds')) {
-        this.feeds.set(row.key, JSON.parse(row.state))
+        if (known.has(row.key)) this.feeds.set(row.key, JSON.parse(row.state))
+        else removed.push(row.key)
       }
       this.v = sql.exec<{ v: number }>("SELECT v FROM meta WHERE k = 'v'").toArray()[0]?.v ?? 0
+      // A channel taken out of sources.ts: forget it, and move the version on so that
+      // open pages fetch the list again (without its news)
+      if (removed.length) {
+        for (const key of removed) sql.exec('DELETE FROM feeds WHERE key = ?', key)
+        this.v++
+        sql.exec("INSERT OR REPLACE INTO meta (k, v) VALUES ('v', ?)", this.v)
+        console.log(`removed channels: ${removed.join(', ')} (v${this.v})`)
+      }
     })
   }
 
