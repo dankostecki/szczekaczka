@@ -3,7 +3,7 @@
 import { DurableObject } from 'cloudflare:workers'
 import { FEEDS, feedKey, CHECK_SECONDS, QUIET_CHECK_SECONDS, HUBS, HEARTBEAT_SECONDS, type FeedConfig } from '../src/lib/sources'
 import { marketHours } from '../src/lib/schedule'
-import { HEARTBEAT, type Delta, type FeedSnapshot } from '../src/lib/protocol'
+import type { Delta, FeedSnapshot, Heartbeat } from '../src/lib/protocol'
 import { checkFeed, type FeedState } from './feeds'
 import { type Env, hub } from './env'
 
@@ -20,6 +20,9 @@ export class Poller extends DurableObject<Env> {
   // Sockets per hub as last reported; hubs with none are not sent anything. Unknown after a
   // restart, so every hub gets the first message.
   private sockets: number[] = Array(HUBS).fill(1)
+  // Pages connected to each hub, as the hubs reported. Saved (when it changes), because the
+  // object may be evicted from memory between two heartbeats.
+  private online: number[] = Array(HUBS).fill(0)
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
@@ -34,6 +37,10 @@ export class Poller extends DurableObject<Env> {
         else removed.push(row.key)
       }
       this.v = sql.exec<{ v: number }>("SELECT v FROM meta WHERE k = 'v'").toArray()[0]?.v ?? 0
+      for (const row of sql.exec<{ k: string; v: number }>("SELECT k, v FROM meta WHERE k LIKE 'online:%'")) {
+        const i = Number(row.k.slice(7))
+        if (i >= 0 && i < HUBS) this.online[i] = row.v
+      }
       // A channel taken out of sources.ts: forget it, and move the version on so that
       // open pages fetch the list again (without its news)
       if (removed.length) {
@@ -84,7 +91,7 @@ export class Poller extends DurableObject<Env> {
     try {
       const feed = this.mostOverdue(Date.now())
       if (feed) await this.check(feed)
-      if (Date.now() - this.lastPublish >= HEARTBEAT_SECONDS * 1000) await this.publish(HEARTBEAT)
+      if (Date.now() - this.lastPublish >= HEARTBEAT_SECONDS * 1000) await this.publish(this.heartbeat())
     } catch (e) {
       console.error('poller tick failed', e)
     } finally {
@@ -145,11 +152,25 @@ export class Poller extends DurableObject<Env> {
     await this.publish(JSON.stringify(delta))
   }
 
+  // How many pages are connected: the sum of what the hubs reported at the last publish. Costs
+  // nothing extra (the hubs answer every publish with their count anyway); no data about who.
+  private heartbeat(): string {
+    return JSON.stringify({ t: 'h', n: this.online.reduce((a, b) => a + b, 0) } satisfies Heartbeat)
+  }
+
   private async publish(message: string) {
     this.lastPublish = Date.now()
-    await Promise.all(this.sockets.map(async (n, i) => {
-      if (n === 0) return
-      try { this.sockets[i] = await hub(this.env, i).publish(message, this.v) } catch (e) { console.error(`hub ${i}`, e) }
+    const n = this.online.reduce((a, b) => a + b, 0)
+    await Promise.all(this.sockets.map(async (count, i) => {
+      let now = 0
+      if (count > 0) {
+        try { now = this.sockets[i] = await hub(this.env, i).publish(message, this.v, n) }
+        catch (e) { console.error(`hub ${i}`, e); return }
+      }
+      if (now !== this.online[i]) {
+        this.online[i] = now
+        this.ctx.storage.sql.exec('INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)', `online:${i}`, now)
+      }
     }))
   }
 }

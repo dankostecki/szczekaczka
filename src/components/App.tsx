@@ -33,6 +33,7 @@ export default function App() {
   const [loading,   setLoading]   = useState(false) // the refresh button is fetching the whole list
   const [loaded,    setLoaded]    = useState(false)
   const [status,    setStatus]    = useState<LiveStatus>('connecting')
+  const [online,    setOnline]    = useState<number | null>(null) // pages connected right now, all users
   const [updatedAt, setUpdatedAt] = useState<number | null>(null)
   const [prefs,     setPrefs]     = useState<Prefs>(DEFAULT_PREFS)
   const [ready,     setReady]     = useState(false) // prefs restored from this browser
@@ -123,6 +124,7 @@ export default function App() {
     const conn = connectLive({
       onData,
       onStatus: setStatus,
+      onOnline: setOnline,
       onError: (message) => { setErrors([{ feed: 'Serwer', message }]); setLoaded(true) },
     })
     liveConn.current = conn
@@ -267,9 +269,11 @@ export default function App() {
 
           <span className="updated" title={status === 'live'
               ? `Na żywo: nowe newsy przychodzą same.${updatedAt ? ` Ostatnia zmiana ${clock(updatedAt)}.` : ''}`
+                + (online !== null ? ` Online: tyle stron Szczekaczki jest teraz otwartych (każda karta liczy się osobno).` : '')
               : 'Łączę z serwerem…'}>
             <i className={`pulse ${status === 'live' ? 'on' : ''}`} />
             {loading ? 'pobieram…' : status === 'live' ? 'na żywo' : 'łączę…'}
+            {!loading && status === 'live' && online !== null && <span className="online"> · {online} online</span>}
           </span>
 
           <nav className="actions">
@@ -374,7 +378,7 @@ export default function App() {
           prefs={prefs} onChange={updatePrefs} onClose={closeSettings}
           canSpeak={canSpeak} voices={voices} voiceOn={voiceOn} onVoiceToggle={toggleVoice}
           perm={perm} onNotifyToggle={toggleNotify} onNotifyTest={testNotification}
-          awake={awake} counts={counts} status={status}
+          awake={awake} counts={counts} status={status} online={online}
           readCount={readIds.size} savedCount={saved.length} onClearRead={clearRead} onClearSaved={clearSaved}
         />
       )}

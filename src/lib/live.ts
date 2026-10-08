@@ -2,7 +2,7 @@
 // server sends only what changed. No polling: one connection per page instead of a request
 // every minute, which is what lets the free Cloudflare plan carry many users.
 import { finalizeItems, type NewsItem } from './parse'
-import { HEARTBEAT, type Delta, type Hello, type Snapshot } from './protocol'
+import { HEARTBEAT, type Delta, type Heartbeat, type Hello, type Snapshot } from './protocol'
 import { FEEDS, feedKey } from './sources'
 import { withTime, type Item, type FeedError } from './news'
 import { API_ORIGIN } from './site'
@@ -13,6 +13,7 @@ export interface LiveHandlers {
   onData: (items: Item[], errors: FeedError[]) => void
   onStatus: (status: LiveStatus) => void
   onError: (message: string) => void
+  onOnline?: (pages: number) => void // pages connected right now (all users)
 }
 
 const RETRY_MS = [1, 2, 5, 10, 30, 60].map((s) => s * 1000)
@@ -110,7 +111,10 @@ export function connectLive(h: LiveHandlers) {
       try {
         const msg = JSON.parse(e.data as string)
         if (msg?.t === 'd') onDelta(msg as Delta)
-        else if (msg?.t === 'v') void onHello(msg as Hello)
+        else if (msg?.t === 'v') {
+          if (typeof msg.n === 'number') h.onOnline?.(msg.n)
+          void onHello(msg as Hello)
+        } else if (msg?.t === 'h' && typeof (msg as Heartbeat).n === 'number') h.onOnline?.((msg as Heartbeat).n)
       } catch { /* not ours */ }
     }
     ws.onclose = () => {

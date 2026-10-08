@@ -34,6 +34,7 @@
   - co około 50 s `h`, żeby Cloudflare nie zamknął bezczynnego połączenia (zamyka po około 100 s ciszy);
   - gdy WebSocket nie działa (np. sieć firmowa), lista odświeża się co 3 min zwykłym zapytaniem.
 - **Cron co 10 min** tylko pilnuje, żeby pętla Pollera działała (sama startuje przy pierwszym wejściu).
+- **Online:** huby przy każdym rozesłaniu odpowiadają, do ilu stron je wysłały. Poller sumuje te liczby i dołącza sumę do heartbeatu (`{t:'h', n}`) oraz pierwszej wiadomości po połączeniu, a strona pokazuje „· N online”. Nie kosztuje to żadnych dodatkowych zapytań. Liczba to otwarte karty (każda osobno, z obu adresów), odświeżana co około 50 s.
 - `/ws` przyjmuje połączenia tylko ze stron tej samej domeny i z adresów z `ALLOWED_ORIGINS` (nagłówek `Origin`). Tak samo `/api/news` wysyła nagłówek CORS tylko tym adresom.
 - **Ukrywanie kanałów** (oko w ustawieniach) to tylko filtr w przeglądarce. Serwer zawsze wysyła wszystkie kanały, więc ukrycie i ponowne pokazanie kanału nie wysyła żadnego zapytania, nawet przy częstym klikaniu. Osobne subskrypcje kanałów na serwerze kosztowałyby więcej (zapytanie przy każdym kliknięciu) i oszczędziłyby tylko trochę transferu, który na Cloudflare jest darmowy.
 - **Kopia na GitHub Pages** (`dankostecki.github.io/szczekaczka`) to te same pliki strony, zbudowane z prefiksem `/szczekaczka` i adresem Workera. Korzysta z tego samego Pollera i tych samych hubów, więc limity niżej obejmują obie wersje razem. Pliki strony z GitHuba nie liczą się do limitów Cloudflare.

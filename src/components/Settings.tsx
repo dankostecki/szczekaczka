@@ -23,6 +23,7 @@ interface Props {
   onNotifyTest: () => void
   awake: AwakeState
   status: LiveStatus
+  online: number | null
   counts: Record<string, number>
   readCount: number
   savedCount: number
@@ -206,11 +207,14 @@ export default function Settings(p: Props) {
           <h3>Inne</h3>
           <div className="setting">
             <span>Połączenie</span>
-            <span className={`conn ${p.status === 'live' ? 'on' : ''}`}><i />{p.status === 'live' ? 'na żywo' : 'łączę…'}</span>
+            <span className={`conn ${p.status === 'live' ? 'on' : ''}`}><i />
+              {p.status === 'live' ? 'na żywo' : 'łączę…'}{p.status === 'live' && p.online !== null && ` · ${p.online} online`}
+            </span>
           </div>
           <p className="hint">
             Nowe newsy przychodzą same przez stałe połączenie z serwerem, bez odświeżania. Serwer sprawdza kanały co około
             {' '}{CHECK_SECONDS} s (GPW rzadziej, w nocy i w weekendy co {QUIET_CHECK_SECONDS / 60} min).
+            {p.online !== null && ' Online: tyle stron Szczekaczki jest teraz otwartych (każda karta liczy się osobno), odświeżane co około minutę.'}
           </p>
           <Switch label="Nie wygaszaj ekranu" checked={prefs.keepAwake} onChange={() => onChange({ keepAwake: !prefs.keepAwake })} />
           {prefs.keepAwake && AWAKE_TEXT[p.awake] && <p className="hint">{AWAKE_TEXT[p.awake]}</p>}

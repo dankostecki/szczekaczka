@@ -9,6 +9,8 @@ export class Hub extends DurableObject<Env> {
   // Version of the list in the last message from the poller. Kept in storage too, because
   // memory is lost whenever the hub hibernates.
   private v: number | undefined
+  // Pages connected to all hubs, from the poller's last message (memory only)
+  private online: number | undefined
 
   async fetch(req: Request): Promise<Response> {
     const shard = Number(new URL(req.url).searchParams.get('shard') ?? 0)
@@ -19,13 +21,16 @@ export class Hub extends DurableObject<Env> {
     if (this.ctx.getWebSockets().length === 1) {
       try { await this.remember(await poller(this.env).joined(shard)) } catch (e) { console.error('joined', e) }
     }
-    server.send(JSON.stringify({ t: 'v', v: await this.version() } satisfies Hello))
+    const hello: Hello = { t: 'v', v: await this.version() }
+    if (this.online !== undefined) hello.n = this.online
+    server.send(JSON.stringify(hello))
     return new Response(null, { status: 101, webSocket: client })
   }
 
   // From the poller; returns how many browsers got it
-  async publish(message: string, v: number): Promise<number> {
+  async publish(message: string, v: number, online?: number): Promise<number> {
     await this.remember(v)
+    if (online !== undefined) this.online = online
     const sockets = this.ctx.getWebSockets()
     for (const ws of sockets) {
       try { ws.send(message) } catch { /* closing */ }
