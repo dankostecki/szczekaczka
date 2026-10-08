@@ -11,6 +11,8 @@ import { useWakeLock } from '@/lib/wakeLock'
 import { AUTHOR } from '@/lib/site'
 import NewsRow from './NewsRow'
 import Settings from './Settings'
+import PrivacyNotice from './PrivacyNotice'
+import { SiteFooter } from './LegalPage'
 import { Megaphone, Speaker, Bell, Refresh, Sun, Moon, Gear, Search, Close, Star } from './Icons'
 
 const READ_KEY  = 'szczekaczka:read'
@@ -353,6 +355,9 @@ export default function App() {
           )
         })}
       </main>
+
+      {loaded && <SiteFooter />}
+      <PrivacyNotice />
 
       {settingsOpen && (
         <Settings
