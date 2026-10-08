@@ -98,7 +98,7 @@ export function spokenLead(description: string, title: string): string {
   return lead
 }
 
-// What is read for one headline. Stooq and ESPI: the title alone, GPW optionally with
+// What is read for one headline. Stooq, ESPI and PAP: the title alone, GPW optionally with
 // its name in front; then the lead when that is switched on.
 export function spokenParts(it: Item, prefs: Prefs): string[] {
   const title = it.source === 'GPW' && prefs.sayGpw ? `GPW: ${it.title}` : it.title

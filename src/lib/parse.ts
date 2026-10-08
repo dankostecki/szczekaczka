@@ -101,8 +101,13 @@ function absolute(link: string, base: string): string {
   try { return new URL(link, base).toString() } catch { return link }
 }
 
+// Only the start of a lead is kept (~500 characters), so long press releases in the feed
+// are not cleaned in full: that would cost CPU for text that is thrown away
+const MAX_RAW_LEAD = 4000
+
 function makeItem(feed: FeedConfig, title: string, link: string, description: string, date: string): NewsItem {
-  const desc = cleanText(description)
+  const raw = description.length > MAX_RAW_LEAD ? description.slice(0, MAX_RAW_LEAD).replace(/<[^>]*$/, '') : description
+  const desc = cleanText(raw)
   return {
     id: `${feed.source}:${feed.label}:${link || title}`,
     title, link,
@@ -140,11 +145,13 @@ function attr(el: string, name: string): string {
   return m ? decodeEntities(m[2] ?? m[3] ?? '') : ''
 }
 
-export function parseFeedXml(xml: string, feed: FeedConfig): NewsItem[] {
+// At most `limit` items, from the top of the feed (feeds list the newest first)
+export function parseFeedXml(xml: string, feed: FeedConfig, limit = Infinity): NewsItem[] {
   const items: NewsItem[] = []
 
   // RSS 2.0 and RSS 1.0 (RDF): <item>
   for (const [, block] of xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)) {
+    if (items.length >= limit) break
     const title = cleanText(tag(block, 'title'))
     if (!title) continue
     const enclosure = block.match(/<enclosure\b[^>]*>/i)?.[0]
@@ -156,6 +163,7 @@ export function parseFeedXml(xml: string, feed: FeedConfig): NewsItem[] {
 
   // Atom: <entry>
   for (const [, block] of xml.matchAll(/<entry\b[^>]*>([\s\S]*?)<\/entry>/gi)) {
+    if (items.length >= limit) break
     const title = cleanText(tag(block, 'title'))
     if (!title) continue
     const links = [...block.matchAll(/<link\b[^>]*>/gi)].map((m) => m[0])

@@ -21,6 +21,9 @@ export interface CheckResult {
 
 // Keep messages small: the page shows two lines of the lead and reads at most ~400 characters
 const MAX_PER_FEED = 100
+// A huge feed (whole articles in every item) is cut: only its start, with the newest items,
+// is parsed, so that one check stays within the CPU limit (512 KB: about 3 ms)
+const MAX_XML_CHARS = 512 * 1024
 const MAX_LEAD = 500
 function shorten(text: string): string {
   if (text.length <= MAX_LEAD) return text
@@ -75,8 +78,9 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
     return { ...same({ ...old, ...meta, error: null, failures: 0, checkedAt: now }), changed: old.error !== null }
   }
 
-  const xml = decodeBody(buf, res.headers.get('content-type'))
-  const parsed = parseFeedXml(xml, feed)
+  const full = decodeBody(buf, res.headers.get('content-type'))
+  const xml = full.length > MAX_XML_CHARS ? full.slice(0, MAX_XML_CHARS) : full
+  const parsed = parseFeedXml(xml, feed, MAX_PER_FEED)
   if (parsed.length === 0 && !/<(item|entry)[\s>]/i.test(xml)) return failed('odpowiedź bez wpisów RSS')
   const items = parsed.slice(0, MAX_PER_FEED).map((it) => ({ ...it, description: shorten(it.description) }))
 

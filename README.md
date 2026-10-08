@@ -1,6 +1,6 @@
 # Szczekaczka
 
-Prosty czytnik newsów z polskiego rynku: komunikaty spółek (ESPI/EBI), komunikaty GPW i newsy Stooq w jednej liście. Nowe nagłówki czyta na głos i pokazuje jako powiadomienia na pulpicie.
+Prosty czytnik newsów z polskiego rynku: komunikaty spółek (ESPI/EBI), komunikaty GPW, newsy Stooq i komunikaty prasowe PAP MediaRoom w jednej liście. Nowe nagłówki czyta na głos i pokazuje jako powiadomienia na pulpicie.
 
 ## Źródła
 
@@ -12,6 +12,9 @@ Prosty czytnik newsów z polskiego rynku: komunikaty spółek (ESPI/EBI), komuni
 | GPW | PRASA | `https://www.gpw.pl/rss_komunikaty_prasowe` |
 | GPW | AKTUALNOŚCI | `https://www.gpw.pl/rss_aktualnosci` |
 | STOOQ | BIZNES / KRAJ / ŚWIAT | `https://static.stooq.pl/rss/pl/{b,c,w}.rss` |
+| PAP | BIZNES | `https://pap-mediaroom.pl/kategoria/biznes-i-finanse/rss.xml` |
+| PAP | NAUKA | `https://pap-mediaroom.pl/kategoria/nauka-i-technologie/rss.xml` |
+| PAP | POLITYKA | `https://pap-mediaroom.pl/kategoria/polityka-i-spoleczenstwo/rss.xml` |
 
 Lista jest w `src/lib/sources.ts`.
 
@@ -21,7 +24,7 @@ Lista jest w `src/lib/sources.ts`.
 - **Nowe newsy przychodzą same przez WebSocket**, bez odświeżania strony: przy wejściu strona pobiera całą listę (`/api/news`), a potem serwer wysyła tylko zmiany. Nowe newsy dostają znacznik NOWE. Gdy WebSocket nie działa (np. sieć firmowa), lista odświeża się co 3 min.
 - **Koszt sprawdzania źródeł nie rośnie z liczbą użytkowników.** Darmowy plan Cloudflare wystarcza z zapasem na około 1000 użytkowników. Architektura, limity, wyliczenia i ryzyka: [`docs/cloudflare.md`](docs/cloudflare.md).
 - Strona `/o-stronie` pokazuje wszystkie źródła, kanały i adresy RSS (generowane z `src/lib/sources.ts`).
-- **Głos** (Web Speech API): do wyboru wszystkie polskie głosy przeglądarki i systemu, z opisem (kobieta / mężczyzna, naturalny) i odsłuchem. Zestaw zależy od przeglądarki: Edge ma naturalne głosy Microsoft (np. Zofia, Marek), Chrome „Google polski”, Mac i iPhone np. Zosię. Automatycznie wybierany jest najlepszy (naturalny, potem Google). Czyta nowe newsy z zaznaczonych kanałów. W ustawieniach: sam tytuł albo tytuł i lead (pełne zdania, bez daty i „(PAP)” na początku), „GPW:” przed komunikatami GPW. Stooq i ESPI bez nazwy źródła. Przy wielu naraz czyta najnowsze, a resztę podsumowuje.
+- **Głos** (Web Speech API): do wyboru wszystkie polskie głosy przeglądarki i systemu, z opisem (kobieta / mężczyzna, naturalny) i odsłuchem. Zestaw zależy od przeglądarki: Edge ma naturalne głosy Microsoft (np. Zofia, Marek), Chrome „Google polski”, Mac i iPhone np. Zosię. Automatycznie wybierany jest najlepszy (naturalny, potem Google). Czyta nowe newsy z zaznaczonych kanałów. W ustawieniach: sam tytuł albo tytuł i lead (pełne zdania, bez daty i „(PAP)” na początku), „GPW:” przed komunikatami GPW. Stooq, ESPI i PAP bez nazwy źródła. Przy wielu naraz czyta najnowsze, a resztę podsumowuje.
 - **Powiadomienia na pulpicie**: działają, dopóki strona jest otwarta w karcie.
 - **Obserwowane spółki**: ESPI przysyła bardzo dużo raportów, więc na głos i w powiadomieniach są tylko spółki z tej listy (nazwy lub tickery po przecinku). Na liście widać wszystkie.
 - **Kanały na liście**: w ustawieniach („Kanały”) każdy kanał można ukryć lub pokazać (oko), a osobno włączyć mu czytanie na głos i powiadomienia. Ukryty kanał od razu znika z listy i nie jest czytany ani pokazywany w powiadomieniach. Serwer i tak wysyła wszystkie kanały, więc ukrywanie i pokazywanie działa od razu i nic nie kosztuje.

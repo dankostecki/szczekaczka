@@ -15,7 +15,7 @@ export default function About() {
     <LegalPage title="O stronie i źródła" dated={false}>
       <p>
         Szczekaczka zbiera w jednym miejscu komunikaty spółek giełdowych (ESPI/EBI), komunikaty Giełdy Papierów
-        Wartościowych w Warszawie i wiadomości Stooq. Nowe newsy może czytać na głos i pokazywać jako powiadomienia
+        Wartościowych w Warszawie, wiadomości Stooq i komunikaty prasowe z PAP MediaRoom. Nowe newsy może czytać na głos i pokazywać jako powiadomienia
         na pulpicie. Autor: <a href={AUTHOR.url} target="_blank" rel="noopener noreferrer">{AUTHOR.name}</a>.
       </p>
 
@@ -64,8 +64,8 @@ export default function About() {
       <h2>Jak newsy trafiają na stronę</h2>
       <ul>
         <li>
-          Serwer sam sprawdza kanały RSS: każdy co około {CHECK_SECONDS} sekund, kanały GPW, które zmieniają się
-          rzadko, rzadziej (tabele wyżej). W nocy i w weekendy (poza {MARKET_DAYS} {MARKET_FROM}:00–{MARKET_TO}:00)
+          Serwer sam sprawdza kanały RSS: każdy co około {CHECK_SECONDS} sekund, kanały GPW i PAP, które zmieniają się
+          rzadziej, co kilka minut (tabele wyżej). W nocy i w weekendy (poza {MARKET_DAYS} {MARKET_FROM}:00–{MARKET_TO}:00)
           co {QUIET_CHECK_SECONDS / 60} minuty, bo wtedy prawie nic nie jest publikowane.
         </li>
         <li>
