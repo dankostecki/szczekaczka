@@ -63,12 +63,20 @@ function warsawToUtc(y: number, mo: number, d: number, h = 0, mi = 0, s = 0): nu
 }
 
 // Wall-clock time read as Polish local time: "2026-10-08 10:15", "08.10.2026 10:15",
-// or anything the native parser reads once a zone is put on it ("Wed, 08 Oct 2026 10:15:00")
+// "czw., 10/08/2026 - 16:22", or anything the native parser reads once a zone is put on it ("Wed, 08 Oct 2026 10:15:00")
 function parseWarsaw(s: string): number {
   const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?)?$/)
   if (iso) return warsawToUtc(+iso[1], +iso[2], +iso[3], +(iso[4] ?? 0), +(iso[5] ?? 0), +(iso[6] ?? 0))
   const pl = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:,?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/)
   if (pl) return warsawToUtc(+pl[3], +pl[2], +pl[1], +(pl[4] ?? 0), +(pl[5] ?? 0), +(pl[6] ?? 0))
+  // Drupal's default date (PAP MediaRoom): "czw., 10/08/2026 - 16:22", month first; a first
+  // number over 12 can only be the day
+  const us = s.match(/^(?:[^\d,]{1,12},\s*)?(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s*-?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/)
+  if (us) {
+    const [a, b] = [+us[1], +us[2]]
+    const [month, day] = a > 12 ? [b, a] : [a, b]
+    return warsawToUtc(+us[3], month, day, +(us[4] ?? 0), +(us[5] ?? 0), +(us[6] ?? 0))
+  }
   const wall = new Date(`${s.replace(/\s*(GMT|UTC)$/i, '')} GMT`)
   if (Number.isNaN(wall.getTime())) return NaN
   return warsawToUtc(wall.getUTCFullYear(), wall.getUTCMonth() + 1, wall.getUTCDate(),

@@ -3,7 +3,8 @@ import { decodeBody, parseFeedXml, type NewsItem } from '../src/lib/parse'
 import type { FeedConfig } from '../src/lib/sources'
 
 export interface FeedState {
-  items: NewsItem[]
+  items: NewsItem[]   // what the feed has now, plus what dropped out of it in the last 24 h
+  current?: string[]  // ids in the feed at the last download
   error: string | null
   hash?: string
   etag?: string
@@ -19,6 +20,12 @@ export interface CheckResult {
   remove: string[]
 }
 
+// Feeds hold only their latest few entries (ESPI 10, PAP 10, Stooq 30, GPW 50): when a new
+// one comes, the oldest drops out. A news app should show the whole day, so an entry that
+// left the feed stays for 24 hours from its publication. Entries still in the feed stay
+// however old they are; entries without a date go when they leave the feed.
+const KEEP_MS = 24 * 3600_000
+const MAX_KEEP = 500 // per channel (ESPI publishes a few hundred reports a day)
 // Keep messages small: the page shows two lines of the lead and reads at most ~400 characters
 const MAX_PER_FEED = 100
 // A huge feed (whole articles in every item) is cut: only its start, with the newest items,
@@ -43,15 +50,32 @@ async function sha1(buf: ArrayBuffer): Promise<string> {
   return Array.from(d, (b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, url = feed.url): Promise<CheckResult> {
-  const now = Date.now()
+const time = (i: NewsItem) => (i.pubDate ? Date.parse(i.pubDate) : 0)
+
+// The entries to keep: those in the feed, and those published in the last 24 hours;
+// newest first, at most MAX_KEEP
+function retain(items: NewsItem[], current: Set<string>, now: number): NewsItem[] {
+  return items
+    .filter((i) => current.has(i.id) || (i.pubDate !== '' && now - time(i) < KEEP_MS))
+    .sort((a, b) => time(b) - time(a))
+    .slice(0, MAX_KEEP)
+}
+
+export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, url = feed.url, now = Date.now()): Promise<CheckResult> {
   const old: FeedState = prev ?? { items: [], error: null, checkedAt: 0 }
-  const same = (state: FeedState): CheckResult => ({ state, changed: false, add: [], remove: [] })
+  // Before 24-hour keeping, everything stored was in the feed
+  const current = new Set(old.current ?? old.items.map((i) => i.id))
+  // Nothing new from the source: only entries older than 24 hours may go
+  const aged = (patch: Partial<FeedState>): CheckResult => {
+    const items = retain(old.items, current, now)
+    const kept = new Set(items.map((i) => i.id))
+    const remove = old.items.filter((i) => !kept.has(i.id)).map((i) => i.id)
+    const state: FeedState = { ...old, ...patch, items, checkedAt: now }
+    return { state, changed: remove.length > 0 || state.error !== old.error, add: [], remove }
+  }
   const failed = (message: string): CheckResult => {
     const failures = (old.failures ?? 0) + 1
-    const error = failures >= SHOW_ERROR_AFTER ? message : old.error
-    const state = { ...old, error, failures, checkedAt: now } // keep the last items
-    return { state, changed: old.error !== error, add: [], remove: [] }
+    return aged({ failures, error: failures >= SHOW_ERROR_AFTER ? message : old.error })
   }
 
   let res: Response
@@ -68,30 +92,34 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
     return failed((e as Error)?.name === 'TimeoutError' ? `źródło nie odpowiedziało w ${TIMEOUT_S} s` : 'brak połączenia ze źródłem')
   }
 
-  if (res.status === 304 && prev) return { ...same({ ...old, error: null, failures: 0, checkedAt: now }), changed: old.error !== null }
+  if (res.status === 304 && prev) return aged({ error: null, failures: 0 })
   if (!res.ok) return failed(`źródło zwróciło błąd HTTP ${res.status}`)
 
   const buf = await res.arrayBuffer()
   const hash = await sha1(buf)
   const meta = { etag: res.headers.get('etag') ?? undefined, lastModified: res.headers.get('last-modified') ?? undefined }
-  if (prev && hash === old.hash) {
-    return { ...same({ ...old, ...meta, error: null, failures: 0, checkedAt: now }), changed: old.error !== null }
-  }
+  if (prev && hash === old.hash) return aged({ ...meta, error: null, failures: 0 })
 
   const full = decodeBody(buf, res.headers.get('content-type'))
   const xml = full.length > MAX_XML_CHARS ? full.slice(0, MAX_XML_CHARS) : full
   const parsed = parseFeedXml(xml, feed, MAX_PER_FEED)
   if (parsed.length === 0 && !/<(item|entry)[\s>]/i.test(xml)) return failed('odpowiedź bez wpisów RSS')
-  const items = parsed.slice(0, MAX_PER_FEED).map((it) => ({ ...it, description: shorten(it.description) }))
+  const fresh = parsed.map((it) => ({ ...it, description: shorten(it.description) }))
 
   const before = new Map(old.items.map((i) => [i.id, i]))
-  const now_ = new Set(items.map((i) => i.id))
   // New ids, and items whose title or lead was corrected
-  const add = items.filter((i) => {
+  const add = fresh.filter((i) => {
     const b = before.get(i.id)
     return !b || b.title !== i.title || b.description !== i.description || b.pubDate !== i.pubDate
   })
-  const remove = old.items.filter((i) => !now_.has(i.id)).map((i) => i.id)
-  const state: FeedState = { items, error: null, hash, ...meta, checkedAt: now }
-  return { state, changed: add.length > 0 || remove.length > 0 || old.error !== null, add, remove }
+  const merged = new Map(old.items.map((i) => [i.id, i]))
+  for (const i of fresh) merged.set(i.id, i)
+  const inFeed = new Set(fresh.map((i) => i.id))
+  const items = retain([...merged.values()], inFeed, now)
+  const kept = new Set(items.map((i) => i.id))
+  const remove = old.items.filter((i) => !kept.has(i.id)).map((i) => i.id)
+  const state: FeedState = { items, current: [...inFeed], error: null, failures: 0, hash, ...meta, checkedAt: now }
+  // An added entry that is already too old to keep (a feed item without a date is always kept)
+  const added = add.filter((i) => kept.has(i.id))
+  return { state, changed: added.length > 0 || remove.length > 0 || old.error !== null, add: added, remove }
 }

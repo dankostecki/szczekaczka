@@ -165,7 +165,7 @@ export default function Settings(p: Props) {
                 </div>
               </div>
               <Switch label="Mów „GPW:” przed komunikatami GPW" checked={prefs.sayGpw} onChange={() => onChange({ sayGpw: !prefs.sayGpw })} />
-              <p className="hint">Stooq, ESPI i PAP są czytane bez nazwy źródła. Z leadu czytane są pełne zdania, bez daty i „(PAP)” na początku.</p>
+              <p className="hint">Stooq, ESPI i PAP są czytane bez nazwy źródła. Z leadu czytane są pełne zdania (lead ucięty przez źródło do miejsca ucięcia), bez daty, „(PAP)” i powtórzonego tytułu.</p>
               <label className="setting">
                 <span>Tempo <b>{prefs.rate.toFixed(1)}×</b></span>
                 <input type="range" min={0.6} max={1.8} step={0.1} value={prefs.rate}

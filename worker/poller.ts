@@ -3,7 +3,7 @@
 import { DurableObject } from 'cloudflare:workers'
 import { FEEDS, feedKey, CHECK_SECONDS, QUIET_CHECK_SECONDS, HUBS, HEARTBEAT_SECONDS, type FeedConfig } from '../src/lib/sources'
 import { marketHours } from '../src/lib/schedule'
-import { HEARTBEAT, type Delta, type Snapshot } from '../src/lib/protocol'
+import { HEARTBEAT, type Delta, type FeedSnapshot } from '../src/lib/protocol'
 import { checkFeed, type FeedState } from './feeds'
 import { type Env, hub } from './env'
 
@@ -14,6 +14,8 @@ export class Poller extends DurableObject<Env> {
   private feeds = new Map<string, FeedState>()
   private v = 0
   private snapshotJson: string | null = null
+  // JSON of each channel for the snapshot, so a change re-serialises one channel, not all
+  private feedJson = new Map<string, string>()
   private lastPublish = 0
   // Sockets per hub as last reported; hubs with none are not sent anything. Unknown after a
   // restart, so every hub gets the first message.
@@ -47,14 +49,18 @@ export class Poller extends DurableObject<Env> {
   async snapshot(): Promise<string> {
     await this.ensureAlarm()
     if (!this.snapshotJson) {
-      const snap: Snapshot = {
-        v: this.v,
-        feeds: FEEDS.map((f) => {
-          const s = this.feeds.get(feedKey(f.source, f.label))
-          return { key: feedKey(f.source, f.label), items: s?.items ?? [], error: s?.error ?? null }
-        }),
-      }
-      this.snapshotJson = JSON.stringify(snap)
+      const feeds = FEEDS.map((f) => {
+        const key = feedKey(f.source, f.label)
+        let json = this.feedJson.get(key)
+        if (json === undefined) {
+          const s = this.feeds.get(key)
+          json = JSON.stringify({ key, items: s?.items ?? [], error: s?.error ?? null } satisfies FeedSnapshot)
+          this.feedJson.set(key, json)
+        }
+        return json
+      })
+      // Same shape as a Snapshot object (v first: the Worker reads it for the ETag)
+      this.snapshotJson = `{"v":${this.v},"feeds":[${feeds.join(',')}]}`
     }
     return this.snapshotJson
   }
@@ -133,6 +139,7 @@ export class Poller extends DurableObject<Env> {
     save()
     sql.exec("INSERT OR REPLACE INTO meta (k, v) VALUES ('v', ?)", this.v)
     this.snapshotJson = null
+    this.feedJson.delete(key)
     const delta: Delta = { t: 'd', v: this.v, key, add: r.add, remove: r.remove, error: r.state.error }
     console.log(`feed ${key}: +${r.add.length} -${r.remove.length}${r.state.error ? ` error: ${r.state.error}` : ''} (v${this.v})`)
     await this.publish(JSON.stringify(delta))
