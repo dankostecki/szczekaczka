@@ -7,6 +7,7 @@ import type { Prefs, Theme } from '@/lib/prefs'
 import { polishVoices, pickVoice, speak, stopSpeaking, voiceLabel } from '@/lib/speech'
 import { AUTHOR, STORAGE_PREFIX } from '@/lib/site'
 import type { AwakeState } from '@/lib/wakeLock'
+import { MARKET_DAYS, MARKET_FROM, MARKET_TO, QUIET_MINUTES } from '@/lib/schedule'
 import { Close, Speaker, Bell, Play } from './Icons'
 
 interface Props {
@@ -197,6 +198,15 @@ export default function Settings(p: Props) {
                 ))}
               </div>
             </div>
+          )}
+          {prefs.auto && (
+            <>
+              <Switch label="Wolniej w nocy i w weekendy" checked={prefs.slowOffHours} onChange={() => onChange({ slowOffHours: !prefs.slowOffHours })} />
+              <p className="hint">
+                Co wybrany czas w {MARKET_DAYS} {MARKET_FROM}:00–{MARKET_TO}:00, poza tym najwyżej co {QUIET_MINUTES} min.
+                Wtedy prawie nic nie jest publikowane, a serwer odpoczywa.
+              </p>
+            </>
           )}
           <p className="hint">
             Serwer pobiera kanały RSS najwyżej co {CACHE_SECONDS} s, wspólnie dla wszystkich, więc częstsze odświeżanie nic by nie dało.

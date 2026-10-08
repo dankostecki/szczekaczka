@@ -8,6 +8,7 @@ import { type Prefs, DEFAULT_PREFS, loadPrefs, savePrefs, loadJson, saveJson, wa
 import { speechSupported, speak, speakItem, announce, stopSpeaking } from '@/lib/speech'
 import { notifyPermission, requestNotifyPermission, notifyHeadlines, testNotification } from '@/lib/notify'
 import { useWakeLock } from '@/lib/wakeLock'
+import { refreshMinutes } from '@/lib/schedule'
 import { AUTHOR } from '@/lib/site'
 import NewsRow from './NewsRow'
 import Settings from './Settings'
@@ -129,18 +130,22 @@ export default function App() {
   }, [])
 
   useEffect(() => { refresh() }, [refresh])
-  const refreshMs = prefs.refreshMin * 60_000
+  // The next refresh is planned each time: the interval is longer at night and at weekends
   useEffect(() => {
     if (!prefs.auto) return
-    const id = setInterval(() => {
-      // A hidden tab that neither reads aloud nor notifies has nothing to do with new
-      // headlines yet: skip the request, and catch up when the tab is shown again
-      const { voiceOn: on, prefs: p } = live.current
-      if (document.visibilityState === 'hidden' && !on && !p.notify) return
-      refresh()
-    }, refreshMs)
-    return () => clearInterval(id)
-  }, [prefs.auto, refreshMs, refresh])
+    let timer: ReturnType<typeof setTimeout>
+    const plan = () => {
+      timer = setTimeout(() => {
+        // A hidden tab that neither reads aloud nor notifies has nothing to do with new
+        // headlines yet: skip the request, and catch up when the tab is shown again
+        const { voiceOn: on, prefs: p } = live.current
+        if (document.visibilityState !== 'hidden' || on || p.notify) refresh()
+        plan()
+      }, refreshMinutes(live.current.prefs) * 60_000)
+    }
+    plan()
+    return () => clearTimeout(timer)
+  }, [prefs.auto, prefs.refreshMin, prefs.slowOffHours, refresh])
 
   // Back on the tab: reset the counter, catch up if the timer was throttled
   useEffect(() => {
@@ -148,7 +153,7 @@ export default function App() {
       if (document.visibilityState !== 'visible') return
       setUnseen(0)
       const p = live.current.prefs
-      if (p.auto && Date.now() - lastFetch.current > p.refreshMin * 60_000) refresh()
+      if (p.auto && Date.now() - lastFetch.current > refreshMinutes(p) * 60_000) refresh()
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
@@ -265,7 +270,7 @@ export default function App() {
             </span>
           </div>
 
-          <span className="updated" title={prefs.auto ? `Odświeżanie co ${prefs.refreshMin} min` : 'Odświeżanie automatyczne wyłączone'}>
+          <span className="updated" title={prefs.auto ? `Odświeżanie co ${refreshMinutes(prefs)} min` : 'Odświeżanie automatyczne wyłączone'}>
             <i className={`pulse ${prefs.auto ? 'on' : ''}`} />
             {loading ? 'pobieram…' : updatedAt ? clock(updatedAt) : ''}
           </span>

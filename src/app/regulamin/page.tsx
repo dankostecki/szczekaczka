@@ -95,7 +95,7 @@ export default function Terms() {
         </li>
         <li>
           Newsy mogą pojawiać się z opóźnieniem albo wcale, np. gdy serwis źródłowy jest niedostępny lub zmieni format
-          kanału. Serwer pobiera kanały najwyżej co 30 sekund i udostępnia wszystkim tę samą kopię listy. Godziny są
+          kanału. Serwer pobiera kanały najwyżej co 50 sekund (rzadziej zmieniające się kanały GPW rzadziej) i udostępnia wszystkim tę samą kopię listy. Godziny są
           wyświetlane w czasie polskim na podstawie danych z kanałów. Czytanie na głos może zawierać błędy wymowy.
         </li>
         <li>
