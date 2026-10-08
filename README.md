@@ -28,6 +28,12 @@ Lista jest w `src/lib/sources.ts`.
 
 Ustawienia, przeczytane i zapisane są trzymane tylko w przeglądarce (localStorage).
 
+## Prywatność i regulamin
+
+- `/polityka-prywatnosci` i `/regulamin`: treść opisuje dokładnie to, co robi aplikacja (bez cookies, bez analityki, bez zewnętrznych skryptów; localStorage na urządzeniu; logi hostingu Vercel; głosy chmurowe przeglądarki).
+- Przy pierwszym wejściu pokazuje się okno informacyjne (nie zgoda: nie ma niczego opcjonalnego do zaakceptowania). W ustawieniach jest „Usuń wszystkie dane z tej przeglądarki”.
+- Dane administratora i data obowiązywania są w `src/lib/site.ts` (`OPERATOR`, `LEGAL_DATE`). **Jeśli dodasz analitykę, reklamy, zewnętrzne czcionki lub inne skrypty z cudzych serwerów, zaktualizuj politykę prywatności, a dla narzędzi śledzących potrzebna będzie zgoda.**
+
 ## Uruchomienie
 
 ```bash

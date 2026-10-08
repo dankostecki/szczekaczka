@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect } from 'react'
+import Link from 'next/link'
 import { FEEDS, SOURCES, feedKey, labelsOf } from '@/lib/sources'
 import type { Prefs, Theme } from '@/lib/prefs'
 import { polishVoices, pickVoice, speak, stopSpeaking, voiceLabel } from '@/lib/speech'
-import { AUTHOR } from '@/lib/site'
+import { AUTHOR, STORAGE_PREFIX } from '@/lib/site'
 import type { AwakeState } from '@/lib/wakeLock'
 import { Close, Speaker, Bell, Play } from './Icons'
 
@@ -70,6 +71,16 @@ export default function Settings(p: Props) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  // Removes everything the site keeps in this browser, then starts afresh with defaults
+  function clearAllData() {
+    if (!window.confirm('Usunąć ustawienia, przeczytane i zapisane newsy z tej przeglądarki?')) return
+    stopSpeaking()
+    try {
+      Object.keys(localStorage).filter((k) => k.startsWith(STORAGE_PREFIX)).forEach((k) => localStorage.removeItem(k))
+    } catch {}
+    window.location.reload()
+  }
 
   function toggleChannel(list: 'speakFeeds' | 'notifyFeeds', key: string) {
     const cur = prefs[list]
@@ -193,9 +204,23 @@ export default function Settings(p: Props) {
           </div>
         </section>
 
+        <section>
+          <h3>Prywatność</h3>
+          <p className="hint">
+            Szczekaczka nie używa cookies ani narzędzi śledzących. Ustawienia, przeczytane i zapisane newsy są tylko
+            w pamięci tej przeglądarki.
+          </p>
+          <div className="row-buttons">
+            <button className="btn danger" onClick={clearAllData}>Usuń wszystkie dane z tej przeglądarki</button>
+          </div>
+          <p className="legal-links">
+            <Link href="/polityka-prywatnosci">Polityka prywatności</Link> · <Link href="/regulamin">Regulamin</Link>
+          </p>
+        </section>
+
         <p className="foot">
           Szczekaczka by <a href={AUTHOR.url} target="_blank" rel="noopener noreferrer">{AUTHOR.name}</a>.
-          Źródła: Bankier.pl (ESPI/EBI), GPW, Stooq. Ustawienia są zapisane tylko w tej przeglądarce.
+          Źródła: Bankier.pl (ESPI/EBI), GPW, Stooq.
         </p>
       </aside>
     </div>
