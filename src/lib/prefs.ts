@@ -13,7 +13,7 @@ export interface Prefs {
   readLead: boolean      // read the lead after the title
   sayGpw: boolean        // say "GPW:" before GPW headlines
   hiddenFeeds: string[]  // channels left off the list, and so not read aloud or notified either ("STOOQ:ŚWIAT")
-  speakFeeds: string[]   // channels read aloud ("GPW:INDEKSY")
+  speakFeeds: string[]   // channels read aloud ("GPW:PRASA")
   notifyFeeds: string[]  // channels shown as notifications
   watchlist: string      // ESPI: only these companies are read aloud / notified
 }
@@ -41,10 +41,13 @@ export function loadPrefs(): Prefs {
     const raw = localStorage.getItem(PREFS_KEY)
     if (!raw) return DEFAULT_PREFS
     const p = { ...DEFAULT_PREFS, ...JSON.parse(raw) } as Prefs
-    p.hiddenFeeds = p.hiddenFeeds.filter((k) => FEED_KEYS.includes(k))
-    p.speakFeeds = p.speakFeeds.filter((k) => FEED_KEYS.includes(k))
-    p.notifyFeeds = p.notifyFeeds.filter((k) => FEED_KEYS.includes(k))
-    return p
+    // Channels that no longer exist (GPW calendar, GPW indices) are dropped, and the
+    // cleaned settings are written back so nothing about them stays in the browser
+    const known = (list: string[]) => list.filter((k) => FEED_KEYS.includes(k))
+    const cleaned = { ...p, hiddenFeeds: known(p.hiddenFeeds), speakFeeds: known(p.speakFeeds), notifyFeeds: known(p.notifyFeeds) }
+    const removed = (['hiddenFeeds', 'speakFeeds', 'notifyFeeds'] as const).some((k) => cleaned[k].length !== p[k].length)
+    if (removed) savePrefs(cleaned)
+    return cleaned
   } catch {
     return DEFAULT_PREFS
   }

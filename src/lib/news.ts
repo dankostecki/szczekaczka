@@ -12,7 +12,7 @@ export const withTime = (it: NewsItem): Item => ({ ...it, time: it.pubDate ? Dat
 
 export const keyOf = (it: NewsItem) => feedKey(it.source, it.label)
 
-// "ESPI" for one-channel sources, "GPW · INDEKSY" otherwise
+// "ESPI" for one-channel sources, "GPW · PRASA" otherwise
 export function tagOf(it: NewsItem): string {
   const src = it.source as Source
   return SOURCES.includes(src) && labelsOf(src).length === 1 ? it.source : `${it.source} · ${it.label}`

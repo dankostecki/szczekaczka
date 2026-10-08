@@ -8,7 +8,6 @@ Prosty czytnik newsów z polskiego rynku: komunikaty spółek (ESPI/EBI), komuni
 |---|---|---|
 | ESPI | ESPI/EBI | `https://www.bankier.pl/rss/espi.xml` |
 | GPW | KOMUNIKATY | `https://www.gpw.pl/rss_komunikaty` |
-| GPW | INDEKSY | `https://www.gpw.pl/rss_komunikaty_indeksowe` |
 | GPW | PRASA | `https://www.gpw.pl/rss_komunikaty_prasowe` |
 | GPW | AKTUALNOŚCI | `https://www.gpw.pl/rss_aktualnosci` |
 | STOOQ | BIZNES / KRAJ / ŚWIAT | `https://static.stooq.pl/rss/pl/{b,c,w}.rss` |

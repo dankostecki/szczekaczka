@@ -31,7 +31,7 @@ export default function Terms() {
         <li>
           Serwis zbiera w jednej liście nagłówki i zajawki udostępniane publicznie w kanałach RSS przez:
           Bankier.pl (komunikaty spółek ESPI/EBI), Giełdę Papierów Wartościowych w Warszawie (komunikaty, komunikaty
-          indeksowe, komunikaty prasowe, aktualności), Stooq (biznes, kraj, świat) oraz PAP MediaRoom Polskiej Agencji
+          prasowe, aktualności), Stooq (biznes, kraj, świat) oraz PAP MediaRoom Polskiej Agencji
           Prasowej (komunikaty prasowe: biznes i finanse, nauka i technologie, polityka i społeczeństwo). Pełna lista
           kanałów z adresami jest na stronie <Link href="/o-stronie">O stronie i źródła</Link>.
         </li>
