@@ -200,9 +200,10 @@ button:disabled { cursor: default; opacity: 0.5; }
 }
 .tools button:hover { background: var(--hover); color: var(--text); }
 .tools .save.on { color: #f5a524; }
+.tools .speak.on { color: var(--accent); background: var(--accent-soft); }
 @media (hover: hover) {
   .tools button { opacity: 0; transition: opacity 0.15s; }
-  .row:hover .tools button, .tools button:focus-visible, .tools .save.on { opacity: 1; }
+  .row:hover .tools button, .tools button:focus-visible, .tools .save.on, .tools .speak.on { opacity: 1; }
 }
 
 .title {
@@ -265,6 +266,19 @@ button:disabled { cursor: default; opacity: 0.5; }
 .setting input[type="range"] { width: 160px; accent-color: var(--accent); }
 
 .hint { margin: 2px 0 8px; font-size: 13px; line-height: 1.45; color: var(--text-3); }
+
+.voices { margin: 4px 0 6px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.voice {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 8px 6px 12px;
+  border-top: 1px solid var(--border); cursor: pointer; font-size: 14px;
+}
+.voice:first-child { border-top: 0; }
+.voice:hover { background: var(--hover); }
+.voice input { width: 16px; height: 16px; margin: 0; flex-shrink: 0; accent-color: var(--accent); cursor: pointer; }
+.voice > span { flex: 1; min-width: 0; }
+.voice small { display: block; font-size: 12.5px; color: var(--text-3); }
+.voice .play { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; color: var(--text-3); flex-shrink: 0; }
+.voice .play:hover { background: var(--bg-soft); color: var(--accent); }
 
 .switch {
   appearance: none; -webkit-appearance: none; flex-shrink: 0; margin: 0;

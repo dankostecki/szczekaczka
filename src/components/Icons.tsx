@@ -13,8 +13,12 @@ function Svg({ size = 18, className, children }: P & { children: React.ReactNode
 export const Megaphone = (p: P) => (
   <Svg {...p}><path d="M3 11v2a1 1 0 001 1h2l5 4V6L6 10H4a1 1 0 00-1 1z" /><path d="M15 8.5a4.5 4.5 0 010 7" /><path d="M18 5.5a8.5 8.5 0 010 13" /></Svg>
 )
-export const Speaker = ({ on, ...p }: P & { on: boolean }) => (
-  <Svg {...p}><path d="M11 5L6 9H2v6h4l5 4V5z" />{on ? <><path d="M15.5 8.5a5 5 0 010 7" /><path d="M19 5a10 10 0 010 14" /></> : <path d="M22 9l-6 6M16 9l6 6" />}</Svg>
+// on: with sound waves; off: crossed out, or just the speaker when `quiet`
+export const Speaker = ({ on, quiet = false, ...p }: P & { on: boolean; quiet?: boolean }) => (
+  <Svg {...p}>
+    <path d="M11 5L6 9H2v6h4l5 4V5z" />
+    {on ? <><path d="M15.5 8.5a5 5 0 010 7" /><path d="M19 5a10 10 0 010 14" /></> : !quiet && <path d="M22 9l-6 6M16 9l6 6" />}
+  </Svg>
 )
 export const Bell = ({ on, ...p }: P & { on: boolean }) => (
   <Svg {...p}><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 01-3.4 0" />{!on && <path d="M2 2l20 20" />}</Svg>
