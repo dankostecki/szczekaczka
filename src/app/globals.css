@@ -200,9 +200,10 @@ button:disabled { cursor: default; opacity: 0.5; }
 }
 .tools button:hover { background: var(--hover); color: var(--text); }
 .tools .save.on { color: #f5a524; }
+.tools .speak.on { color: var(--accent); background: var(--accent-soft); }
 @media (hover: hover) {
   .tools button { opacity: 0; transition: opacity 0.15s; }
-  .row:hover .tools button, .tools button:focus-visible, .tools .save.on { opacity: 1; }
+  .row:hover .tools button, .tools button:focus-visible, .tools .save.on, .tools .speak.on { opacity: 1; }
 }
 
 .title {

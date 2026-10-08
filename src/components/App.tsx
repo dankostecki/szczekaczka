@@ -159,9 +159,21 @@ export default function App() {
     if (!prefs.auto) updatePrefs({ auto: true }) // voice only makes sense with refreshing
     speak('Głos włączony.', prefs, voices) // speaking inside the click unlocks speech in strict browsers
   }
+  // The speaker on a headline: click to read it, click again to stop
+  const [speakingId, setSpeakingId] = useState<string | null>(null)
+  const speakingRef = useRef<string | null>(null)
   const readAloud = useCallback((it: Item) => {
+    const again = speakingRef.current === it.id
+    speakingRef.current = again ? null : it.id
+    setSpeakingId(speakingRef.current)
     stopSpeaking()
-    speakItem(it, live.current.prefs, live.current.voices)
+    if (again) return
+    // Ends (or is cut off by cancel): clear the icon, unless another headline took over
+    speakItem(it, live.current.prefs, live.current.voices, () => {
+      if (speakingRef.current !== it.id) return
+      speakingRef.current = null
+      setSpeakingId(null)
+    })
   }, [])
 
   async function toggleNotify() {
@@ -336,7 +348,7 @@ export default function App() {
               {newDay && <h2 className="day">{dayLabel(it.time, now)}</h2>}
               <NewsRow item={it} now={now} read={read} saved={savedIds.has(it.id)} fresh={fresh}
                 watched={it.source === 'ESPI' && watched(`${it.title} ${it.description}`)}
-                onRead={markRead} onSave={toggleSaved} onSpeak={canSpeak ? readAloud : undefined} />
+                onRead={markRead} onSave={toggleSaved} onSpeak={canSpeak ? readAloud : undefined} speaking={speakingId === it.id} />
             </Fragment>
           )
         })}

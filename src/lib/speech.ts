@@ -61,16 +61,19 @@ export function chunks(text: string, max = 180): string[] {
   return out
 }
 
-export function speak(text: string, prefs: Prefs, voices: SpeechSynthesisVoice[]) {
+// onEnd: called once the text has been read, or when it was stopped (cancel ends it with an error)
+export function speak(text: string, prefs: Prefs, voices: SpeechSynthesisVoice[], onEnd?: () => void) {
   if (!speechSupported()) return
   const voice = pickVoice(voices, prefs.voiceURI)
-  for (const part of chunks(text)) {
+  const parts = chunks(text)
+  parts.forEach((part, i) => {
     const u = new SpeechSynthesisUtterance(part)
     if (voice) u.voice = voice
     u.lang = voice?.lang ?? 'pl-PL'
     u.rate = prefs.rate
+    if (onEnd && i === parts.length - 1) { u.onend = onEnd; u.onerror = onEnd }
     window.speechSynthesis.speak(u) // the browser queues utterances itself
-  }
+  })
 }
 
 export function stopSpeaking() {
@@ -103,8 +106,9 @@ export function spokenParts(it: Item, prefs: Prefs): string[] {
   return lead ? [title, lead] : [title]
 }
 
-export function speakItem(it: Item, prefs: Prefs, voices: SpeechSynthesisVoice[]) {
-  for (const part of spokenParts(it, prefs)) speak(part, prefs, voices)
+export function speakItem(it: Item, prefs: Prefs, voices: SpeechSynthesisVoice[], onEnd?: () => void) {
+  const parts = spokenParts(it, prefs)
+  parts.forEach((part, i) => speak(part, prefs, voices, i === parts.length - 1 ? onEnd : undefined))
 }
 
 // `fresh` is oldest first. Over the limit: read the newest ones, sum up the rest.

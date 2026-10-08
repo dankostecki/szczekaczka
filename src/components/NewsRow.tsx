@@ -2,7 +2,7 @@
 
 import { memo, useRef, useState } from 'react'
 import { type Item, tagOf, clock, ago, fullDate } from '@/lib/news'
-import { Star, Copy, Check, Play } from './Icons'
+import { Star, Copy, Check, Speaker } from './Icons'
 
 interface Props {
   item: Item
@@ -14,9 +14,10 @@ interface Props {
   onRead: (id: string) => void
   onSave: (item: Item) => void
   onSpeak?: (item: Item) => void
+  speaking?: boolean  // this headline is being read now
 }
 
-function NewsRow({ item, now, read, saved, fresh, watched, onRead, onSave, onSpeak }: Props) {
+function NewsRow({ item, now, read, saved, fresh, watched, onRead, onSave, onSpeak, speaking = false }: Props) {
   const [copied, setCopied] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const since = ago(item.time, now)
@@ -38,7 +39,12 @@ function NewsRow({ item, now, read, saved, fresh, watched, onRead, onSave, onSpe
         {fresh && <span className="badge new">NOWE</span>}
         {watched && <span className="badge watch">obserwowana</span>}
         <span className="tools">
-          {onSpeak && <button onClick={() => onSpeak(item)} title="Przeczytaj na głos"><Play size={16} /></button>}
+          {onSpeak && (
+            <button className={`speak${speaking ? ' on' : ''}`} onClick={() => onSpeak(item)} aria-pressed={speaking}
+              title={speaking ? 'Zatrzymaj czytanie' : 'Przeczytaj na głos'}>
+              <Speaker on={speaking} quiet size={16} />
+            </button>
+          )}
           <button onClick={copy} title={copied ? 'Skopiowano' : 'Kopiuj tytuł i link'}>{copied ? <Check size={16} /> : <Copy size={16} />}</button>
           <button className={`save${saved ? ' on' : ''}`} onClick={() => onSave(item)} title={saved ? 'Usuń z zapisanych' : 'Zapisz na później'}>
             <Star filled={saved} size={16} />
