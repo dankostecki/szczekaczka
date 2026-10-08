@@ -8,6 +8,7 @@ import { checkFeed, type FeedState } from './feeds'
 import { type Env, hub } from './env'
 
 const MIN_GAP_MS = 2000 // never wake up more often than this
+const RETRY_SECONDS = 60 // after a failed check: try again in 1, 2, 4… minutes (never later than usual)
 
 export class Poller extends DurableObject<Env> {
   private feeds = new Map<string, FeedState>()
@@ -86,7 +87,9 @@ export class Poller extends DurableObject<Env> {
   }
 
   private interval(feed: FeedConfig, now: number): number {
-    return (feed.minAge ?? (marketHours(new Date(now)) ? CHECK_SECONDS : QUIET_CHECK_SECONDS)) * 1000
+    const usual = (feed.minAge ?? (marketHours(new Date(now)) ? CHECK_SECONDS : QUIET_CHECK_SECONDS)) * 1000
+    const failures = this.feeds.get(feedKey(feed.source, feed.label))?.failures ?? 0
+    return failures ? Math.min(usual, RETRY_SECONDS * 1000 * 2 ** (failures - 1)) : usual
   }
 
   private dueAt(feed: FeedConfig, now: number): number {
@@ -113,13 +116,21 @@ export class Poller extends DurableObject<Env> {
   private async check(feed: FeedConfig) {
     const key = feedKey(feed.source, feed.label)
     const url = this.env.FEED_ORIGIN ? `${this.env.FEED_ORIGIN}/${feed.url.replace(/^https?:\/\//, '')}` : feed.url
-    const r = await checkFeed(feed, this.feeds.get(key), url)
+    const prev = this.feeds.get(key)
+    const r = await checkFeed(feed, prev, url)
     this.feeds.set(key, r.state)
-    if (!r.changed) return
+    if (r.state.failures) console.log(`feed ${key}: failed check ${r.state.failures} in a row`)
+    // The count of failures must survive the object being evicted from memory, or the
+    // error would never be shown; it changes only around failures, so this is rare
+    const sql = this.ctx.storage.sql
+    const save = () => sql.exec('INSERT OR REPLACE INTO feeds (key, state) VALUES (?, ?)', key, JSON.stringify(r.state))
+    if (!r.changed) {
+      if ((prev?.failures ?? 0) !== (r.state.failures ?? 0)) save()
+      return
+    }
 
     this.v++
-    const sql = this.ctx.storage.sql
-    sql.exec('INSERT OR REPLACE INTO feeds (key, state) VALUES (?, ?)', key, JSON.stringify(r.state))
+    save()
     sql.exec("INSERT OR REPLACE INTO meta (k, v) VALUES ('v', ?)", this.v)
     this.snapshotJson = null
     const delta: Delta = { t: 'd', v: this.v, key, add: r.add, remove: r.remove, error: r.state.error }
