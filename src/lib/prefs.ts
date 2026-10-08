@@ -8,9 +8,11 @@ export interface Prefs {
   auto: boolean          // refresh every minute
   notify: boolean        // desktop notifications (permission survives reloads, so this is stored)
   keepAwake: boolean     // keep the screen on while the page is visible
-  voiceURI: string       // '' = automatic Polish voice
+  voiceURI: string       // '' = first Polish Google voice
   rate: number
   maxPerRefresh: number  // read at most this many headlines per refresh, sum up the rest
+  readLead: boolean      // read the lead after the title
+  sayGpw: boolean        // say "GPW:" before GPW headlines
   speakFeeds: string[]   // channels read aloud ("GPW:INDEKSY")
   notifyFeeds: string[]  // channels shown as notifications
   watchlist: string      // ESPI: only these companies are read aloud / notified
@@ -27,6 +29,8 @@ export const DEFAULT_PREFS: Prefs = {
   voiceURI: '',
   rate: 1,
   maxPerRefresh: 3,
+  readLead: true,
+  sayGpw: true,
   speakFeeds: LOUD,
   notifyFeeds: LOUD,
   watchlist: '',
