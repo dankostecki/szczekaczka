@@ -1,11 +1,12 @@
 import type { Metadata, Viewport } from 'next'
 import { PREFS_KEY } from '@/lib/prefs'
+import { BASE_PATH } from '@/lib/site'
 import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Szczekaczka',
   description: 'Komunikaty ESPI, GPW i newsy Stooq w jednym miejscu, czytane na głos.',
-  icons: { icon: '/icon.svg' },
+  icons: { icon: `${BASE_PATH}/icon.svg` },
 }
 
 export const viewport: Viewport = {

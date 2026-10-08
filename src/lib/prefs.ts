@@ -12,6 +12,7 @@ export interface Prefs {
   maxPerRefresh: number  // read at most this many headlines per refresh, sum up the rest
   readLead: boolean      // read the lead after the title
   sayGpw: boolean        // say "GPW:" before GPW headlines
+  hiddenFeeds: string[]  // channels left off the list, and so not read aloud or notified either ("GPW:KALENDARZ")
   speakFeeds: string[]   // channels read aloud ("GPW:INDEKSY")
   notifyFeeds: string[]  // channels shown as notifications
   watchlist: string      // ESPI: only these companies are read aloud / notified
@@ -29,6 +30,7 @@ export const DEFAULT_PREFS: Prefs = {
   maxPerRefresh: 3,
   readLead: true,
   sayGpw: true,
+  hiddenFeeds: QUIET_BY_DEFAULT,
   speakFeeds: LOUD,
   notifyFeeds: LOUD,
   watchlist: '',
@@ -41,6 +43,7 @@ export function loadPrefs(): Prefs {
     const raw = localStorage.getItem(PREFS_KEY)
     if (!raw) return DEFAULT_PREFS
     const p = { ...DEFAULT_PREFS, ...JSON.parse(raw) } as Prefs
+    p.hiddenFeeds = p.hiddenFeeds.filter((k) => FEED_KEYS.includes(k))
     p.speakFeeds = p.speakFeeds.filter((k) => FEED_KEYS.includes(k))
     p.notifyFeeds = p.notifyFeeds.filter((k) => FEED_KEYS.includes(k))
     return p

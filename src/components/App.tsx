@@ -99,12 +99,13 @@ export default function App() {
     setItems(fetched); setErrors(errs); setUpdatedAt(Date.now()); setLoaded(true)
     const prev = seen.current
     if (prev) {
-      const fresh = freshItems(fetched.filter((i) => knownFeeds.current.has(keyOf(i))), prev)
+      const { prefs: p, voiceOn: on, voices: vs } = live.current
+      // Hidden channels: not on the list, so not counted, read aloud or notified either
+      const fresh = freshItems(fetched.filter((i) => knownFeeds.current.has(keyOf(i)) && !p.hiddenFeeds.includes(keyOf(i))), prev)
       if (fresh.length) {
         const t = Date.now()
         setFreshAt((f) => ({ ...f, ...Object.fromEntries(fresh.map((i) => [i.id, t])) }))
         if (document.visibilityState !== 'visible') setUnseen((u) => u + fresh.length)
-        const { prefs: p, voiceOn: on, voices: vs } = live.current
         const watched = watchMatcher(p.watchlist)
         // ESPI: only companies on the watch list
         const wanted = (channels: string[]) => (i: Item) =>
@@ -215,21 +216,36 @@ export default function App() {
   const savedIds = useMemo(() => new Set(saved.map((s) => s.id)), [saved])
   const watched = useMemo(() => watchMatcher(prefs.watchlist), [prefs.watchlist])
   const q = query.trim().toLowerCase()
+
+  // Channels switched off in the settings are left out everywhere except "Zapisane"
+  const hidden = useMemo(() => new Set(prefs.hiddenFeeds), [prefs.hiddenFeeds])
+  const shown = useMemo(() => items.filter((i) => !hidden.has(keyOf(i))), [items, hidden])
+  const labelsShown = (src: Source) => labelsOf(src).filter((l) => !hidden.has(`${src}:${l}`))
+  const filters = FILTERS.filter((f) => f === 'ALL' || f === 'SAVED' || labelsShown(f).length > 0)
+  // A tab or channel chip whose channels were just hidden falls back to everything
+  const activeFilter: Filter = filters.includes(filter) ? filter : 'ALL'
+  const activeLabel = label && activeFilter !== 'ALL' && activeFilter !== 'SAVED' && !hidden.has(`${activeFilter}:${label}`) ? label : null
+
   const visible = useMemo(() => {
     const base =
-      filter === 'SAVED' ? [...saved].sort((a, b) => b.time - a.time)
-      : filter === 'ALL' ? items
-      : items.filter((i) => i.source === filter && (!label || i.label === label))
+      activeFilter === 'SAVED' ? [...saved].sort((a, b) => b.time - a.time)
+      : activeFilter === 'ALL' ? shown
+      : shown.filter((i) => i.source === activeFilter && (!activeLabel || i.label === activeLabel))
     return q ? base.filter((i) => `${i.title} ${i.description} ${i.source} ${i.label}`.toLowerCase().includes(q)) : base
-  }, [items, saved, filter, label, q])
+  }, [shown, saved, activeFilter, activeLabel, q])
 
+  // Tabs count what is on the list; channels (also in the settings) count everything that came
   const counts = useMemo(() => {
-    const c: Record<string, number> = { ALL: items.length, SAVED: saved.length }
-    for (const i of items) { c[i.source] = (c[i.source] ?? 0) + 1; c[keyOf(i)] = (c[keyOf(i)] ?? 0) + 1 }
+    const c: Record<string, number> = { ALL: shown.length, SAVED: saved.length }
+    for (const i of shown) c[i.source] = (c[i.source] ?? 0) + 1
+    for (const i of items) c[keyOf(i)] = (c[keyOf(i)] ?? 0) + 1
     return c
-  }, [items, saved])
+  }, [shown, items, saved])
 
-  const subLabels = filter !== 'ALL' && filter !== 'SAVED' ? labelsOf(filter) : []
+  // Errors of hidden channels are not shown either ("GPW · KALENDARZ" is the channel GPW:KALENDARZ)
+  const shownErrors = errors.filter((e) => !hidden.has(e.feed.replace(' · ', ':')))
+
+  const subLabels = activeFilter !== 'ALL' && activeFilter !== 'SAVED' ? labelsShown(activeFilter) : []
 
   function choose(f: Filter) {
     setFilter(f); setLabel(null)
@@ -287,10 +303,10 @@ export default function App() {
 
         <div className="filters wrap">
           <div className="chips" role="tablist">
-            {FILTERS.map((f) => (
-              <button key={f} role="tab" aria-selected={filter === f} className={`chip ${filter === f ? 'on' : ''}`}
+            {filters.map((f) => (
+              <button key={f} role="tab" aria-selected={activeFilter === f} className={`chip ${activeFilter === f ? 'on' : ''}`}
                 style={{ ['--c' as string]: filterColor(f) }} onClick={() => choose(f)}>
-                {f === 'SAVED' ? <Star filled={filter === f} size={13} /> : f !== 'ALL' && <i className="dot" />}
+                {f === 'SAVED' ? <Star filled={activeFilter === f} size={13} /> : f !== 'ALL' && <i className="dot" />}
                 {filterName(f)}
                 <span className="n">{counts[f] ?? 0}</span>
               </button>
@@ -308,10 +324,10 @@ export default function App() {
         {subLabels.length > 1 && (
           <div className="chips sub wrap">
             {[null, ...subLabels].map((l) => (
-              <button key={l ?? '*'} className={`chip small ${label === l ? 'on' : ''}`}
-                style={{ ['--c' as string]: filterColor(filter) }} onClick={() => setLabel(l)}>
+              <button key={l ?? '*'} className={`chip small ${activeLabel === l ? 'on' : ''}`}
+                style={{ ['--c' as string]: filterColor(activeFilter) }} onClick={() => setLabel(l)}>
                 {l ?? 'Wszystkie'}
-                <span className="n">{l ? counts[`${filter}:${l}`] ?? 0 : counts[filter] ?? 0}</span>
+                <span className="n">{l ? counts[`${activeFilter}:${l}`] ?? 0 : counts[activeFilter] ?? 0}</span>
               </button>
             ))}
           </div>
@@ -319,9 +335,9 @@ export default function App() {
       </header>
 
       <main className="list wrap">
-        {errors.length > 0 && (
+        {shownErrors.length > 0 && (
           <div className="errors" role="status">
-            Nie udało się pobrać: {errors.map((e) => `${e.feed} (${e.message})`).join(', ')}
+            Nie udało się pobrać: {shownErrors.map((e) => `${e.feed} (${e.message})`).join(', ')}
           </div>
         )}
 
@@ -329,8 +345,10 @@ export default function App() {
 
         {loaded && visible.length === 0 && (
           <p className="empty">
-            {filter === 'SAVED' && !q ? 'Nic jeszcze nie zapisano. Kliknij gwiazdkę przy newsie, żeby go tu odłożyć.'
-              : q ? 'Brak wyników dla tego wyszukiwania.' : 'Brak newsów.'}
+            {activeFilter === 'SAVED' && !q ? 'Nic jeszcze nie zapisano. Kliknij gwiazdkę przy newsie, żeby go tu odłożyć.'
+              : q ? 'Brak wyników dla tego wyszukiwania.'
+              : items.length > 0 ? 'Kanały z newsami są ukryte. Pokaż je w ustawieniach (kolumna z okiem).'
+              : 'Brak newsów.'}
           </p>
         )}
 

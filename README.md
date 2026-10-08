@@ -25,7 +25,7 @@ Lista jest w `src/lib/sources.ts`.
 - **Głos** (Web Speech API): do wyboru wszystkie polskie głosy przeglądarki i systemu, z opisem (kobieta / mężczyzna, naturalny) i odsłuchem. Zestaw zależy od przeglądarki: Edge ma naturalne głosy Microsoft (np. Zofia, Marek), Chrome „Google polski”, Mac i iPhone np. Zosię. Automatycznie wybierany jest najlepszy (naturalny, potem Google). Czyta nowe newsy z zaznaczonych kanałów. W ustawieniach: sam tytuł albo tytuł i lead (pełne zdania, bez daty i „(PAP)” na początku), „GPW:” przed komunikatami GPW. Stooq i ESPI bez nazwy źródła. Przy wielu naraz czyta najnowsze, a resztę podsumowuje.
 - **Powiadomienia na pulpicie**: działają, dopóki strona jest otwarta w karcie.
 - **Obserwowane spółki**: ESPI przysyła bardzo dużo raportów, więc na głos i w powiadomieniach są tylko spółki z tej listy (nazwy lub tickery po przecinku). Na liście widać wszystkie.
-- KALENDARZ GPW jest domyślnie wyciszony (zapowiedzi zdarzeń, nie bieżące komunikaty). Każdy kanał można włączyć lub wyłączyć w ustawieniach.
+- **Kanały na liście**: w ustawieniach („Kanały”) każdy kanał można ukryć lub pokazać (oko), a osobno włączyć mu czytanie na głos i powiadomienia. Ukryty kanał od razu znika z listy i nie jest czytany ani pokazywany w powiadomieniach. KALENDARZ GPW jest domyślnie ukryty (zapowiedzi zdarzeń z datami z kolejnych dni).
 - Do tego: filtry źródeł i kanałów, wyszukiwarka (`/`), zapisane na później, oznaczanie przeczytanych, jasny i ciemny motyw, „nie wygaszaj ekranu”.
 
 Ustawienia, przeczytane i zapisane są trzymane tylko w przeglądarce (localStorage).
@@ -46,6 +46,11 @@ npm run typecheck  # strona i Worker
 npm run deploy     # next build + wrangler deploy (zwykle robi to Cloudflare po merge do main)
 ```
 
+## Adresy
+
+- https://szczekaczka.dancoder2025.workers.dev: całość na Cloudflare.
+- https://dankostecki.github.io/szczekaczka: ta sama strona na GitHub Pages. Pliki strony są na GitHubie, a lista i nowe newsy przychodzą z Workera na Cloudflare (Worker wpuszcza tę stronę: `ALLOWED_ORIGINS` w `wrangler.jsonc`). Ustawienia i zapisane newsy przeglądarka trzyma osobno dla każdego adresu.
+
 ## Cloudflare
 
 Pliki: `wrangler.jsonc` (konfiguracja), `worker/` (Worker, `Poller`, `Hub`). Strona to statyczny eksport Next.js w `out/`.
@@ -58,3 +63,11 @@ Pierwsze podłączenie (raz):
 4. Po pierwszym wdrożeniu strona jest pod `https://szczekaczka.<twoja-subdomena>.workers.dev`. Własną domenę dodaje się w Settings → Domains & Routes.
 
 Potem każdy merge do `main` publikuje nową wersję. Zużycie limitów widać w panelu: Workers & Pages → szczekaczka → Metrics oraz w logach (wpisy `feed GPW:KOMUNIKATY: +1 -0 (v42)` przy każdej zmianie kanału).
+
+## GitHub Pages
+
+Workflow `.github/workflows/pages.yml` buduje stronę przy każdym merge do `main` z `PAGES_BASE_PATH=/szczekaczka` (wszystkie adresy z prefiksem) i `NEXT_PUBLIC_API_ORIGIN` (adres Workera), a potem publikuje `out/` na GitHub Pages.
+
+Pierwsze włączenie (raz): w repozytorium **Settings → Pages → Build and deployment → Source: GitHub Actions**. Potem uruchom workflow „GitHub Pages” (zakładka Actions → Run workflow) albo poczekaj na następny merge.
+
+Gdy zmienisz adres Workera (subdomena `workers.dev`, własna domena), popraw `NEXT_PUBLIC_API_ORIGIN` w workflow. Gdy zmienisz adres strony na GitHubie (np. własna domena dla GitHub Pages), dopisz go do `ALLOWED_ORIGINS` w `wrangler.jsonc`.

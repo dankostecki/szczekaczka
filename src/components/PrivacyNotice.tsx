@@ -34,7 +34,8 @@ export default function PrivacyNotice() {
             tej przeglądarki (localStorage). Nie trafiają na serwer.
           </li>
           <li>
-            <b>Serwer widzi tylko to, co każda strona:</b> adres IP i dane przeglądarki u dostawcy hostingu (Cloudflare).
+            <b>Serwer widzi tylko to, co każda strona:</b> adres IP i dane przeglądarki u dostawcy hostingu (Cloudflare,
+            a pod adresem github.io także GitHub).
           </li>
           <li>
             <b>Czytanie na głos</b> głosami „Google” lub „naturalnymi” Microsoftu wysyła czytany tekst do producenta
