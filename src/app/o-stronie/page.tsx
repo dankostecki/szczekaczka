@@ -22,7 +22,7 @@ export default function About() {
       <h2>Skąd są newsy</h2>
       <p>
         Wszystkie treści pochodzą z publicznych kanałów RSS wymienionych niżej. Przy każdym newsie widać źródło
-        i kanał (np. „GPW · INDEKSY”), a tytuł prowadzi do pełnej treści na stronie wydawcy. Szczekaczka pokazuje
+        i kanał (np. „GPW · KOMUNIKATY”), a tytuł prowadzi do pełnej treści na stronie wydawcy. Szczekaczka pokazuje
         tylko tytuły i krótkie zajawki z kanałów RSS. Nie zmienia ich treści i nie dodaje własnych.
       </p>
 
