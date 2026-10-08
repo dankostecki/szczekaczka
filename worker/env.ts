@@ -5,6 +5,8 @@ export interface Env {
   POLLER: DurableObjectNamespace<Poller>
   HUB: DurableObjectNamespace<Hub>
   ASSETS: Fetcher
+  // Other sites whose pages may use /api/news and /ws, comma-separated (the GitHub Pages copy)
+  ALLOWED_ORIGINS?: string
   // Local tests only: fetch feeds from this origin instead of the real sites
   FEED_ORIGIN?: string
 }

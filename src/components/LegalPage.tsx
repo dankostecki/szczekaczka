@@ -31,7 +31,7 @@ export default function LegalPage({ title, dated = true, children }: { title: st
 export function Contact() {
   return (
     <>
-      wiadomość na profilu <a href={OPERATOR.x} target="_blank" rel="noopener noreferrer">{OPERATOR.xHandle}</a> w serwisie X
+      wiadomość prywatna do <a href={OPERATOR.x} target="_blank" rel="noopener noreferrer">{OPERATOR.xHandle}</a> w serwisie X
       {OPERATOR.email && <> lub e-mail: <a href={`mailto:${OPERATOR.email}`}>{OPERATOR.email}</a></>}
     </>
   )

@@ -5,6 +5,7 @@ import { finalizeItems, type NewsItem } from './parse'
 import { HEARTBEAT, type Delta, type Hello, type Snapshot } from './protocol'
 import { FEEDS, feedKey } from './sources'
 import { withTime, type Item, type FeedError } from './news'
+import { API_ORIGIN } from './site'
 
 export type LiveStatus = 'connecting' | 'live'
 
@@ -17,6 +18,11 @@ export interface LiveHandlers {
 const RETRY_MS = [1, 2, 5, 10, 30, 60].map((s) => s * 1000)
 const SILENCE_MS = 130_000          // not even a heartbeat (every ~50 s) for this long: the connection is dead
 const FALLBACK_POLL_MS = 3 * 60_000 // while the WebSocket is down, fetch the list this often
+// The Worker: this address, or the Cloudflare one for the GitHub Pages copy
+const newsUrl = `${API_ORIGIN}/api/news`
+const socketUrl = () => API_ORIGIN
+  ? `${API_ORIGIN.replace(/^http/, 'ws')}/ws`
+  : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
 const feedName = new Map(FEEDS.map((f) => [feedKey(f.source, f.label), `${f.source} · ${f.label}`]))
 
 export function connectLive(h: LiveHandlers) {
@@ -48,7 +54,7 @@ export function connectLive(h: LiveHandlers) {
   function sync(): Promise<void> {
     syncing ??= (async () => {
       try {
-        const res = await fetch('/api/news', { cache: 'no-cache' })
+        const res = await fetch(newsUrl, { cache: 'no-cache' })
         if (!res.ok) throw new Error(`Serwer odpowiedział ${res.status}`)
         const snap: Snapshot = await res.json()
         feeds = new Map(snap.feeds.map((f) => [f.key, { items: f.items, error: f.error }]))
@@ -87,7 +93,7 @@ export function connectLive(h: LiveHandlers) {
     if (stopped || ws) return
     h.onStatus('connecting')
     try {
-      ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`)
+      ws = new WebSocket(socketUrl())
     } catch {
       ws = null; retry(); return
     }

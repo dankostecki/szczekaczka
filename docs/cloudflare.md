@@ -33,7 +33,8 @@
   - co około 50 s `h`, żeby Cloudflare nie zamknął bezczynnego połączenia (zamyka po około 100 s ciszy);
   - gdy WebSocket nie działa (np. sieć firmowa), lista odświeża się co 3 min zwykłym zapytaniem.
 - **Cron co 10 min** tylko pilnuje, żeby pętla Pollera działała (sama startuje przy pierwszym wejściu).
-- `/ws` przyjmuje połączenia tylko ze stron tej samej domeny (nagłówek `Origin`).
+- `/ws` przyjmuje połączenia tylko ze stron tej samej domeny i z adresów z `ALLOWED_ORIGINS` (nagłówek `Origin`). Tak samo `/api/news` wysyła nagłówek CORS tylko tym adresom.
+- **Kopia na GitHub Pages** (`dankostecki.github.io/szczekaczka`) to te same pliki strony, zbudowane z prefiksem `/szczekaczka` i adresem Workera. Korzysta z tego samego Pollera i tych samych hubów, więc limity niżej obejmują obie wersje razem. Pliki strony z GitHuba nie liczą się do limitów Cloudflare.
 
 ## Limity darmowego planu i zużycie przy 1000 użytkowników
 

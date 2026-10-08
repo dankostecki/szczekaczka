@@ -2,6 +2,7 @@
 // Shown while the page is open in any tab, also in the background.
 import { type Item, tagOf } from './news'
 import { plural } from './speech'
+import { BASE_PATH } from './site'
 
 const MAX_PER_REFRESH = 3
 
@@ -18,7 +19,7 @@ export async function requestNotifyPermission(): Promise<NotificationPermission 
 
 function show(title: string, body: string, tag: string, url?: string) {
   try {
-    const n = new Notification(title, { body, tag, icon: '/icon.svg' })
+    const n = new Notification(title, { body, tag, icon: `${BASE_PATH}/icon.svg` })
     n.onclick = () => {
       window.focus()
       if (url && /^https?:\/\//.test(url)) window.open(url, '_blank', 'noopener,noreferrer')

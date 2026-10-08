@@ -19,5 +19,7 @@
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Poller", "Hub"] }],
   "triggers": { "crons": ["*/10 * * * *"] },
+  // The copy of the page on GitHub Pages gets its news from this Worker
+  "vars": { "ALLOWED_ORIGINS": "https://dankostecki.github.io" },
   "observability": { "enabled": true }
 }

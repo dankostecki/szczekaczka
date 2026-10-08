@@ -17,7 +17,10 @@ export default function PrivacyPolicy() {
           <li>Nie zakładasz konta i nie podajesz nam żadnych danych.</li>
           <li>Nie używamy plików cookies, analityki, reklam ani żadnych narzędzi śledzących.</li>
           <li>Twoje ustawienia, przeczytane i zapisane newsy są tylko w pamięci Twojej przeglądarki. Nie wysyłamy ich na serwer.</li>
-          <li>Serwer, na którym działa strona (Cloudflare), technicznie widzi Twój adres IP przy każdym połączeniu, jak każda strona internetowa.</li>
+          <li>
+            Serwery, które dostarczają stronę (Cloudflare, a pod adresem dankostecki.github.io także GitHub), technicznie
+            widzą Twój adres IP przy każdym połączeniu, jak każda strona internetowa.
+          </li>
         </ul>
       </div>
 
@@ -33,9 +36,12 @@ export default function PrivacyPolicy() {
       <h3>a) Dane techniczne w logach serwera</h3>
       <p>
         Otwarcie strony to kilka zapytań do serwera: pobranie plików strony i listy newsów oraz nawiązanie stałego
-        połączenia (WebSocket), przez które serwer przysyła nowe newsy, dopóki strona jest otwarta. Dostawca hostingu
-        przetwarza przy tym dane techniczne: adres IP, datę i godzinę, adres podstrony, informacje o przeglądarce
-        i systemie (nagłówek User-Agent) oraz kod odpowiedzi serwera. Mogą one trafić do jego logów.
+        połączenia (WebSocket), przez które serwer przysyła nowe newsy, dopóki strona jest otwarta. Serwis jest
+        dostępny pod dwoma adresami. W wersji na Cloudflare wszystko dostarcza Cloudflare. W wersji pod adresem
+        dankostecki.github.io/szczekaczka pliki strony dostarcza GitHub (GitHub Pages), a listę newsów i stałe
+        połączenie Cloudflare. Dostawcy hostingu przetwarzają przy tym dane techniczne: adres IP, datę i godzinę,
+        adres podstrony, informacje o przeglądarce i systemie (nagłówek User-Agent) oraz kod odpowiedzi serwera.
+        Mogą one trafić do ich logów.
       </p>
       <p>
         <b>Cel:</b> dostarczenie strony, zapewnienie bezpieczeństwa i stabilności Serwisu, wykrywanie błędów i nadużyć.
@@ -49,8 +55,9 @@ export default function PrivacyPolicy() {
 
       <h3>b) Kontakt z Administratorem</h3>
       <p>
-        Jeśli napiszesz do Administratora, przetwarzamy dane, które podasz w wiadomości (np. nazwę profilu, adres
-        e-mail, treść wiadomości), aby odpowiedzieć i załatwić sprawę.
+        Jeśli napiszesz do Administratora (wiadomość prywatna w serwisie X), przetwarzamy dane z tej rozmowy: nazwę
+        Twojego profilu i treść wiadomości, aby odpowiedzieć i załatwić sprawę. Wiadomości w serwisie X przetwarza
+        także X Corp. na zasadach opisanych w swojej polityce prywatności.
         <br /><b>Podstawa prawna:</b> art. 6 ust. 1 lit. f RODO, czyli prawnie uzasadniony interes w prowadzeniu korespondencji.
       </p>
 
@@ -58,7 +65,8 @@ export default function PrivacyPolicy() {
       <p>
         Serwis nie ma kont użytkowników, formularzy, newslettera ani płatności. Nie korzysta z narzędzi analitycznych
         (np. Google Analytics, Cloudflare Web Analytics), pikseli reklamowych, wtyczek serwisów społecznościowych, zewnętrznych
-        czcionek ani innych skryptów ładowanych z cudzych serwerów. Przeglądarka łączy się wyłącznie z serwerem Serwisu.
+        czcionek ani innych skryptów ładowanych z cudzych serwerów. Przeglądarka łączy się wyłącznie z serwerami Serwisu
+        (Cloudflare, a w wersji pod adresem dankostecki.github.io także GitHub Pages).
       </p>
 
       <h2>3. Cookies i pamięć przeglądarki</h2>
@@ -119,6 +127,16 @@ export default function PrivacyPolicy() {
         kto jest połączony, i nie przechowuje żadnych danych o użytkownikach.
       </p>
 
+      <h3>Pliki strony pod adresem dankostecki.github.io: GitHub, Inc. (USA)</h3>
+      <p>
+        Gdy otwierasz Serwis pod adresem dankostecki.github.io/szczekaczka, pliki strony dostarcza usługa GitHub Pages
+        firmy GitHub, Inc. GitHub przetwarza przy tym dane techniczne (pkt 2a), w tym zapisuje adres IP odwiedzających
+        ze względów bezpieczeństwa, na zasadach opisanych w swoim oświadczeniu o prywatności (GitHub General Privacy
+        Statement). Dane mogą być przekazywane do USA na podstawie decyzji Komisji Europejskiej w sprawie ram ochrony
+        danych UE–USA (EU-US Data Privacy Framework) albo standardowych klauzul umownych. Listę newsów i nowe newsy
+        także w tej wersji dostarcza serwer na Cloudflare.
+      </p>
+
       <h3>Źródła newsów: Bankier.pl, GPW, Stooq</h3>
       <p>
         Kanały RSS pobiera serwer Serwisu, a nie Twoja przeglądarka, więc serwisy źródłowe nie dostają Twojego adresu IP.
@@ -145,8 +163,8 @@ export default function PrivacyPolicy() {
       <h2>5. Jak długo przechowujemy dane</h2>
       <ul>
         <li>
-          <b>Logi serwera:</b> przez ograniczony czas określony przez dostawcę hostingu (Cloudflare). Administrator
-          nie kopiuje ani nie archiwizuje logów.
+          <b>Logi serwera:</b> przez ograniczony czas określony przez dostawców hostingu (Cloudflare, GitHub).
+          Administrator nie kopiuje ani nie archiwizuje logów.
         </li>
         <li>
           <b>Korespondencja:</b> do czasu załatwienia sprawy, a potem przez okres, w którym mogą się pojawić związane
