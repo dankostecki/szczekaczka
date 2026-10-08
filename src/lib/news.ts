@@ -10,7 +10,8 @@ export interface Item extends NewsItem {
 export type { FeedError }
 
 export async function loadNews(): Promise<{ items: Item[]; errors: FeedError[] }> {
-  const res = await fetch('/api/news', { cache: 'no-store' })
+  // no-cache: the browser keeps a copy and asks the server whether it changed (304 if not)
+  const res = await fetch('/api/news', { cache: 'no-cache' })
   if (!res.ok) throw new Error(`Serwer odpowiedział ${res.status}`)
   const data: { items: NewsItem[]; errors: FeedError[] } = await res.json()
   return { items: data.items.map(withTime), errors: data.errors }

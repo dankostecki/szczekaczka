@@ -2,8 +2,8 @@ import Link from 'next/link'
 import { AUTHOR, LEGAL_DATE, OPERATOR } from '@/lib/site'
 import { Megaphone } from './Icons'
 
-// Shared frame for the terms and the privacy policy
-export default function LegalPage({ title, children }: { title: string; children: React.ReactNode }) {
+// Shared frame for the terms, the privacy policy and the about page
+export default function LegalPage({ title, dated = true, children }: { title: string; dated?: boolean; children: React.ReactNode }) {
   return (
     <div className="app">
       <header className="top">
@@ -18,7 +18,7 @@ export default function LegalPage({ title, children }: { title: string; children
       <main className="wrap">
         <article className="legal">
           <h1>{title}</h1>
-          <p className="legal-date">Obowiązuje od {LEGAL_DATE}</p>
+          {dated && <p className="legal-date">Obowiązuje od {LEGAL_DATE}</p>}
           {children}
         </article>
       </main>
@@ -41,6 +41,7 @@ export function SiteFooter() {
   return (
     <footer className="site-foot wrap">
       <span>Szczekaczka by <a href={AUTHOR.url} target="_blank" rel="noopener noreferrer">{AUTHOR.name}</a></span>
+      <Link href="/o-stronie">O stronie i źródła</Link>
       <Link href="/regulamin">Regulamin</Link>
       <Link href="/polityka-prywatnosci">Polityka prywatności</Link>
     </footer>

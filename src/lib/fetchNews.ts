@@ -18,7 +18,16 @@ async function fetchFeed(feed: FeedConfig): Promise<NewsItem[]> {
   const xml = decodeBody(await res.arrayBuffer(), res.headers.get('content-type'))
   const items = parseFeedXml(xml, feed)
   if (items.length === 0 && !/<(item|entry)[\s>]/i.test(xml)) throw new Error('Brak wpisów RSS w odpowiedzi')
-  return items
+  return items.slice(0, MAX_PER_FEED).map((it) => ({ ...it, description: shorten(it.description) }))
+}
+
+// Keep the response small: the page shows two lines of the lead and reads at most ~400 characters
+const MAX_PER_FEED = 100
+const MAX_LEAD = 500
+function shorten(text: string): string {
+  if (text.length <= MAX_LEAD) return text
+  const cut = text.slice(0, MAX_LEAD)
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), MAX_LEAD - 40))}…`
 }
 
 export async function fetchNews(): Promise<{ items: NewsItem[]; errors: FeedError[] }> {

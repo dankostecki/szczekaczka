@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import Link from 'next/link'
-import { FEEDS, SOURCES, feedKey, labelsOf } from '@/lib/sources'
+import { FEEDS, SOURCES, feedKey, labelsOf, REFRESH_OPTIONS, CACHE_SECONDS } from '@/lib/sources'
 import type { Prefs, Theme } from '@/lib/prefs'
 import { polishVoices, pickVoice, speak, stopSpeaking, voiceLabel } from '@/lib/speech'
 import { AUTHOR, STORAGE_PREFIX } from '@/lib/site'
@@ -187,7 +187,20 @@ export default function Settings(p: Props) {
 
         <section>
           <h3>Inne</h3>
-          <Switch label="Odświeżaj co minutę" checked={prefs.auto} onChange={() => onChange({ auto: !prefs.auto })} />
+          <Switch label="Odświeżaj automatycznie" checked={prefs.auto} onChange={() => onChange({ auto: !prefs.auto })} />
+          {prefs.auto && (
+            <div className="setting">
+              <span>Co</span>
+              <div className="segmented">
+                {REFRESH_OPTIONS.map((m) => (
+                  <button key={m} className={prefs.refreshMin === m ? 'on' : ''} onClick={() => onChange({ refreshMin: m })}>{m} min</button>
+                ))}
+              </div>
+            </div>
+          )}
+          <p className="hint">
+            Serwer pobiera kanały RSS najwyżej co {CACHE_SECONDS} s, wspólnie dla wszystkich, więc częstsze odświeżanie nic by nie dało.
+          </p>
           <Switch label="Nie wygaszaj ekranu" checked={prefs.keepAwake} onChange={() => onChange({ keepAwake: !prefs.keepAwake })} />
           {prefs.keepAwake && AWAKE_TEXT[p.awake] && <p className="hint">{AWAKE_TEXT[p.awake]}</p>}
           <div className="setting">
@@ -214,13 +227,13 @@ export default function Settings(p: Props) {
             <button className="btn danger" onClick={clearAllData}>Usuń wszystkie dane z tej przeglądarki</button>
           </div>
           <p className="legal-links">
-            <Link href="/polityka-prywatnosci">Polityka prywatności</Link> · <Link href="/regulamin">Regulamin</Link>
+            <Link href="/o-stronie">O stronie i źródła</Link> · <Link href="/polityka-prywatnosci">Polityka prywatności</Link> · <Link href="/regulamin">Regulamin</Link>
           </p>
         </section>
 
         <p className="foot">
           Szczekaczka by <a href={AUTHOR.url} target="_blank" rel="noopener noreferrer">{AUTHOR.name}</a>.
-          Źródła: Bankier.pl (ESPI/EBI), GPW, Stooq.
+          Źródła: <Link href="/o-stronie">Bankier.pl (ESPI/EBI), GPW, Stooq</Link>.
         </p>
       </aside>
     </div>
