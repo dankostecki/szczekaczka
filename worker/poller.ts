@@ -8,6 +8,7 @@ import { checkFeed, type FeedState } from './feeds'
 import { type Env, hub } from './env'
 
 const MIN_GAP_MS = 2000 // never wake up more often than this
+const RETRY_SECONDS = 60 // after a failed check: try again in 1, 2, 4… minutes (never later than usual)
 
 export class Poller extends DurableObject<Env> {
   private feeds = new Map<string, FeedState>()
@@ -86,7 +87,9 @@ export class Poller extends DurableObject<Env> {
   }
 
   private interval(feed: FeedConfig, now: number): number {
-    return (feed.minAge ?? (marketHours(new Date(now)) ? CHECK_SECONDS : QUIET_CHECK_SECONDS)) * 1000
+    const usual = (feed.minAge ?? (marketHours(new Date(now)) ? CHECK_SECONDS : QUIET_CHECK_SECONDS)) * 1000
+    const failures = this.feeds.get(feedKey(feed.source, feed.label))?.failures ?? 0
+    return failures ? Math.min(usual, RETRY_SECONDS * 1000 * 2 ** (failures - 1)) : usual
   }
 
   private dueAt(feed: FeedConfig, now: number): number {
@@ -115,6 +118,7 @@ export class Poller extends DurableObject<Env> {
     const url = this.env.FEED_ORIGIN ? `${this.env.FEED_ORIGIN}/${feed.url.replace(/^https?:\/\//, '')}` : feed.url
     const r = await checkFeed(feed, this.feeds.get(key), url)
     this.feeds.set(key, r.state)
+    if (r.state.failures) console.log(`feed ${key}: failed check ${r.state.failures} in a row`)
     if (!r.changed) return
 
     this.v++

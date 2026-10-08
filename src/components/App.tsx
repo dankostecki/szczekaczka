@@ -337,7 +337,8 @@ export default function App() {
       <main className="list wrap">
         {shownErrors.length > 0 && (
           <div className="errors" role="status">
-            Nie udało się pobrać: {shownErrors.map((e) => `${e.feed} (${e.message})`).join(', ')}
+            Chwilowo nie działa: {shownErrors.map((e) => `${e.feed} (${e.message})`).join(', ')}.
+            Widać ostatnio pobrane newsy, kolejna próba za chwilę.
           </div>
         )}
 

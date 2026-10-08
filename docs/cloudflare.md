@@ -56,7 +56,8 @@ Założenie: 1000 użytkowników, każdy średnio 10 połączeń dziennie (otwar
 ## Ryzyka
 
 - **Limit CPU na jedno wywołanie (10 ms na planie Free).** Dlatego Poller sprawdza jeden kanał na raz. Pomiar lokalny: przetworzenie jednego kanału to około 1,5–4 ms CPU, cała runda wszystkich kanałów około 13 ms. Czekanie na odpowiedź źródła nie liczy się do CPU. Prawdziwe wartości widać w panelu Cloudflare (Workers → szczekaczka → Metrics, oraz logi). Jeśli wywołania zaczną przekraczać limit, rozwiązaniem jest plan **Workers Paid (5 USD miesięcznie)**: dłuższy limit CPU i limity liczone w milionach.
-- **Źródła mogą zmienić format albo blokować zapytania z chmury.** Wtedy w ramce na stronie pojawi się błąd kanału, a ostatnie newsy z tego kanału zostaną na liście.
+- **Źródła czasem nie odpowiadają** (np. GPW potrafi nie odpowiedzieć w kilka sekund). Serwer czeka 15 s, a po nieudanej próbie ponawia ją po 1, 2, 4… minutach (nie rzadziej niż zwykle). Ramkę „Chwilowo nie działa” strony pokazują dopiero po 3 nieudanych próbach z rzędu, więc pojedyncze przycięcie źródła jest niewidoczne. Ostatnie newsy z tego kanału zostają na liście. W logach Workera każda nieudana próba to wpis `feed GPW:PRASA: failed check 1 in a row`.
+- **Źródła mogą zmienić format albo blokować zapytania z chmury.** Wtedy błędy będą się powtarzać i ramka zostanie. Ostatnie newsy z tego kanału zostaną na liście, a kanał można ukryć w ustawieniach.
 - **Liczby w tabeli to szacunek.** Rzeczywiste zużycie widać w panelu Cloudflare (Workers & Pages → Overview / Usage oraz Durable Objects).
 
 ## Czemu tak, a nie inaczej

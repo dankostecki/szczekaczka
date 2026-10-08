@@ -55,7 +55,7 @@ export function connectLive(h: LiveHandlers) {
     syncing ??= (async () => {
       try {
         const res = await fetch(newsUrl, { cache: 'no-cache' })
-        if (!res.ok) throw new Error(`Serwer odpowiedział ${res.status}`)
+        if (!res.ok) throw new Error(`odpowiedział ${res.status}`)
         const snap: Snapshot = await res.json()
         feeds = new Map(snap.feeds.map((f) => [f.key, { items: f.items, error: f.error }]))
         v = snap.v
@@ -66,7 +66,8 @@ export function connectLive(h: LiveHandlers) {
         buffered = []
         emit()
       } catch (e) {
-        h.onError(e instanceof Error ? e.message : 'Brak połączenia z serwerem')
+        // Shown as "Serwer (…)"; a failed fetch has only an English browser message
+        h.onError(e instanceof Error && e.message.startsWith('odpowiedział') ? e.message : 'brak połączenia')
       } finally {
         syncing = null
       }
