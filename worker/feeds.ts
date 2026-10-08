@@ -11,6 +11,7 @@ export interface FeedState {
   lastModified?: string
   checkedAt: number
   failures?: number // failed checks in a row
+  parser?: number   // PARSER_VERSION the items were read with
 }
 
 export interface CheckResult {
@@ -37,6 +38,11 @@ function shorten(text: string): string {
   const cut = text.slice(0, MAX_LEAD)
   return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), MAX_LEAD - 40))}…`
 }
+
+// Raise this whenever parsing changes (dates, leads…): every feed is then downloaded and
+// read again once, even if it has not changed, so stored items get the new reading.
+// 2: PAP MediaRoom dates ("czw., 10/08/2026 - 16:22").
+export const PARSER_VERSION = 2
 
 // How long to wait for a source. Waiting costs no CPU, only delays the other channels.
 const TIMEOUT_S = 15
@@ -85,8 +91,9 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
       'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
       'Accept-Language': 'pl,en;q=0.8',
     }
-    if (old.etag) headers['If-None-Match'] = old.etag
-    if (old.lastModified) headers['If-Modified-Since'] = old.lastModified
+    const reread = old.parser !== PARSER_VERSION
+    if (old.etag && !reread) headers['If-None-Match'] = old.etag
+    if (old.lastModified && !reread) headers['If-Modified-Since'] = old.lastModified
     res = await fetch(url, { headers, signal: AbortSignal.timeout(TIMEOUT_S * 1000) })
   } catch (e) {
     return failed((e as Error)?.name === 'TimeoutError' ? `źródło nie odpowiedziało w ${TIMEOUT_S} s` : 'brak połączenia ze źródłem')
@@ -98,7 +105,7 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
   const buf = await res.arrayBuffer()
   const hash = await sha1(buf)
   const meta = { etag: res.headers.get('etag') ?? undefined, lastModified: res.headers.get('last-modified') ?? undefined }
-  if (prev && hash === old.hash) return aged({ ...meta, error: null, failures: 0 })
+  if (prev && hash === old.hash && old.parser === PARSER_VERSION) return aged({ ...meta, error: null, failures: 0 })
 
   const full = decodeBody(buf, res.headers.get('content-type'))
   const xml = full.length > MAX_XML_CHARS ? full.slice(0, MAX_XML_CHARS) : full
@@ -118,7 +125,7 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
   const items = retain([...merged.values()], inFeed, now)
   const kept = new Set(items.map((i) => i.id))
   const remove = old.items.filter((i) => !kept.has(i.id)).map((i) => i.id)
-  const state: FeedState = { items, current: [...inFeed], error: null, failures: 0, hash, ...meta, checkedAt: now }
+  const state: FeedState = { items, current: [...inFeed], error: null, failures: 0, hash, ...meta, checkedAt: now, parser: PARSER_VERSION }
   // An added entry that is already too old to keep (a feed item without a date is always kept)
   const added = add.filter((i) => kept.has(i.id))
   return { state, changed: added.length > 0 || remove.length > 0 || old.error !== null, add: added, remove }
