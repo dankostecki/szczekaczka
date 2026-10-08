@@ -355,6 +355,10 @@ button:disabled { cursor: default; opacity: 0.5; }
 .legal-table td { padding: 10px 10px 10px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
 .legal-table td:last-child { white-space: nowrap; }
 
+.source { margin-top: 26px; }
+.source h3 { display: flex; align-items: center; gap: 8px; margin-top: 0; }
+.feed-url { word-break: break-all; font-size: 13.5px; }
+
 .legal-links { margin: 10px 0 0; font-size: 13.5px; color: var(--text-3); }
 .legal-links a { color: var(--text-2); }
 .btn.danger { color: var(--accent); border-color: var(--accent-soft); }

@@ -31,13 +31,14 @@ export default function Terms() {
         <li>
           Serwis zbiera w jednej liście nagłówki i zajawki udostępniane publicznie w kanałach RSS przez:
           Bankier.pl (komunikaty spółek ESPI/EBI), Giełdę Papierów Wartościowych w Warszawie (komunikaty, komunikaty
-          indeksowe, kalendarium, komunikaty prasowe, aktualności) oraz Stooq (biznes, kraj, świat).
+          indeksowe, kalendarium, komunikaty prasowe, aktualności) oraz Stooq (biznes, kraj, świat). Pełna lista
+          kanałów z adresami jest na stronie <Link href="/o-stronie">O stronie i źródła</Link>.
         </li>
         <li>
           Serwis udostępnia funkcje:
           <ul>
             <li>przeglądania, filtrowania i wyszukiwania newsów oraz przechodzenia do ich źródeł,</li>
-            <li>automatycznego odświeżania listy co minutę i oznaczania nowych newsów,</li>
+            <li>automatycznego odświeżania listy co 1, 5, 10 lub 15 minut i oznaczania nowych newsów,</li>
             <li>czytania newsów na głos syntezatorem mowy przeglądarki,</li>
             <li>powiadomień na pulpicie o nowych newsach,</li>
             <li>zapisywania newsów na później, oznaczania przeczytanych i listy obserwowanych spółek.</li>
@@ -94,8 +95,8 @@ export default function Terms() {
         </li>
         <li>
           Newsy mogą pojawiać się z opóźnieniem albo wcale, np. gdy serwis źródłowy jest niedostępny lub zmieni format
-          kanału. Godziny są wyświetlane w czasie polskim na podstawie danych z kanałów. Czytanie na głos może
-          zawierać błędy wymowy.
+          kanału. Serwer pobiera kanały najwyżej co 30 sekund i udostępnia wszystkim tę samą kopię listy. Godziny są
+          wyświetlane w czasie polskim na podstawie danych z kanałów. Czytanie na głos może zawierać błędy wymowy.
         </li>
         <li>
           Usługodawca dokłada starań, aby Serwis działał bez przerw, ale nie gwarantuje jego dostępności. Może

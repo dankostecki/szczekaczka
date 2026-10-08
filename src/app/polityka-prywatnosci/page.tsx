@@ -32,8 +32,8 @@ export default function PrivacyPolicy() {
       <h2>2. Jakie dane przetwarzamy, w jakim celu i na jakiej podstawie</h2>
       <h3>a) Dane techniczne w logach serwera</h3>
       <p>
-        Każde otwarcie strony i każde odświeżenie listy newsów (co minutę, gdy strona jest otwarta i odświeżanie jest
-        włączone) to zapytanie do serwera. Dostawca hostingu zapisuje przy tym w logach dane techniczne: adres IP,
+        Każde otwarcie strony i każde odświeżenie listy newsów (co 1, 5, 10 lub 15 minut, zależnie od ustawień, gdy
+        strona jest otwarta i odświeżanie jest włączone) to zapytanie do serwera. Dostawca hostingu zapisuje przy tym w logach dane techniczne: adres IP,
         datę i godzinę zapytania, adres podstrony, informacje o przeglądarce i systemie (nagłówek User-Agent)
         oraz kod odpowiedzi serwera.
       </p>

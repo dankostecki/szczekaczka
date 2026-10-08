@@ -18,7 +18,6 @@ import { Megaphone, Speaker, Bell, Refresh, Sun, Moon, Gear, Search, Close, Star
 const READ_KEY  = 'szczekaczka:read'
 const SAVED_KEY = 'szczekaczka:saved'
 const MAX_READ  = 5000
-const REFRESH_MS = 60_000
 const FRESH_MS  = 10 * 60_000 // how long a new headline keeps its NOWE badge
 const TITLE = 'Szczekaczka'
 
@@ -130,18 +129,26 @@ export default function App() {
   }, [])
 
   useEffect(() => { refresh() }, [refresh])
+  const refreshMs = prefs.refreshMin * 60_000
   useEffect(() => {
     if (!prefs.auto) return
-    const id = setInterval(refresh, REFRESH_MS)
+    const id = setInterval(() => {
+      // A hidden tab that neither reads aloud nor notifies has nothing to do with new
+      // headlines yet: skip the request, and catch up when the tab is shown again
+      const { voiceOn: on, prefs: p } = live.current
+      if (document.visibilityState === 'hidden' && !on && !p.notify) return
+      refresh()
+    }, refreshMs)
     return () => clearInterval(id)
-  }, [prefs.auto, refresh])
+  }, [prefs.auto, refreshMs, refresh])
 
   // Back on the tab: reset the counter, catch up if the timer was throttled
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState !== 'visible') return
       setUnseen(0)
-      if (live.current.prefs.auto && Date.now() - lastFetch.current > REFRESH_MS) refresh()
+      const p = live.current.prefs
+      if (p.auto && Date.now() - lastFetch.current > p.refreshMin * 60_000) refresh()
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
@@ -258,7 +265,7 @@ export default function App() {
             </span>
           </div>
 
-          <span className="updated" title={prefs.auto ? 'Odświeżanie co minutę' : 'Odświeżanie automatyczne wyłączone'}>
+          <span className="updated" title={prefs.auto ? `Odświeżanie co ${prefs.refreshMin} min` : 'Odświeżanie automatyczne wyłączone'}>
             <i className={`pulse ${prefs.auto ? 'on' : ''}`} />
             {loading ? 'pobieram…' : updatedAt ? clock(updatedAt) : ''}
           </span>
