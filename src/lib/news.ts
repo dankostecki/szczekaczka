@@ -34,9 +34,12 @@ export function freshItems(fetched: Item[], seen: Set<string>, now = Date.now())
     .sort((a, b) => a.time - b.time)
 }
 
-const hm = new Intl.DateTimeFormat('pl-PL', { hour: '2-digit', minute: '2-digit' })
-const dayFmt = new Intl.DateTimeFormat('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })
-const fullFmt = new Intl.DateTimeFormat('pl-PL', { dateStyle: 'full', timeStyle: 'short' })
+// Always Polish time, whatever the computer's time zone is set to
+const TZ = 'Europe/Warsaw'
+const hm = new Intl.DateTimeFormat('pl-PL', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })
+const dayFmt = new Intl.DateTimeFormat('pl-PL', { timeZone: TZ, weekday: 'long', day: 'numeric', month: 'long' })
+const fullFmt = new Intl.DateTimeFormat('pl-PL', { timeZone: TZ, dateStyle: 'full', timeStyle: 'short' })
+const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' })
 
 export const clock = (ms: number) => (ms ? hm.format(ms) : '—')
 export const fullDate = (ms: number) => (ms ? fullFmt.format(ms) : 'Brak daty w kanale')
@@ -51,11 +54,12 @@ export function ago(ms: number, now = Date.now()): string {
   return ''
 }
 
-const startOfDay = (ms: number) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime() }
+// The Polish calendar day as a number of days (for comparing and grouping)
+const startOfDay = (ms: number) => Date.parse(`${ymd.format(ms)}T00:00:00Z`) / 86_400_000
 
 export function dayLabel(ms: number, now = Date.now()): string {
   if (!ms) return 'Bez daty'
-  const diff = Math.round((startOfDay(now) - startOfDay(ms)) / 86_400_000)
+  const diff = startOfDay(now) - startOfDay(ms)
   if (diff === 0) return 'Dziś'
   if (diff === 1) return 'Wczoraj'
   if (diff === -1) return 'Jutro'

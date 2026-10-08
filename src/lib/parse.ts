@@ -67,17 +67,37 @@ function warsawToUtc(y: number, mo: number, d: number, h = 0, mi = 0, s = 0): nu
   return guess - warsawOffset(guess - warsawOffset(guess))
 }
 
-// RFC 822 / ISO dates parse natively. Dates without a zone ("2026-10-08 10:15",
-// "08.10.2026 10:15") are Polish sources' local time.
+// Wall-clock time read as Polish local time: "2026-10-08 10:15", "08.10.2026 10:15",
+// or anything the native parser reads once a zone is put on it ("Wed, 08 Oct 2026 10:15:00")
+function parseWarsaw(s: string): number {
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?)?$/)
+  if (iso) return warsawToUtc(+iso[1], +iso[2], +iso[3], +(iso[4] ?? 0), +(iso[5] ?? 0), +(iso[6] ?? 0))
+  const pl = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:,?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/)
+  if (pl) return warsawToUtc(+pl[3], +pl[2], +pl[1], +(pl[4] ?? 0), +(pl[5] ?? 0), +(pl[6] ?? 0))
+  const wall = new Date(`${s.replace(/\s*(GMT|UTC)$/i, '')} GMT`)
+  if (Number.isNaN(wall.getTime())) return NaN
+  return warsawToUtc(wall.getUTCFullYear(), wall.getUTCMonth() + 1, wall.getUTCDate(),
+    wall.getUTCHours(), wall.getUTCMinutes(), wall.getUTCSeconds())
+}
+
+// A zone at the end: "+0100", "+01:00", "CET", "CEST"
+const ZONE = /\s*(?:([+-])(\d{2}):?(\d{2})|\b(CEST|CET)\b)$/i
+
+// Dates without a zone are Polish sources' local time. Polish feeds also often write
+// "+0100" (CET) all year, so in summer the time came out an hour late: a CET/CEST
+// offset is dropped and the time is read as Warsaw time. Other zones (GMT, Z) stay.
 export function parseDate(s: string): string {
   s = s.trim()
   if (!s) return ''
-  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/)
-  const pl = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:,?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/)
-  let ms = NaN
-  if (iso) ms = warsawToUtc(+iso[1], +iso[2], +iso[3], +(iso[4] ?? 0), +(iso[5] ?? 0), +(iso[6] ?? 0))
-  else if (pl) ms = warsawToUtc(+pl[3], +pl[2], +pl[1], +(pl[4] ?? 0), +(pl[5] ?? 0), +(pl[6] ?? 0))
+  const z = s.match(ZONE)
+  const offset = !z ? null
+    : z[4] ? (z[4].toUpperCase() === 'CEST' ? 120 : 60)
+    : (z[1] === '-' ? -1 : 1) * (Number(z[2]) * 60 + Number(z[3]))
+  let ms: number
+  if (!z && !/(GMT|UTC|Z)$/i.test(s)) ms = parseWarsaw(s)
+  else if (offset === 60 || offset === 120) ms = parseWarsaw(s.slice(0, z!.index).trim())
   else ms = new Date(s).getTime()
+  if (Number.isNaN(ms)) ms = new Date(s).getTime()
   return Number.isNaN(ms) ? '' : new Date(ms).toISOString()
 }
 
