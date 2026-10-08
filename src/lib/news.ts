@@ -42,7 +42,7 @@ export const clock = (ms: number) => (ms ? hm.format(ms) : '—')
 export const fullDate = (ms: number) => (ms ? fullFmt.format(ms) : 'Brak daty w kanale')
 
 export function ago(ms: number, now = Date.now()): string {
-  if (!ms) return ''
+  if (!ms || ms - now > 60_000) return '' // no date, or a future event (calendar)
   const m = Math.floor((now - ms) / 60_000)
   if (m < 1) return 'teraz'
   if (m < 60) return `${m} min temu`

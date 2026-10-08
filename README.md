@@ -20,7 +20,7 @@ Lista jest w `src/lib/sources.ts`.
 
 - Przeglądarka nie może czytać tych kanałów bezpośrednio (CORS), więc pobiera je serwer: `/api/news` na Vercel ściąga wszystkie kanały równolegle przy każdym odświeżeniu, parsuje je (także kodowania ISO-8859-2 / windows-1250) i zwraca jedną listę bez duplikatów.
 - Strona odświeża listę co minutę. Nowe newsy dostają znacznik NOWE.
-- **Głos** (Web Speech API, polski głos z systemu): czyta nowe newsy z zaznaczonych kanałów. GPW z przedrostkiem „GPW:”, ESPI i Stooq samym tytułem. Przy wielu naraz czyta najnowsze, a resztę podsumowuje.
+- **Głos** (Web Speech API, tylko polskie głosy Google, czyli w Chrome; inne przeglądarki używają swojego domyślnego głosu): czyta nowe newsy z zaznaczonych kanałów. W ustawieniach: sam tytuł albo tytuł i lead (pełne zdania, bez daty i „(PAP)” na początku), „GPW:” przed komunikatami GPW. Stooq i ESPI bez nazwy źródła. Przy wielu naraz czyta najnowsze, a resztę podsumowuje.
 - **Powiadomienia na pulpicie**: działają, dopóki strona jest otwarta w karcie.
 - **Obserwowane spółki**: ESPI przysyła bardzo dużo raportów, więc na głos i w powiadomieniach są tylko spółki z tej listy (nazwy lub tickery po przecinku). Na liście widać wszystkie.
 - KALENDARZ GPW jest domyślnie wyciszony (zapowiedzi zdarzeń, nie bieżące komunikaty). Każdy kanał można włączyć lub wyłączyć w ustawieniach.

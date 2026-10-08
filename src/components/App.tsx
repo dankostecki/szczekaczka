@@ -5,9 +5,10 @@ import { SOURCES, labelsOf, type Source } from '@/lib/sources'
 import type { NewsItem } from '@/lib/parse'
 import { type Item, type FeedError, loadNews, freshItems, keyOf, dayKey, dayLabel, clock, withTime } from '@/lib/news'
 import { type Prefs, DEFAULT_PREFS, loadPrefs, savePrefs, loadJson, saveJson, watchMatcher } from '@/lib/prefs'
-import { speechSupported, speak, announce, stopSpeaking, spokenText } from '@/lib/speech'
+import { speechSupported, speak, speakItem, announce, stopSpeaking } from '@/lib/speech'
 import { notifyPermission, requestNotifyPermission, notifyHeadlines, testNotification } from '@/lib/notify'
 import { useWakeLock } from '@/lib/wakeLock'
+import { AUTHOR } from '@/lib/site'
 import NewsRow from './NewsRow'
 import Settings from './Settings'
 import { Megaphone, Speaker, Bell, Refresh, Sun, Moon, Gear, Search, Close, Star } from './Icons'
@@ -158,9 +159,9 @@ export default function App() {
     if (!prefs.auto) updatePrefs({ auto: true }) // voice only makes sense with refreshing
     speak('Głos włączony.', prefs, voices) // speaking inside the click unlocks speech in strict browsers
   }
-  const speakItem = useCallback((it: Item) => {
+  const readAloud = useCallback((it: Item) => {
     stopSpeaking()
-    speak(spokenText(it), live.current.prefs, live.current.voices)
+    speakItem(it, live.current.prefs, live.current.voices)
   }, [])
 
   async function toggleNotify() {
@@ -233,10 +234,15 @@ export default function App() {
     <div className="app">
       <header className="top">
         <div className="bar wrap">
-          <button className="brand" onClick={() => choose('ALL')} title="Wszystkie newsy">
-            <span className="logo"><Megaphone size={18} /></span>
-            <span>Szczekaczka</span>
-          </button>
+          <div className="brand">
+            <button className="logo" onClick={() => choose('ALL')} title="Wszystkie newsy" aria-label="Wszystkie newsy">
+              <Megaphone size={18} />
+            </button>
+            <span className="brand-text">
+              <button className="brand-name" onClick={() => choose('ALL')}>Szczekaczka</button>
+              <a className="by" href={AUTHOR.url} target="_blank" rel="noopener noreferrer">by {AUTHOR.name}</a>
+            </span>
+          </div>
 
           <span className="updated" title={prefs.auto ? 'Odświeżanie co minutę' : 'Odświeżanie automatyczne wyłączone'}>
             <i className={`pulse ${prefs.auto ? 'on' : ''}`} />
@@ -330,7 +336,7 @@ export default function App() {
               {newDay && <h2 className="day">{dayLabel(it.time, now)}</h2>}
               <NewsRow item={it} now={now} read={read} saved={savedIds.has(it.id)} fresh={fresh}
                 watched={it.source === 'ESPI' && watched(`${it.title} ${it.description}`)}
-                onRead={markRead} onSave={toggleSaved} onSpeak={canSpeak ? speakItem : undefined} />
+                onRead={markRead} onSave={toggleSaved} onSpeak={canSpeak ? readAloud : undefined} />
             </Fragment>
           )
         })}

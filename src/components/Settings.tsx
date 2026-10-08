@@ -3,7 +3,8 @@
 import { useEffect } from 'react'
 import { FEEDS, SOURCES, feedKey, labelsOf } from '@/lib/sources'
 import type { Prefs, Theme } from '@/lib/prefs'
-import { polishVoices, pickVoice, speak } from '@/lib/speech'
+import { googleVoices, pickVoice, speak } from '@/lib/speech'
+import { AUTHOR } from '@/lib/site'
 import type { AwakeState } from '@/lib/wakeLock'
 import { Close, Speaker, Bell } from './Icons'
 
@@ -54,7 +55,7 @@ const THEMES: [Theme, string][] = [['system', 'Systemowy'], ['light', 'Jasny'], 
 
 export default function Settings(p: Props) {
   const { prefs, onChange } = p
-  const pl = polishVoices(p.voices)
+  const google = googleVoices(p.voices)
   const auto = pickVoice(p.voices, '')
 
   const { onClose } = p
@@ -85,11 +86,22 @@ export default function Settings(p: Props) {
               <label className="setting">
                 <span>Głos</span>
                 <select value={prefs.voiceURI} onChange={(e) => onChange({ voiceURI: e.target.value })}>
-                  <option value="">Automatyczny{auto ? ` (${auto.name})` : ''}</option>
-                  {pl.map((v) => <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>)}
+                  <option value="">{auto ? `Automatyczny (${auto.name})` : 'Domyślny przeglądarki'}</option>
+                  {google.length > 1 && google.map((v) => <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>)}
                 </select>
               </label>
-              {pl.length === 0 && <p className="hint">Brak polskiego głosu w systemie. Przeglądarka użyje domyślnego.</p>}
+              {google.length === 0
+                ? <p className="hint">Głosy Google są dostępne w Chrome. Ta przeglądarka ich nie ma, więc użyje swojego domyślnego polskiego głosu.</p>
+                : google.length === 1 && <p className="hint">Chrome ma jeden polski głos Google.</p>}
+              <div className="setting">
+                <span>Czytaj</span>
+                <div className="segmented">
+                  <button className={prefs.readLead ? '' : 'on'} onClick={() => onChange({ readLead: false })}>Sam tytuł</button>
+                  <button className={prefs.readLead ? 'on' : ''} onClick={() => onChange({ readLead: true })}>Tytuł i lead</button>
+                </div>
+              </div>
+              <Switch label="Mów „GPW:” przed komunikatami GPW" checked={prefs.sayGpw} onChange={() => onChange({ sayGpw: !prefs.sayGpw })} />
+              <p className="hint">Stooq i ESPI są czytane bez nazwy źródła. Z leadu czytane są pełne zdania, bez daty i „(PAP)” na początku.</p>
               <label className="setting">
                 <span>Tempo <b>{prefs.rate.toFixed(1)}×</b></span>
                 <input type="range" min={0.6} max={1.8} step={0.1} value={prefs.rate}
@@ -165,7 +177,10 @@ export default function Settings(p: Props) {
           </div>
         </section>
 
-        <p className="foot">Źródła: Bankier.pl (ESPI/EBI), GPW, Stooq. Ustawienia są zapisane tylko w tej przeglądarce.</p>
+        <p className="foot">
+          Szczekaczka by <a href={AUTHOR.url} target="_blank" rel="noopener noreferrer">{AUTHOR.name}</a>.
+          Źródła: Bankier.pl (ESPI/EBI), GPW, Stooq. Ustawienia są zapisane tylko w tej przeglądarce.
+        </p>
       </aside>
     </div>
   )
