@@ -116,14 +116,21 @@ export class Poller extends DurableObject<Env> {
   private async check(feed: FeedConfig) {
     const key = feedKey(feed.source, feed.label)
     const url = this.env.FEED_ORIGIN ? `${this.env.FEED_ORIGIN}/${feed.url.replace(/^https?:\/\//, '')}` : feed.url
-    const r = await checkFeed(feed, this.feeds.get(key), url)
+    const prev = this.feeds.get(key)
+    const r = await checkFeed(feed, prev, url)
     this.feeds.set(key, r.state)
     if (r.state.failures) console.log(`feed ${key}: failed check ${r.state.failures} in a row`)
-    if (!r.changed) return
+    // The count of failures must survive the object being evicted from memory, or the
+    // error would never be shown; it changes only around failures, so this is rare
+    const sql = this.ctx.storage.sql
+    const save = () => sql.exec('INSERT OR REPLACE INTO feeds (key, state) VALUES (?, ?)', key, JSON.stringify(r.state))
+    if (!r.changed) {
+      if ((prev?.failures ?? 0) !== (r.state.failures ?? 0)) save()
+      return
+    }
 
     this.v++
-    const sql = this.ctx.storage.sql
-    sql.exec('INSERT OR REPLACE INTO feeds (key, state) VALUES (?, ?)', key, JSON.stringify(r.state))
+    save()
     sql.exec("INSERT OR REPLACE INTO meta (k, v) VALUES ('v', ?)", this.v)
     this.snapshotJson = null
     const delta: Delta = { t: 'd', v: this.v, key, add: r.add, remove: r.remove, error: r.state.error }
