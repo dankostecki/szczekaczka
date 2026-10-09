@@ -244,6 +244,7 @@ const HOURS = ['zero', 'pierwszej', 'drugiej', 'trzeciej', 'czwartej', 'piątej'
 // The title as it is said, with the hour in words: "Za 10 minut o godzinie szesnastej dane makro
 // z USA" while the release is ahead (the minutes counted again, for one read a few minutes after it
 // came), "O godzinie szesnastej dane makro z USA" once it is out. Also for the earlier "O 16:00 …".
+// Just after midnight: "Za 10 minut, trzydzieści minut po północy, dane makro z Japonii".
 // sentAt: when the announcement was made (the server's clock, so a computer clock that is behind does not add minutes)
 export function sayMacroTitle(title: string, link: string, sentAt: number, now = Date.now()): string {
   const t = title.match(/^(?:Za \d+ \S+ o godzinie|O) (\d{1,2}):(\d{2}) /)
@@ -251,8 +252,14 @@ export function sayMacroTitle(title: string, link: string, sentAt: number, now =
   const d = link.match(/(\d{4})-(\d{1,2})-(\d{1,2})[-#]\d{1,2}:\d{2}$/)
   const left = d ? Math.ceil((warsawToUtc(+d[1], +d[2], +d[3], +t[1], +t[2]) - Math.max(now, sentAt)) / 60_000) : 0
   const rest = title.slice(t[0].length)
-  const at = `godzinie ${HOURS[+t[1]]}${t[2] === '00' ? '' : t[2].startsWith('0') ? ` zero ${+t[2]}` : ` ${t[2]}`}`
-  return left >= 1 ? `${inMinutes(Math.min(left, LEAD_MINUTES))} o ${at} ${rest}` : `O ${at} ${rest}`
+  const soon = left >= 1 ? inMinutes(Math.min(left, LEAD_MINUTES)) : ''
+  const hour = +t[1], minute = +t[2]
+  if (hour === 0) {
+    const night = minute === 0 ? 'o północy' : `${minute === 1 ? 'minutę' : `${minute} ${plural(minute, 'minutę', 'minuty', 'minut')}`} po północy`
+    return soon ? `${soon}, ${night}, ${rest}` : `${night[0].toLocaleUpperCase('pl')}${night.slice(1)}, ${rest}`
+  }
+  const at = `godzinie ${HOURS[hour]}${t[2] === '00' ? '' : t[2].startsWith('0') ? ` zero ${minute}` : ` ${t[2]}`}`
+  return soon ? `${soon} o ${at} ${rest}` : `O ${at} ${rest}`
 }
 
 // ── The stock market today (macronext.pl/pl/dzis-na-gieldzie) ──
