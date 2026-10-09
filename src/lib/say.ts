@@ -65,7 +65,9 @@ export function sayNames(text: string): string {
     t = t.replace(re, (m, ...args) => {
       const at = args[args.length - 2] as number
       // At the start of a sentence: with a capital
-      return at === 0 || /[.!?:]\s*$/.test(t.slice(0, at)) ? said[0].toLocaleUpperCase('pl') + said.slice(1) : said
+      const word = at === 0 || /[.!?:]\s*$/.test(t.slice(0, at)) ? said[0].toLocaleUpperCase('pl') + said.slice(1) : said
+      // Its dot also ended the sentence ("… Telestrada S.A. Raport …", or the very end): kept, for the pause
+      return m.endsWith('.') && /^\s*($|\p{Lu})/u.test(t.slice(at + m.length)) ? `${word}.` : word
     })
   }
   return sayCapitals(t)

@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { FEEDS, SOURCES, HAS_ENGLISH, feedKey, CHECK_SECONDS, QUIET_CHECK_SECONDS, type Source } from '@/lib/sources'
+import { FEEDS, SOURCES, HAS_ENGLISH, feedKey, type Source } from '@/lib/sources'
 import type { Prefs, Theme } from '@/lib/prefs'
 import { polishVoices, voicesFor, pickVoice, speak, stopSpeaking, voiceLabel } from '@/lib/speech'
 import { AUTHOR, STORAGE_PREFIX } from '@/lib/site'
@@ -195,9 +195,7 @@ export default function Settings(p: Props) {
           </table>
           <p className="hint">
             Wiersz źródła ustawia wszystkie jego kanały naraz, a strzałka je rozwija, żeby ustawić każdy osobno.
-            Oko: kanał na liście; odznaczony od razu znika z listy i nie jest czytany ani pokazywany w powiadomieniach
-            (newsy i tak przychodzą w tle, więc po zaznaczeniu wraca od razu). Lead: po tytule czytana jest zajawka,
-            bez zaznaczenia sam tytuł.
+            Oko: kanał na liście. Lead: po tytule czytana jest też zajawka.
           </p>
         </section>
 
@@ -207,9 +205,8 @@ export default function Settings(p: Props) {
             <>
               <Switch label="Czytaj nowe newsy na głos" checked={p.voiceOn} onChange={p.onVoiceToggle} />
               <p className="hint">
-                Po każdym otwarciu strony głos włącza się przyciskiem, bo przeglądarki nie pozwalają stronie mówić, zanim się jej
-                nie dotknie. Na telefonie strona czyta tylko wtedy, gdy jest na ekranie: po wygaszeniu lub zablokowaniu ekranu albo
-                przejściu do innej aplikacji przeglądarka ją usypia. Pomaga przełącznik „Nie wygaszaj ekranu” w części „Inne”.
+                Po otwarciu strony włącz głos przyciskiem. Na telefonie strona czyta, gdy jest na ekranie, więc warto
+                włączyć „Nie wygaszaj ekranu” w części „Inne”.
               </p>
               <div className="voices" role="radiogroup" aria-label="Głos">
                 <label className="voice">
@@ -249,7 +246,6 @@ export default function Settings(p: Props) {
                     : `Angielskie głosy w tej przeglądarce: ${en.length}.`}
                 </p>
               </>)}
-              <p className="hint">Raporty spółek są czytane z „Nowe ESPI:” na początku, komunikaty GPW z „GPW:”, pozostałe newsy bez nazwy źródła. Nazwy pisane wielkimi literami są czytane jak słowa (np. „Archicom”, a nie A-R-C-H…), a „S.A.” i „Sp. z o.o.” w pełnym brzmieniu. Lead czytany jest tylko w kanałach zaznaczonych w kolumnie „Lead” wyżej: pełne zdania (lead ucięty przez źródło do miejsca ucięcia), bez daty, „(PAP)” i powtórzonego tytułu. Zapowiedzi MacroNext mają w leadzie dane (konsensus, poprzedni odczyt).</p>
               <label className="setting">
                 <span>Tempo <b>{prefs.rate.toFixed(1)}×</b></span>
                 <input type="range" min={0.6} max={1.8} step={0.1} value={prefs.rate}
@@ -295,9 +291,8 @@ export default function Settings(p: Props) {
             </span>
           </div>
           <p className="hint">
-            Nowe newsy przychodzą same przez stałe połączenie z serwerem, bez odświeżania. Serwer sprawdza kanały co około
-            {' '}{CHECK_SECONDS} s (GPW rzadziej, w nocy i w weekendy co {QUIET_CHECK_SECONDS / 60} min).
-            {p.online !== null && ' Online: tyle stron Szczekaczki jest teraz otwartych (każda karta liczy się osobno), odświeżane co około minutę.'}
+            Nowe newsy przychodzą same, bez odświeżania strony.
+            {p.online !== null && ' Online: tyle stron Szczekaczki jest teraz otwartych.'}
           </p>
           <Switch label="Nie wygaszaj ekranu" checked={prefs.keepAwake} onChange={() => onChange({ keepAwake: !prefs.keepAwake })} />
           {prefs.keepAwake && AWAKE_TEXT[p.awake] && <p className="hint">{AWAKE_TEXT[p.awake]}</p>}

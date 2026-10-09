@@ -122,7 +122,7 @@ export class Poller extends DurableObject<Env> {
 
   private dueAt(feed: FeedConfig, now: number): number {
     const s = this.feeds.get(feedKey(feed.source, feed.label))
-    if (feed.format === 'macronext') return macroDueAt(s)
+    if (feed.format?.startsWith('macronext')) return macroDueAt(s)
     return s ? s.checkedAt + this.interval(feed, now) : 0
   }
 
@@ -131,7 +131,7 @@ export class Poller extends DurableObject<Env> {
     let best: FeedConfig | undefined, bestDue = Infinity
     for (const f of FEEDS) {
       const due = this.dueAt(f, now)
-      if (due <= now && f.format === 'macronext') return f
+      if (due <= now && f.format?.startsWith('macronext')) return f
       if (due <= now && due < bestDue) { best = f; bestDue = due }
     }
     return best
@@ -149,7 +149,7 @@ export class Poller extends DurableObject<Env> {
     const url = this.env.FEED_ORIGIN ? `${this.env.FEED_ORIGIN}/${feed.url.replace(/^https?:\/\//, '')}` : feed.url
     const prev = this.feeds.get(key)
     const leads = feed.leads && this.env.FEED_ORIGIN ? `${this.env.FEED_ORIGIN}/${feed.leads.replace(/^https?:\/\//, '')}` : feed.leads
-    const r = feed.format === 'macronext' ? await checkMacro(feed, prev, url, Date.now()) : await checkFeed(feed, prev, url, Date.now(), leads)
+    const r = feed.format?.startsWith('macronext') ? await checkMacro(feed, prev, url, Date.now()) : await checkFeed(feed, prev, url, Date.now(), leads)
     this.feeds.set(key, r.state)
     if (r.log) console.log(`feed ${key}: ${r.log}`)
     if (r.problem) console.log(`feed ${key}: failed check ${r.state.failures} in a row: ${r.problem}`)

@@ -16,8 +16,8 @@ export default function About() {
     <LegalPage title="O stronie i źródła" dated={false}>
       <p>
         Szczekaczka zbiera w jednym miejscu komunikaty spółek giełdowych (ESPI/EBI), komunikaty Giełdy Papierów
-        Wartościowych w Warszawie, wiadomości Stooq, komunikaty prasowe z PAP MediaRoom, a także zapowiedzi danych makro z kalendarium
-        MacroNext, 10 minut przed ich publikacją. Nowe newsy może czytać na głos i pokazywać jako powiadomienia
+        Wartościowych w Warszawie, wiadomości Stooq, komunikaty prasowe z PAP MediaRoom, a także zapowiedzi danych makro
+        (10 minut przed publikacją) i wydarzeń giełdowych z kalendarium MacroNext. Nowe newsy może czytać na głos i pokazywać jako powiadomienia
         na pulpicie. Autor: <a href={AUTHOR.url} target="_blank" rel="noopener noreferrer">{AUTHOR.name}</a>.
       </p>
 
@@ -25,9 +25,10 @@ export default function About() {
       <p>
         Wszystkie treści pochodzą z publicznych kanałów RSS i stron wymienionych niżej. Przy każdym newsie widać źródło
         i kanał (np. „GPW · KOMUNIKATY”), a tytuł prowadzi do pełnej treści na stronie wydawcy. Szczekaczka pokazuje
-        tylko tytuły i krótkie zajawki. Nie zmienia ich treści i nie dodaje własnych. Wyjątkiem są zapowiedzi danych
-        makro: Szczekaczka składa je z kalendarium MacroNext (kraj, nazwa danych, okres, prognoza jako konsensus,
-        poprzedni odczyt) i wysyła 10 minut przed publikacją; prowadzą do kalendarium danego dnia.
+        tylko tytuły i krótkie zajawki. Nie zmienia ich treści i nie dodaje własnych. Wyjątkiem są zapowiedzi MacroNext:
+        Szczekaczka składa je z kalendarium danych makro (kraj, nazwa danych, okres, prognoza jako konsensus, poprzedni
+        odczyt) i z kalendarium giełdowego (wydarzenia spółek, wyniki spółek z Nowego Jorku); prowadzą do kalendarium
+        MacroNext na dziś.
       </p>
 
       {SOURCES.map((src) => {
@@ -45,11 +46,11 @@ export default function About() {
                 <tr><th>Kanał w Szczekaczce</th><th>Adres kanału RSS</th><th>Serwer sprawdza</th></tr>
               </thead>
               <tbody>
-                {FEEDS.filter((f) => f.source === src).map((f) => f.format === 'macronext' ? (
+                {FEEDS.filter((f) => f.source === src).map((f) => f.format?.startsWith('macronext') ? (
                   <tr key={f.url}>
                     <td>{src} · {f.label}</td>
-                    <td><a href={info.site} target="_blank" rel="noopener noreferrer" className="feed-url">{f.url}RRRR-M-D</a> (kalendarium dnia, nie RSS)</td>
-                    <td>o {fetchTimesText()} (dziś i jutro)</td>
+                    <td><a href={f.url} target="_blank" rel="noopener noreferrer" className="feed-url">{f.url}</a> (strona na dziś, nie RSS)</td>
+                    <td>o {fetchTimesText()}</td>
                   </tr>
                 ) : (
                   <tr key={f.url}>

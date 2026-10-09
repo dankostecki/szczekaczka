@@ -15,7 +15,7 @@ export interface FeedConfig {
   lang?: Lang     // 'pl' when not given
   // Not RSS. 'bankier-list': Bankier's web page with the list of company reports (parse.ts);
   // 'macronext': MacroNext's calendar of macro data, announced before each release (worker/macro.ts)
-  format?: 'bankier-list' | 'macronext'
+  format?: 'bankier-list' | 'macronext' | 'macronext-gielda'
   leads?: string           // an RSS feed with leads for some of the entries (matched by link)
 }
 
@@ -33,9 +33,10 @@ export const FEEDS: FeedConfig[] = [
   { source: 'PAP',   label: 'BIZNES',      url: 'https://pap-mediaroom.pl/kategoria/biznes-i-finanse/rss.xml',         minAge: 120 },
   { source: 'PAP',   label: 'NAUKA',       url: 'https://pap-mediaroom.pl/kategoria/nauka-i-technologie/rss.xml',      minAge: 120 },
   { source: 'PAP',   label: 'POLITYKA',    url: 'https://pap-mediaroom.pl/kategoria/polityka-i-społeczenstwo/rss.xml', minAge: 120 },
-  // Not news but announcements made by this site, 10 minutes before each release in MacroNext's
-  // calendar; `url` is the start of the address of a day's page ("…/d/2026-10-9")
-  { source: 'MACRONEXT', label: 'MAKRO',  url: 'https://macronext.pl/pl/dane-makro/d/', format: 'macronext' },
+  // Not news but announcements made by this site from MacroNext's pages for today: 10 minutes
+  // before each macro release, and the stock market before the sessions
+  { source: 'MACRONEXT', label: 'MAKRO',  url: 'https://macronext.pl/pl/kalendarium-dzis', format: 'macronext' },
+  { source: 'MACRONEXT', label: 'GIEŁDA', url: 'https://macronext.pl/pl/dzis-na-gieldzie', format: 'macronext-gielda' },
 ]
 
 // "GPW:PRASA" — key for a single channel (settings, filters)
@@ -89,10 +90,10 @@ export const SOURCE_INFO: Record<Source, { name: string; publisher: string; site
     about: 'Komunikaty prasowe firm i instytucji z serwisu PAP MediaRoom Polskiej Agencji Prasowej, z kategorii: biznes i finanse, nauka i technologie, polityka i społeczeństwo.',
   },
   MACRONEXT: {
-    name: 'MacroNext – kalendarium danych makro',
+    name: 'MacroNext – kalendarium danych makro i kalendarium giełdowe',
     publisher: 'MacroNext',
-    site: 'https://macronext.pl/pl/dane-makro',
-    about: 'Zapowiedzi publikacji danych makroekonomicznych i wydarzeń banków centralnych, 10 minut przed nimi: w tytule godzina publikacji i kraj (np. „Za 10 minut o godzinie 14:30 dane makro z Kanady”), a w leadzie nazwa danych, okres, konsensus (prognoza z kalendarium) i poprzedni odczyt; wystąpienia z tym, kto i skąd mówi (bez kraju). Wydarzenia bez podanej godziny są zapowiadane rano, o 6:40. Zapowiedzi tworzy ta strona z kalendarium MacroNext, czytanego o 0:01 i 6:30; są w nich dane o wysokiej i średniej wadze oraz wszystkie wydarzenia banków centralnych (bez zwykłych danych z Węgier, Rumunii, Czech i Słowacji).',
+    site: 'https://macronext.pl/pl/kalendarium-dzis',
+    about: 'MAKRO: zapowiedzi danych makroekonomicznych i wydarzeń banków centralnych 10 minut przed publikacją, z konsensusem i poprzednim odczytem; wydarzenia bez podanej godziny rano, o 6:40. Są tu dane o wysokiej i średniej wadze oraz wszystkie wydarzenia banków centralnych. GIEŁDA: wydarzenia spółek z GPW i NewConnect (dywidendy, walne zgromadzenia, debiuty) przed sesją, o 8:50, oraz wyniki spółek z giełd w Nowym Jorku przed sesją i po niej.',
   },
 }
 

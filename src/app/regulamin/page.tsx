@@ -33,8 +33,9 @@ export default function Terms() {
           także na publicznej liście komunikatów) przez:
           Bankier.pl (komunikaty spółek ESPI/EBI), Giełdę Papierów Wartościowych w Warszawie (komunikaty, komunikaty
           prasowe, aktualności), Stooq (biznes, kraj, świat) oraz PAP MediaRoom Polskiej Agencji
-          Prasowej (komunikaty prasowe: biznes i finanse, nauka i technologie, polityka i społeczeństwo). Z publicznego kalendarium danych makroekonomicznych
-          MacroNext Serwis tworzy zapowiedzi publikacji danych i wydarzeń banków centralnych, pokazywane 10 minut przed nimi. Pełna lista
+          Prasowej (komunikaty prasowe: biznes i finanse, nauka i technologie, polityka i społeczeństwo). Z publicznych kalendariów MacroNext Serwis
+          tworzy zapowiedzi publikacji danych makroekonomicznych i wydarzeń banków centralnych, pokazywane 10 minut przed nimi,
+          oraz zapowiedzi wydarzeń giełdowych (wydarzenia spółek, publikacje wyników), pokazywane przed sesją. Pełna lista
           kanałów z adresami jest na stronie <Link href="/o-stronie">O stronie i źródła</Link>.
         </li>
         <li>
@@ -93,8 +94,8 @@ export default function Terms() {
         </li>
         <li>
           Treści pochodzą od podmiotów trzecich (Bankier.pl, GPW, Stooq, PAP MediaRoom, MacroNext oraz spółek i instytucji publikujących raporty i komunikaty) i są
-          pokazywane w takiej postaci, w jakiej udostępniły je w kanałach RSS. Zapowiedzi danych makro powstają z kalendarium
-          MacroNext w chwili jego pobrania; godziny publikacji, prognozy i poprzednie odczyty mogą się potem zmienić. Usługodawca nie odpowiada za ich
+          pokazywane w takiej postaci, w jakiej udostępniły je w kanałach RSS. Zapowiedzi MacroNext powstają z kalendarium
+          w chwili jego pobrania; godziny publikacji, prognozy, poprzednie odczyty i wydarzenia spółek mogą się potem zmienić. Usługodawca nie odpowiada za ich
           treść, kompletność ani aktualność. Wiążące są wyłącznie raporty i komunikaty opublikowane w oficjalnych
           kanałach (system ESPI/EBI, strony spółek, strona GPW).
         </li>

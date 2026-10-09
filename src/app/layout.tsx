@@ -5,7 +5,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Szczekaczka',
-  description: 'Komunikaty ESPI, GPW, newsy Stooq, komunikaty PAP MediaRoom i zapowiedzi danych makro w jednym miejscu, czytane na głos.',
+  description: 'Komunikaty ESPI, GPW, newsy Stooq, komunikaty PAP MediaRoom oraz zapowiedzi danych makro i wydarzeń giełdowych w jednym miejscu, czytane na głos.',
   icons: { icon: `${BASE_PATH}/icon.svg` },
 }
 

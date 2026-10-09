@@ -149,9 +149,36 @@ button:disabled { cursor: default; opacity: 0.5; }
 .chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 /* The tabs keep their full width; when they and the search do not fit in one line, the
    search moves to the next one instead of cutting the last tab */
-.filters .chips { flex: 0 0 auto; max-width: 100%; }
+.filters .scroll-row { flex: 0 0 auto; max-width: 100%; }
 .chips::-webkit-scrollbar { display: none; }
 .chips.sub { padding-bottom: 12px; }
+
+/* More chips than fit: the side with more fades out and has an arrow (ScrollRow) */
+.scroll-row { position: relative; min-width: 0; }
+.scroll-row.more-right > .chips {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 56px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 56px), transparent);
+}
+.scroll-row.more-left > .chips {
+  -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 56px), transparent);
+  mask-image: linear-gradient(to left, #000 calc(100% - 56px), transparent);
+}
+.scroll-row.more-left.more-right > .chips {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 56px, #000 calc(100% - 56px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 56px, #000 calc(100% - 56px), transparent);
+}
+.scroll-more {
+  position: absolute; top: 2px; z-index: 1;
+  display: grid; place-items: center; width: 28px; height: 28px; padding: 0;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--bg); color: var(--text-2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.scroll-more:hover { color: var(--text); }
+.scroll-more.left { left: 0; }
+.scroll-more.right { right: 0; }
+.chips.sub ~ .scroll-more { top: 0; }
+.wrap.scroll-row > .scroll-more.left { left: 16px; }
+.wrap.scroll-row > .scroll-more.right { right: 16px; }
 
 .chip {
   display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0;
@@ -468,7 +495,10 @@ button:disabled { cursor: default; opacity: 0.5; }
   .updated { display: none; }
   .actions { gap: 4px; }
   .filters { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 10px; }
-  .filters .chips { margin: 0 -16px; padding: 0 16px; max-width: none; }
+  .filters .scroll-row { margin: 0 -16px; max-width: none; }
+  .filters .chips { padding: 0 16px; }
+  .filters .scroll-more.left { left: 6px; }
+  .filters .scroll-more.right { right: 6px; }
   .search { margin-left: 0; flex: none; max-width: none; }
   .title { font-size: 15.5px; }
   .ago { display: none; }

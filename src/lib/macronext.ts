@@ -1,18 +1,15 @@
-// MacroNext's calendar of macro data (macronext.pl/pl/dane-makro/d/2026-10-9): what is
-// released when, read from the day's page, and the announcement read 10 minutes before.
-// Shared by the Cloudflare Worker (worker/macro.ts) and the page (how it is read aloud).
-import { cleanText, warsawToUtc } from './parse'
+// MacroNext's calendars for today: macro data (macronext.pl/pl/kalendarium-dzis), what is released
+// when, announced 10 minutes before; and the stock market (macronext.pl/pl/dzis-na-gieldzie),
+// announced before the sessions. Shared by the Cloudflare Worker (worker/macro.ts) and the page
+// (how it is read aloud).
+import { cleanText, newYorkToUtc, warsawToUtc } from './parse'
 
 // How long before the release the announcement goes out
 export const LEAD_MINUTES = 10
-// When the server reads the calendar, Polish time: just after midnight, for the new day, and
-// again in the morning, for consensus figures added since. Tomorrow's page is read too, so
-// releases right after midnight are known in time.
-export const FETCH_TIMES: [number, number][] = [[0, 1], [6, 30]]
+// When the server reads the pages, Polish time: after midnight, when they show the new day, and
+// again in the morning, for consensus figures added since
+export const FETCH_TIMES: [number, number][] = [[0, 30], [6, 30]]
 export const fetchTimesText = () => FETCH_TIMES.map(([h, m]) => `${h}:${String(m).padStart(2, '0')}`).join(' i ')
-
-// The day's page, as linked from each announcement
-export const dayUrl = (base: string, y: number, m: number, d: number) => `${base}${y}-${m}-${d}`
 
 export interface MacroRow {
   time: string      // "14:30"; '' when the source gives none ("?")
@@ -155,6 +152,8 @@ export interface MacroGroup {
   countries: string[] // of the data
   lines: string[]     // the data, one line per row read; with the country in front where it changes, when there are several
   talks?: string[]    // speeches and meetings, named in the title without a country: "wystąpienie szefowej Fed z Bostonu (Susan Collins)"
+  title?: string      // the stock market: the title as it is, announced at `at` itself
+  until?: number      // the stock market: not announced after this
   done?: boolean      // announced (or too late to)
 }
 
@@ -233,6 +232,7 @@ const inMinutes = (n: number) => `Za ${n} ${plural(n, 'minutę', 'minuty', 'minu
 // z USA oraz wystąpienie …", "Dziś bez podanej godziny: dane makro z Chin". minutes: fewer when it
 // is announced late. Read aloud: sayMacroTitle.
 export function groupTitle(g: MacroGroup, minutes = LEAD_MINUTES): string {
+  if (g.title) return g.title
   const what = [g.lines.length ? dataFrom(g.countries) : '', ...(g.talks ?? [])].filter(Boolean).join(' oraz ')
   return g.allDay ? `Dziś bez podanej godziny: ${what}` : `${inMinutes(minutes)} o godzinie ${clockOf(g.at)} ${what}`
 }
@@ -253,6 +253,108 @@ export function sayMacroTitle(title: string, link: string, sentAt: number, now =
   const rest = title.slice(t[0].length)
   const at = `godzinie ${HOURS[+t[1]]}${t[2] === '00' ? '' : t[2].startsWith('0') ? ` zero ${+t[2]}` : ` ${t[2]}`}`
   return left >= 1 ? `${inMinutes(Math.min(left, LEAD_MINUTES))} o ${at} ${rest}` : `O ${at} ${rest}`
+}
+
+// ── The stock market today (macronext.pl/pl/dzis-na-gieldzie) ──
+
+export interface StockRow {
+  company: string // "LPP", "PepsiCo"
+  market: string  // "GPW", "NC" (NewConnect), "NYSE", "LSE"…
+  time: string    // "przed sesją", "po sesji"; '' when not given
+  event: string   // "Dzień ustalenia prawa do dywidendy 500 zł na akcję."
+}
+
+// The day's rows; null when the page has no table or is for another day
+export function parseStockDay(html: string, y: number, m: number, d: number): StockRow[] | null {
+  const start = html.search(/<table[^>]*\bcompany-agenda\b/)
+  if (start < 0) return null
+  const end = html.indexOf('</table>', start)
+  const table = html.slice(start, end < 0 ? undefined : end)
+  const day = table.match(/kalendarium\/d\/(\d{4})-(\d{1,2})-(\d{1,2})/)
+  if (day && (+day[1] !== y || +day[2] !== m || +day[3] !== d)) return null
+  const rows: StockRow[] = []
+  for (const tr of table.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
+    const tds = [...tr[1].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)].map((c) => cleanText(c[1]))
+    if (tds.length !== 5 || !tds[0] || !tds[4]) continue
+    rows.push({ company: tds[0], market: tds[2].toUpperCase(), time: tds[3].replace(/^(null|-|brak)$/i, ''), event: tds[4] })
+  }
+  return rows
+}
+
+// When they are announced: the Warsaw session (GPW, NewConnect) at 8:50 Polish time; American
+// results before the session at 5:15 in New York (11:15 Polish time, 10:15 in the weeks when only
+// one of the two has changed the clock), after it at 15:55 (21:55 Polish time)
+export const GPW_AT: [number, number] = [8, 50]
+export const US_BEFORE_AT: [number, number] = [5, 15]
+export const US_AFTER_AT: [number, number] = [15, 55]
+const STILL_MS = 2 * 3600_000 // one found late is still announced for this long
+const POLISH = ['GPW', 'NC']
+const US: Record<string, string> = { NYSE: 'NYSE', NASDAQ: 'Nasdaq' }
+
+const listPl = (names: string[]) => (names.length > 1 ? `${names.slice(0, -1).join(', ')} i ${names.at(-1)}` : names[0] ?? '')
+const sentence = (s: string) => (/[.!?]$/.test(s) ? s : `${s}.`)
+
+// "Raport za III kwartał 2026 roku opublikują: Citigroup, Goldman Sachs oraz Taiwan Semiconductor
+// Manufacturing Company – nie podano godziny publikacji." One line per event, companies together.
+function usLines(known: StockRow[], unknown: StockRow[]): string[] {
+  const byEvent = new Map<string, { known: string[]; unknown: string[] }>()
+  const add = (r: StockRow, k: 'known' | 'unknown') => {
+    const event = r.event.replace(/\.$/, '')
+    if (!byEvent.has(event)) byEvent.set(event, { known: [], unknown: [] })
+    byEvent.get(event)![k].push(r.company)
+  }
+  known.forEach((r) => add(r, 'known'))
+  unknown.forEach((r) => add(r, 'unknown'))
+  return [...byEvent].map(([event, g]) => {
+    const names = [listPl(g.known), g.unknown.length ? `${listPl(g.unknown)} – nie podano godziny publikacji` : ''].filter(Boolean).join(' oraz ')
+    const report = event.match(/^Publikacja raportu (.+)$/i)
+    const many = g.known.length + g.unknown.length > 1
+    if (report) return `Raport ${report[1]} ${many ? 'opublikują' : 'opublikuje'}: ${names}.`
+    return many ? `${event}: ${names}.` : `${names}: ${event}.`
+  })
+}
+
+// The day's announcements of the stock calendar
+export function stockGroups(rows: StockRow[], keyPrefix: string, y: number, m: number, d: number): MacroGroup[] {
+  const day = `${y}-${m}-${d}`
+  const ymd = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  const groups: MacroGroup[] = []
+  const group = (id: string, at: number, title: string, lines: string[]) =>
+    groups.push({ id: `${keyPrefix}:${ymd}:${id}`, at, day, countries: [], lines, title, until: at + STILL_MS })
+
+  const polish = rows.filter((r) => POLISH.includes(r.market))
+  if (polish.length) {
+    const gpw = polish.some((r) => r.market === 'GPW'), nc = polish.some((r) => r.market === 'NC')
+    group('gpw', warsawToUtc(y, m, d, ...GPW_AT), gpw && nc ? 'Dziś na giełdzie GPW i NewConnect' : gpw ? 'Dziś na giełdzie GPW' : 'Dziś na NewConnect',
+      polish.map((r) => sentence(`${r.company}: ${r.event}`)))
+  }
+  const us = rows.filter((r) => r.market in US)
+  const before = us.filter((r) => /przed/i.test(r.time)), after = us.filter((r) => /po\s+sesji/i.test(r.time))
+  const unknown = us.filter((r) => !before.includes(r) && !after.includes(r))
+  const where = (rs: StockRow[]) => [...new Set(rs.map((r) => US[r.market]))].join(' i ')
+  if (before.length || unknown.length) {
+    group('usa-przed', newYorkToUtc(y, m, d, ...US_BEFORE_AT), `Dziś na ${where([...before, ...unknown])} przed sesją`, usLines(before, unknown))
+  }
+  if (after.length) group('usa-po', newYorkToUtc(y, m, d, ...US_AFTER_AT), `Dziś na ${where(after)} po sesji`, usLines(after, []))
+  return groups.sort((a, b) => a.at - b.at)
+}
+
+// Said in words: "NWZA ws. zmiany statutu" -> "Nadzwyczajne walne zgromadzenie akcjonariuszy w sprawie zmiany statutu"
+const STOCK_WORDS: [RegExp, string][] = [
+  [/\bNWZA\b/g, 'Nadzwyczajne walne zgromadzenie akcjonariuszy'],
+  [/\bZWZA\b/g, 'Zwyczajne walne zgromadzenie akcjonariuszy'],
+  [/\bWZA\b/g, 'Walne zgromadzenie akcjonariuszy'],
+  [/\bNWZ\b/g, 'Nadzwyczajne walne zgromadzenie'],
+  [/\bZWZ\b/g, 'Zwyczajne walne zgromadzenie'],
+  [/(^|\s)ws\.(?=\s)/g, '$1w sprawie'],
+  [/(^|\s)m\.in\.(?=\s)/g, '$1między innymi'],
+  [/\bNewConnect\b/g, 'New Connect'],
+]
+const ORDINAL: Record<string, [string, string]> = { I: ['pierwszy', 'pierwsze'], II: ['drugi', 'drugie'], III: ['trzeci', 'trzecie'], IV: ['czwarty', 'czwarte'] }
+export function sayStock(text: string): string {
+  let t = text
+  for (const [re, said] of STOCK_WORDS) t = t.replace(re, said)
+  return t.replace(/\b(I|II|III|IV) (kwartał|półrocze)/g, (m, n: string, what: string) => `${ORDINAL[n][what === 'kwartał' ? 0 : 1]} ${what}`)
 }
 
 // ── Reading aloud: numbers with their units in words ──
