@@ -1,5 +1,5 @@
 // Checking one feed: download it if it changed, parse it, and say what is new.
-import { decodeBody, parseFeedXml, papListSection, parsePapList, type NewsItem } from '../src/lib/parse'
+import { decodeBody, parseFeedXml, bankierListSection, parseBankierList, type NewsItem } from '../src/lib/parse'
 import type { FeedConfig } from '../src/lib/sources'
 
 export interface FeedState {
@@ -77,10 +77,29 @@ function retain(items: NewsItem[], current: Set<string>, now: number): NewsItem[
     .slice(0, MAX_KEEP)
 }
 
-// `skip`: entries another channel already has (the same ESPI report from Bankier and PAP); they
-// are treated as not in this feed. An entry this channel already shows stays.
+const HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (compatible; Szczekaczka/1.0; +https://github.com/dankostecki/szczekaczka)',
+  'Accept-Language': 'pl,en;q=0.8',
+}
+const RSS_ACCEPT = 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
+
+// A link without its query: Bankier's RSS adds "?utm_source=RSS…" to the links of its list page
+const bareLink = (link: string) => link.replace(/[?#].*$/, '')
+
+// Leads for a list page, from an RSS feed that has some of its entries (by link); its entries are
+// also the fallback when the list page fails. null when the feed could not be read this time.
+async function fetchLeads(url: string, feed: FeedConfig): Promise<{ body: string; items: NewsItem[]; byLink: Map<string, string> } | null> {
+  try {
+    const res = await fetch(url, { headers: { ...HEADERS, Accept: RSS_ACCEPT }, signal: AbortSignal.timeout(TIMEOUT_S * 1000) })
+    if (!res.ok) return null
+    const body = decodeBody(await res.arrayBuffer(), res.headers.get('content-type')).slice(0, MAX_XML_CHARS)
+    const items = parseFeedXml(body, feed, MAX_PER_FEED)
+    return { body, items, byLink: new Map(items.map((i) => [bareLink(i.link), i.description])) }
+  } catch { return null }
+}
+
 export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, url = feed.url, now = Date.now(),
-  skip?: (item: NewsItem) => boolean): Promise<CheckResult> {
+  leadsUrl = feed.leads): Promise<CheckResult> {
   const old: FeedState = prev ?? { items: [], error: null, checkedAt: 0 }
   // Before 24-hour keeping, everything stored was in the feed
   const current = new Set(old.current ?? old.items.map((i) => i.id))
@@ -101,12 +120,7 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
 
   let res: Response
   try {
-    const headers: Record<string, string> = {
-      'User-Agent': 'Mozilla/5.0 (compatible; Szczekaczka/1.0; +https://github.com/dankostecki/szczekaczka)',
-      'Accept': feed.format === 'pap-list' ? 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8'
-        : 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
-      'Accept-Language': 'pl,en;q=0.8',
-    }
+    const headers: Record<string, string> = { ...HEADERS, Accept: feed.format ? 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8' : RSS_ACCEPT }
     const reread = old.parser !== PARSER_VERSION
     if (old.etag && !reread) headers['If-None-Match'] = old.etag
     if (old.lastModified && !reread) headers['If-Modified-Since'] = old.lastModified
@@ -119,30 +133,44 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
   if (!res.ok) return failed(`źródło zwróciło błąd HTTP ${res.status}`)
 
   const buf = await res.arrayBuffer()
-  // PAP's report list is a web page: only its table counts (the rest changes on every visit)
-  const page = feed.format === 'pap-list' ? decodeBody(buf, res.headers.get('content-type')) : ''
-  const section = feed.format === 'pap-list' ? papListSection(page) : null
-  if (feed.format === 'pap-list' && section === null) {
+  // A list page: only the list counts (the rest of the page changes on every visit)
+  const page = feed.format ? decodeBody(buf, res.headers.get('content-type')) : ''
+  const section = feed.format ? bankierListSection(page) : null
+  let listProblem: string | null = null, listDetail = ''
+  if (feed.format && section === null) {
     const text = page.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<[^>]+>/gi, ' ').replace(/\s+/g, ' ').trim()
-    return failed(`strona bez listy raportów: ${pageInfo(page, res, url)}`, `${res.headers.get('server') ?? ''} ${text.slice(0, 300)}`)
+    listProblem = `strona bez listy komunikatów: ${pageInfo(page, res, url)}`
+    listDetail = `${res.headers.get('server') ?? ''} ${text.slice(0, 300)}`
   }
-  const hash = await sha1(section === null ? buf : new TextEncoder().encode(section))
+  const leads = feed.format && leadsUrl ? await fetchLeads(leadsUrl, feed) : null
+  // No list: the RSS's entries rather than nothing, with a note in the red box (from the 3rd time)
+  if (listProblem && !leads) return failed(listProblem, listDetail)
+  const failures = listProblem ? (old.failures ?? 0) + 1 : 0
+  const error = listProblem && (failures >= SHOW_ERROR_AFTER || old.items.length === 0) ? `${listProblem}; są tylko raporty z RSS` : null
+  const problem = listProblem ? `${listProblem} (raporty z RSS) | ${listDetail}` : undefined
+  const hash = await sha1(section === null && !leads ? buf : new TextEncoder().encode(`${section ?? 'rss'}${leads?.body ?? ''}`))
   const meta = { etag: res.headers.get('etag') ?? undefined, lastModified: res.headers.get('last-modified') ?? undefined }
-  if (prev && hash === old.hash && old.parser === PARSER_VERSION) return aged({ ...meta, error: null, failures: 0 })
+  if (prev && hash === old.hash && old.parser === PARSER_VERSION) return { ...aged({ ...meta, error, failures }), problem }
 
   let parsed: NewsItem[]
-  if (section !== null) parsed = parsePapList(section, feed, MAX_PER_FEED, now) // an empty list (no reports yet today) is fine
-  else {
+  if (feed.format) {
+    // An entry already stored under another form of its link (from the RSS, with "?utm_…") keeps its id
+    const stored = new Map(old.items.map((i) => [bareLink(i.link), i]))
+    const entries = section !== null ? parseBankierList(section, feed, MAX_PER_FEED) : leads!.items
+    parsed = entries.map((i) => {
+      const was = stored.get(bareLink(i.link))
+      const lead = leads?.byLink.get(bareLink(i.link)) || (was?.description ?? '')
+      return { ...i, id: was?.id ?? i.id, description: lead }
+    })
+  } else {
     const full = decodeBody(buf, res.headers.get('content-type'))
     const xml = full.length > MAX_XML_CHARS ? full.slice(0, MAX_XML_CHARS) : full
     parsed = parseFeedXml(xml, feed, MAX_PER_FEED)
     if (parsed.length === 0 && !/<(item|entry)[\s>]/i.test(xml)) return failed('odpowiedź bez wpisów RSS')
   }
-  const before = new Map(old.items.map((i) => [i.id, i]))
-  const fresh = parsed
-    .filter((it) => before.has(it.id) || !skip?.(it))
-    .map((it) => ({ ...it, description: shorten(it.description) }))
+  const fresh = parsed.map((it) => ({ ...it, description: shorten(it.description) }))
 
+  const before = new Map(old.items.map((i) => [i.id, i]))
   // New ids, and items whose title or lead was corrected
   const add = fresh.filter((i) => {
     const b = before.get(i.id)
@@ -154,9 +182,9 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
   const items = retain([...merged.values()], inFeed, now)
   const kept = new Set(items.map((i) => i.id))
   const remove = old.items.filter((i) => !kept.has(i.id)).map((i) => i.id)
-  const state: FeedState = { items, current: [...inFeed], error: null, failures: 0, hash, ...meta, checkedAt: now, parser: PARSER_VERSION }
+  const state: FeedState = { items, current: [...inFeed], error: feed.format ? error : null, failures: feed.format ? failures : 0, hash, ...meta, checkedAt: now, parser: PARSER_VERSION }
   // An added entry that is already too old to keep (a feed item without a date is always kept)
   const added = add.filter((i) => kept.has(i.id))
   const gap = current.size > 0 && fresh.length > 0 && !fresh.some((i) => current.has(i.id))
-  return { state, changed: added.length > 0 || remove.length > 0 || old.error !== null, add: added, remove, gap }
+  return { state, changed: added.length > 0 || remove.length > 0 || old.error !== state.error, add: added, remove, gap, problem: feed.format ? problem : undefined }
 }

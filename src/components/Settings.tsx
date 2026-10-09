@@ -272,7 +272,7 @@ export default function Settings(p: Props) {
 
         <p className="foot">
           Szczekaczka by <a href={AUTHOR.url} target="_blank" rel="noopener noreferrer">{AUTHOR.name}</a>.
-          Źródła: <Link href="/o-stronie">Bankier.pl i PAP Biznes (ESPI/EBI), GPW, Stooq, PAP MediaRoom, CNBC</Link>.
+          Źródła: <Link href="/o-stronie">Bankier.pl (ESPI/EBI), GPW, Stooq, PAP MediaRoom, CNBC</Link>.
         </p>
       </aside>
     </div>
