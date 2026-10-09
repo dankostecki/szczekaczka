@@ -3,6 +3,7 @@
 import type { Item } from './news'
 import type { Prefs } from './prefs'
 import { langOf, type Lang } from './sources'
+import { sayNumbers } from './macronext'
 
 export const speechSupported = () =>
   typeof window !== 'undefined' && 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window
@@ -116,8 +117,10 @@ export function spokenLead(description: string, title: string): string {
 }
 
 // What is read for one headline. Stooq, ESPI, PAP and CNBC: the title alone, GPW optionally with
-// its name in front; then the lead when that is switched on.
+// its name in front; then the lead when that is switched on. MacroNext's announcements are read
+// whole (the figures are the point), with numbers and units in words.
 export function spokenParts(it: Item, prefs: Prefs): string[] {
+  if (it.source === 'MACRONEXT') return [sayNumbers(`${it.title}.`), sayNumbers(it.description)].filter((p) => p !== '.' && p !== '')
   const title = it.source === 'GPW' && prefs.sayGpw ? `GPW: ${it.title}` : it.title
   const lead = prefs.readLead ? spokenLead(it.description, it.title) : ''
   return lead ? [title, lead] : [title]

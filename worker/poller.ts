@@ -5,6 +5,7 @@ import { FEEDS, feedKey, renamedKey, renamedId, renamedItem, CHECK_SECONDS, QUIE
 import { marketHours } from '../src/lib/schedule'
 import type { Delta, FeedSnapshot, Heartbeat } from '../src/lib/protocol'
 import { checkFeed, type FeedState } from './feeds'
+import { checkMacro, macroDueAt } from './macro'
 import { type Env, hub } from './env'
 
 const MIN_GAP_MS = 2000 // never wake up more often than this
@@ -121,13 +122,16 @@ export class Poller extends DurableObject<Env> {
 
   private dueAt(feed: FeedConfig, now: number): number {
     const s = this.feeds.get(feedKey(feed.source, feed.label))
+    if (feed.format === 'macronext') return macroDueAt(s)
     return s ? s.checkedAt + this.interval(feed, now) : 0
   }
 
+  // MacroNext's announcements are timed, so they go before any overdue feed
   private mostOverdue(now: number): FeedConfig | undefined {
     let best: FeedConfig | undefined, bestDue = Infinity
     for (const f of FEEDS) {
       const due = this.dueAt(f, now)
+      if (due <= now && f.format === 'macronext') return f
       if (due <= now && due < bestDue) { best = f; bestDue = due }
     }
     return best
@@ -145,8 +149,9 @@ export class Poller extends DurableObject<Env> {
     const url = this.env.FEED_ORIGIN ? `${this.env.FEED_ORIGIN}/${feed.url.replace(/^https?:\/\//, '')}` : feed.url
     const prev = this.feeds.get(key)
     const leads = feed.leads && this.env.FEED_ORIGIN ? `${this.env.FEED_ORIGIN}/${feed.leads.replace(/^https?:\/\//, '')}` : feed.leads
-    const r = await checkFeed(feed, prev, url, Date.now(), leads)
+    const r = feed.format === 'macronext' ? await checkMacro(feed, prev, url, Date.now()) : await checkFeed(feed, prev, url, Date.now(), leads)
     this.feeds.set(key, r.state)
+    if (r.log) console.log(`feed ${key}: ${r.log}`)
     if (r.problem) console.log(`feed ${key}: failed check ${r.state.failures} in a row: ${r.problem}`)
     if (r.gap) console.log(`feed ${key}: all ${r.state.current?.length} entries are new, some may have been missed`)
     // The count of failures must survive the object being evicted from memory, or the
@@ -154,7 +159,7 @@ export class Poller extends DurableObject<Env> {
     const sql = this.ctx.storage.sql
     const save = () => sql.exec('INSERT OR REPLACE INTO feeds (key, state) VALUES (?, ?)', key, JSON.stringify(r.state))
     if (!r.changed) {
-      if ((prev?.failures ?? 0) !== (r.state.failures ?? 0)) save()
+      if (r.dirty || (prev?.failures ?? 0) !== (r.state.failures ?? 0)) save()
       return
     }
 

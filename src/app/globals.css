@@ -19,6 +19,7 @@
   --src-stooq: #d97706;
   --src-pap: #0284c7;
   --src-cnbc: #c026d3;
+  --src-macronext: #4d7c0f;
   color-scheme: light;
 }
 
@@ -43,6 +44,7 @@
     --src-stooq: #f8c24a;
     --src-pap: #5cc8f5;
     --src-cnbc: #e879f9;
+    --src-macronext: #a3e635;
     color-scheme: dark;
   }
 }
@@ -67,6 +69,7 @@
   --src-stooq: #f8c24a;
   --src-pap: #5cc8f5;
   --src-cnbc: #e879f9;
+  --src-macronext: #a3e635;
   color-scheme: dark;
 }
 
@@ -233,6 +236,8 @@ button:disabled { cursor: default; opacity: 0.5; }
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .row.read .desc { color: var(--text-3); }
+/* MacroNext's announcements: the figures are the point, so all of them */
+.desc.whole { display: block; overflow: visible; }
 
 .errors {
   margin-top: 14px; padding: 10px 12px; border-radius: 10px;

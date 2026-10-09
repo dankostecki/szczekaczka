@@ -57,9 +57,15 @@ function warsawOffset(utcMs: number): number {
   return offset
 }
 
-function warsawToUtc(y: number, mo: number, d: number, h = 0, mi = 0, s = 0): number {
+export function warsawToUtc(y: number, mo: number, d: number, h = 0, mi = 0, s = 0): number {
   const guess = Date.UTC(y, mo - 1, d, h, mi, s)
   return guess - warsawOffset(guess - warsawOffset(guess))
+}
+
+// The Polish calendar date at a moment
+export function warsawDate(utcMs: number): { y: number; m: number; d: number } {
+  const wall = new Date(utcMs + warsawOffset(utcMs))
+  return { y: wall.getUTCFullYear(), m: wall.getUTCMonth() + 1, d: wall.getUTCDate() }
 }
 
 // Wall-clock time read as Polish local time: "2026-10-08 10:15", "08.10.2026 10:15",

@@ -3,6 +3,7 @@ import Link from 'next/link'
 import LegalPage, { Contact } from '@/components/LegalPage'
 import { FEEDS, SOURCES, SOURCE_INFO, CHECK_SECONDS, QUIET_CHECK_SECONDS } from '@/lib/sources'
 import { MARKET_DAYS, MARKET_FROM, MARKET_TO } from '@/lib/schedule'
+import { fetchTimesText } from '@/lib/macronext'
 import { AUTHOR } from '@/lib/site'
 
 export const metadata: Metadata = {
@@ -15,15 +16,18 @@ export default function About() {
     <LegalPage title="O stronie i źródła" dated={false}>
       <p>
         Szczekaczka zbiera w jednym miejscu komunikaty spółek giełdowych (ESPI/EBI), komunikaty Giełdy Papierów
-        Wartościowych w Warszawie, wiadomości Stooq, komunikaty prasowe z PAP MediaRoom oraz, po angielsku, wiadomości CNBC. Nowe newsy może czytać na głos i pokazywać jako powiadomienia
+        Wartościowych w Warszawie, wiadomości Stooq, komunikaty prasowe z PAP MediaRoom, po angielsku wiadomości CNBC, a także zapowiedzi danych makro z kalendarium
+        MacroNext, 10 minut przed ich publikacją. Nowe newsy może czytać na głos i pokazywać jako powiadomienia
         na pulpicie. Autor: <a href={AUTHOR.url} target="_blank" rel="noopener noreferrer">{AUTHOR.name}</a>.
       </p>
 
       <h2>Skąd są newsy</h2>
       <p>
-        Wszystkie treści pochodzą z publicznych kanałów RSS wymienionych niżej. Przy każdym newsie widać źródło
+        Wszystkie treści pochodzą z publicznych kanałów RSS i stron wymienionych niżej. Przy każdym newsie widać źródło
         i kanał (np. „GPW · KOMUNIKATY”), a tytuł prowadzi do pełnej treści na stronie wydawcy. Szczekaczka pokazuje
-        tylko tytuły i krótkie zajawki z kanałów RSS. Nie zmienia ich treści i nie dodaje własnych.
+        tylko tytuły i krótkie zajawki. Nie zmienia ich treści i nie dodaje własnych. Wyjątkiem są zapowiedzi danych
+        makro: Szczekaczka składa je z kalendarium MacroNext (kraj, nazwa danych, okres, prognoza jako konsensus,
+        poprzedni odczyt) i wysyła 10 minut przed publikacją; prowadzą do kalendarium danego dnia.
       </p>
 
       {SOURCES.map((src) => {
@@ -41,7 +45,13 @@ export default function About() {
                 <tr><th>Kanał w Szczekaczce</th><th>Adres kanału RSS</th><th>Serwer sprawdza</th></tr>
               </thead>
               <tbody>
-                {FEEDS.filter((f) => f.source === src).map((f) => (
+                {FEEDS.filter((f) => f.source === src).map((f) => f.format === 'macronext' ? (
+                  <tr key={f.url}>
+                    <td>{src} · {f.label}</td>
+                    <td><a href={info.site} target="_blank" rel="noopener noreferrer" className="feed-url">{f.url}RRRR-M-D</a> (kalendarium dnia, nie RSS)</td>
+                    <td>o {fetchTimesText()} (dziś i jutro)</td>
+                  </tr>
+                ) : (
                   <tr key={f.url}>
                     <td>{src} · {f.label}</td>
                     <td><a href={f.url} target="_blank" rel="noopener noreferrer" className="feed-url">{f.url}</a></td>
