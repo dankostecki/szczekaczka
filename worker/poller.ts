@@ -132,7 +132,7 @@ export class Poller extends DurableObject<Env> {
     const prev = this.feeds.get(key)
     const r = await checkFeed(feed, prev, url)
     this.feeds.set(key, r.state)
-    if (r.state.failures) console.log(`feed ${key}: failed check ${r.state.failures} in a row`)
+    if (r.problem) console.log(`feed ${key}: failed check ${r.state.failures} in a row: ${r.problem}`)
     // The count of failures must survive the object being evicted from memory, or the
     // error would never be shown; it changes only around failures, so this is rare
     const sql = this.ctx.storage.sql
