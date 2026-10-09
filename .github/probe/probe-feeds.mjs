@@ -1,42 +1,45 @@
-// Temporary diagnostic #2: where to get every ESPI/EBI report (listings, RSS, robots.txt)
+// Temporary diagnostic #3: completeness and delay of Bankier's ESPI RSS vs the PAP Biznes ESPI/EBI list
 const UA = 'Mozilla/5.0 (compatible; Szczekaczka/1.0; +https://github.com/dankostecki/szczekaczka)'
-const BROWSER = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36'
-async function get(url, ua = UA) {
+async function get(url) {
   try {
-    const r = await fetch(url, { headers: { 'User-Agent': ua, Accept: '*/*', 'Accept-Language': 'pl,en;q=0.8' }, redirect: 'follow' })
-    return { status: r.status, type: r.headers.get('content-type'), cache: r.headers.get('cache-control'), age: r.headers.get('age'), url: r.url, body: await r.text() }
-  } catch (e) { return { status: 'ERR ' + e.message, body: '' } }
+    const r = await fetch(url, { headers: { 'User-Agent': UA, Accept: '*/*', 'Accept-Language': 'pl,en;q=0.8' } })
+    return { status: r.status, headers: r.headers, body: await r.text() }
+  } catch (e) { return { status: 'ERR ' + e.message, headers: new Headers(), body: '' } }
 }
-const strip = (s) => s.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&#160;/g, ' ').replace(/\s+/g, ' ').trim()
+const clean = (s) => s.replace(/<[^>]+>/g, ' ').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#0?39;/g, "'").replace(/\s+/g, ' ').trim()
+const hhmm = () => new Date().toLocaleTimeString('pl-PL', { timeZone: 'Europe/Warsaw', hour: '2-digit', minute: '2-digit', second: '2-digit' })
 
-// robots.txt
-for (const host of ['https://espiebi.pap.pl', 'https://biznes.pap.pl', 'https://www.bankier.pl']) {
-  const r = await get(host + '/robots.txt')
-  console.log(`\n=== ${host}/robots.txt (${r.status})\n${r.body.slice(0, 1500)}`)
-}
-
-// RSS guesses, with our UA and a browser UA
-const guesses = ['https://espiebi.pap.pl/rss.xml', 'https://espiebi.pap.pl/rss', 'https://espiebi.pap.pl/feed', 'https://espiebi.pap.pl/rss/espi', 'https://espiebi.pap.pl/espi/rss.xml',
-  'https://biznes.pap.pl/rss', 'https://biznes.pap.pl/espi/rss', 'https://biznes.pap.pl/rss/espi', 'https://biznes.pap.pl/rss.xml', 'https://biznes.pap.pl/espi.xml']
-for (const u of guesses) for (const ua of [UA, BROWSER]) {
-  const r = await get(u, ua)
-  console.log(`${u} [${ua === UA ? 'our UA' : 'browser UA'}] -> ${r.status} ${r.type} bytes=${r.body.length} items=${(r.body.match(/<item\b/gi) ?? []).length}`)
-}
-
-// Listings: structure around report links
-for (const u of ['https://espiebi.pap.pl/', 'https://biznes.pap.pl/espi', 'https://www.bankier.pl/gielda/wiadomosci/komunikaty-spolek']) {
+// 1. Structure of the PAP lists (raw HTML of the first rows)
+for (const u of ['https://biznes.pap.pl/espi', 'https://biznes.pap.pl/ebi', 'https://biznes.pap.pl/espi/ebi']) {
   const r = await get(u)
-  console.log(`\n=== ${u} -> ${r.status} ${r.type} cache=${r.cache} age=${r.age} bytes=${r.body.length} final=${r.url}`)
-  const rss = [...r.body.matchAll(/href=["']([^"']*(rss|feed|xml)[^"']*)["']/gi)].map((m) => m[1])
-  console.log('rss-like hrefs:', [...new Set(rss)].slice(0, 15).join(' '))
-  const i = r.body.search(/EQUNICO/i)
-  if (i >= 0) console.log('--- raw around EQUNICO:\n' + r.body.slice(Math.max(0, i - 1500), i + 700))
-  // all anchor hrefs that look like report pages
-  const hrefs = [...r.body.matchAll(/href=["']([^"']+)["']/gi)].map((m) => m[1])
-  const counts = {}
-  for (const h of hrefs) { const k = h.replace(/[0-9]+/g, 'N').replace(/[?#].*$/, '').split('/').slice(0, 4).join('/'); counts[k] = (counts[k] ?? 0) + 1 }
-  console.log('href patterns:', Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, v]) => `${v}× ${k}`).join(' | '))
-  const text = strip(r.body)
-  const j = text.search(/EQUNICO/i)
-  console.log('--- text around EQUNICO:\n' + (j >= 0 ? text.slice(Math.max(0, j - 800), j + 800) : text.slice(0, 1500)))
+  const i = r.body.indexOf('/articles/espi/') >= 0 ? r.body.indexOf('/articles/espi/') : r.body.search(/\/articles\/ebi\//)
+  console.log(`\n=== ${u} -> ${r.status} ${r.headers.get('content-type')} etag=${r.headers.get('etag')} last-modified=${r.headers.get('last-modified')} cache=${r.headers.get('cache-control')} bytes=${r.body.length}`)
+  if (i >= 0) console.log(r.body.slice(Math.max(0, i - 1200), i + 1800))
+}
+const rss = await get('https://biznes.pap.pl/rss')
+console.log('\n=== biznes.pap.pl/rss first items:\n' + [...rss.body.matchAll(/<item\b[\s\S]*?<\/item>/gi)].slice(0, 5).map((m) => m[0].slice(0, 400)).join('\n---\n'))
+
+// 2. Poll both every 60 s for 20 minutes; note when each report shows up where
+const papRows = (html) => {
+  const out = new Map()
+  for (const m of html.matchAll(/href="(\/articles\/(?:espi|ebi)\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)) {
+    const t = clean(m[2]); if (t && !out.has(m[1])) out.set(m[1], t)
+  }
+  return out
+}
+const bankierRows = (xml) => new Map([...xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)].map(([, b]) => {
+  const t = (n) => (b.match(new RegExp(`<${n}[^>]*>([\\s\\S]*?)</${n}>`, 'i'))?.[1] ?? '').replace(/<!\[CDATA\[|\]\]>/g, '').trim()
+  return [t('link').replace(/\?.*$/, ''), `${t('pubDate').slice(17, 22)} ${clean(t('title'))}`]
+}))
+const firstSeen = { pap: new Map(), bankier: new Map() }
+for (let n = 0; n < 20; n++) {
+  const [p, b] = await Promise.all([get('https://biznes.pap.pl/espi'), get('https://www.bankier.pl/rss/espi.xml')])
+  const pr = papRows(p.body), br = bankierRows(b.body)
+  const newP = [...pr].filter(([k]) => !firstSeen.pap.has(k)), newB = [...br].filter(([k]) => !firstSeen.bankier.has(k))
+  for (const [k, v] of newP) firstSeen.pap.set(k, `${hhmm()} ${v}`)
+  for (const [k, v] of newB) firstSeen.bankier.set(k, `${hhmm()} ${v}`)
+  console.log(`\n[${hhmm()}] PAP ${p.status} rows=${pr.size} new=${n ? newP.length : '-'} | Bankier ${b.status} items=${br.size} new=${n ? newB.length : '-'} age=${b.headers.get('age')}`)
+  if (n) { for (const [, v] of newP) console.log(`   PAP+ ${v.slice(0, 140)}`); for (const [, v] of newB) console.log(`   BNK+ ${v.slice(0, 140)}`) }
+  else { console.log('   PAP first rows: ' + [...pr.values()].slice(0, 12).map((v) => v.slice(0, 70)).join(' || ')); console.log('   Bankier: ' + [...br.values()].map((v) => v.slice(0, 60)).join(' || ')) }
+  if (n < 19) await new Promise((r) => setTimeout(r, 60_000))
 }
