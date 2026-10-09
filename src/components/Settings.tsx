@@ -249,7 +249,7 @@ export default function Settings(p: Props) {
                     : `Angielskie głosy w tej przeglądarce: ${en.length}.`}
                 </p>
               </>)}
-              <p className="hint">Raporty spółek są czytane z „Nowe ESPI:” na początku, komunikaty GPW z „GPW:”, pozostałe newsy bez nazwy źródła. Nazwy pisane wielkimi literami są czytane jak słowa (np. „Archicom”, a nie A-R-C-H…), a „S.A.” i „Sp. z o.o.” w pełnym brzmieniu. Lead czytany jest tylko w kanałach zaznaczonych w kolumnie „Lead” wyżej: pełne zdania (lead ucięty przez źródło do miejsca ucięcia), bez daty, „(PAP)” i powtórzonego tytułu. Zapowiedzi MacroNext mają w leadzie dane (konsensus, poprzedni odczyt); na liście mają godzinę publikacji („O 14:30 dane makro z Kanady”), a głos mówi, za ile minut („Za 10 minut…”).</p>
+              <p className="hint">Raporty spółek są czytane z „Nowe ESPI:” na początku, komunikaty GPW z „GPW:”, pozostałe newsy bez nazwy źródła. Nazwy pisane wielkimi literami są czytane jak słowa (np. „Archicom”, a nie A-R-C-H…), a „S.A.” i „Sp. z o.o.” w pełnym brzmieniu. Lead czytany jest tylko w kanałach zaznaczonych w kolumnie „Lead” wyżej: pełne zdania (lead ucięty przez źródło do miejsca ucięcia), bez daty, „(PAP)” i powtórzonego tytułu. Zapowiedzi MacroNext mają w leadzie dane (konsensus, poprzedni odczyt).</p>
               <label className="setting">
                 <span>Tempo <b>{prefs.rate.toFixed(1)}×</b></span>
                 <input type="range" min={0.6} max={1.8} step={0.1} value={prefs.rate}

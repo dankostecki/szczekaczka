@@ -225,34 +225,34 @@ function dataFrom(countries: string[]): string {
 // "8:00", "14:30"
 const clockOf = (t: number) => new Date(t).toLocaleTimeString('pl-PL', { timeZone: 'Europe/Warsaw', hour: 'numeric', minute: '2-digit' })
 
-// The announcement's title, as it stays on the list: with the release time, which does not go out
-// of date. Speeches and meetings are named, without a country. "O 16:00 dane makro z USA",
-// "O 22:00 wystąpienie szefowej Fed z Bostonu (Susan Collins)", "O 14:30 dane makro z USA oraz
-// wystąpienie …", "Dziś bez podanej godziny: dane makro z Chin". Read aloud: sayMacroTitle.
-export function groupTitle(g: MacroGroup): string {
+const inMinutes = (n: number) => `Za ${n} ${plural(n, 'minutę', 'minuty', 'minut')}`
+
+// The announcement's title, on the list as it is read: the minutes left and the release time.
+// Speeches and meetings are named, without a country. "Za 10 minut o godzinie 16:00 dane makro z USA",
+// "Za 10 minut o godzinie 22:00 wystąpienie szefowej Fed z Bostonu (Susan Collins)", "… dane makro
+// z USA oraz wystąpienie …", "Dziś bez podanej godziny: dane makro z Chin". minutes: fewer when it
+// is announced late. Read aloud: sayMacroTitle.
+export function groupTitle(g: MacroGroup, minutes = LEAD_MINUTES): string {
   const what = [g.lines.length ? dataFrom(g.countries) : '', ...(g.talks ?? [])].filter(Boolean).join(' oraz ')
-  return `${g.allDay ? 'Dziś bez podanej godziny:' : `O ${clockOf(g.at)}`} ${what}`
+  return g.allDay ? `Dziś bez podanej godziny: ${what}` : `${inMinutes(minutes)} o godzinie ${clockOf(g.at)} ${what}`
 }
 
 const HOURS = ['zero', 'pierwszej', 'drugiej', 'trzeciej', 'czwartej', 'piątej', 'szóstej', 'siódmej', 'ósmej', 'dziewiątej', 'dziesiątej',
   'jedenastej', 'dwunastej', 'trzynastej', 'czternastej', 'piętnastej', 'szesnastej', 'siedemnastej', 'osiemnastej', 'dziewiętnastej',
   'dwudziestej', 'dwudziestej pierwszej', 'dwudziestej drugiej', 'dwudziestej trzeciej']
 
-// The title as it is said: "Za 10 minut dane makro z USA" while the release is ahead (when the
-// announcement comes, or soon after it), "O szesnastej dane makro z USA" once it is out.
+// The title as it is said, with the hour in words: "Za 10 minut o godzinie szesnastej dane makro
+// z USA" while the release is ahead (the minutes counted again, for one read a few minutes after it
+// came), "O godzinie szesnastej dane makro z USA" once it is out. Also for the earlier "O 16:00 …".
 // sentAt: when the announcement was made (the server's clock, so a computer clock that is behind does not add minutes)
 export function sayMacroTitle(title: string, link: string, sentAt: number, now = Date.now()): string {
-  const t = title.match(/^O (\d{1,2}):(\d{2}) /)
+  const t = title.match(/^(?:Za \d+ \S+ o godzinie|O) (\d{1,2}):(\d{2}) /)
   if (!t) return title
-  const d = link.match(/\/d\/(\d{4})-(\d{1,2})-(\d{1,2})#/)
+  const d = link.match(/(\d{4})-(\d{1,2})-(\d{1,2})[-#]\d{1,2}:\d{2}$/)
   const left = d ? Math.ceil((warsawToUtc(+d[1], +d[2], +d[3], +t[1], +t[2]) - Math.max(now, sentAt)) / 60_000) : 0
   const rest = title.slice(t[0].length)
-  if (left >= 1) {
-    const n = Math.min(left, LEAD_MINUTES)
-    return `Za ${n} ${plural(n, 'minutę', 'minuty', 'minut')} ${rest}`
-  }
-  const minutes = t[2] === '00' ? '' : t[2].startsWith('0') ? ` zero ${+t[2]}` : ` ${t[2]}`
-  return `O ${HOURS[+t[1]]}${minutes} ${rest}`
+  const at = `godzinie ${HOURS[+t[1]]}${t[2] === '00' ? '' : t[2].startsWith('0') ? ` zero ${+t[2]}` : ` ${t[2]}`}`
+  return left >= 1 ? `${inMinutes(Math.min(left, LEAD_MINUTES))} o ${at} ${rest}` : `O ${at} ${rest}`
 }
 
 // ── Reading aloud: numbers with their units in words ──
