@@ -18,7 +18,7 @@
   --src-gpw: #059669;
   --src-stooq: #d97706;
   --src-pap: #0284c7;
-  --src-marketwatch: #c026d3;
+  --src-cnbc: #c026d3;
   color-scheme: light;
 }
 
@@ -42,7 +42,7 @@
     --src-gpw: #3dd6a3;
     --src-stooq: #f8c24a;
     --src-pap: #5cc8f5;
-    --src-marketwatch: #e879f9;
+    --src-cnbc: #e879f9;
     color-scheme: dark;
   }
 }
@@ -66,7 +66,7 @@
   --src-gpw: #3dd6a3;
   --src-stooq: #f8c24a;
   --src-pap: #5cc8f5;
-  --src-marketwatch: #e879f9;
+  --src-cnbc: #e879f9;
   color-scheme: dark;
 }
 
@@ -197,7 +197,7 @@ button:disabled { cursor: default; opacity: 0.5; }
 }
 .tag { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--c); letter-spacing: 0.02em; }
 .tag, .meta time, .ago, .badge { white-space: nowrap; }
-/* On a narrow phone a long tag ("MARKETWATCH · PILNE" with NOWE) gives way to the buttons */
+/* On a narrow phone a long tag ("GPW · AKTUALNOŚCI" with NOWE) gives way to the buttons */
 .meta > * { flex-shrink: 0; }
 .meta > .tag { flex-shrink: 1; min-width: 0; }
 .tag > span { overflow: hidden; text-overflow: ellipsis; }

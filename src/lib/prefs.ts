@@ -38,8 +38,8 @@ export const DEFAULT_PREFS: Prefs = {
   watchlist: '',
 }
 
-// Settings saved before `knownFeeds` was added knew every channel but MarketWatch
-const KNOWN_BEFORE = FEEDS.filter((f) => f.source !== 'MARKETWATCH').map((f) => feedKey(f.source, f.label))
+// Settings saved before `knownFeeds` was added knew the Polish channels only (English news came later)
+const KNOWN_BEFORE = FEEDS.filter((f) => (f.lang ?? 'pl') === 'pl').map((f) => feedKey(f.source, f.label))
 
 export const PREFS_KEY = 'szczekaczka:prefs'
 

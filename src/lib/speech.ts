@@ -115,7 +115,7 @@ export function spokenLead(description: string, title: string): string {
   return lead
 }
 
-// What is read for one headline. Stooq, ESPI, PAP and MarketWatch: the title alone, GPW optionally with
+// What is read for one headline. Stooq, ESPI, PAP and CNBC: the title alone, GPW optionally with
 // its name in front; then the lead when that is switched on.
 export function spokenParts(it: Item, prefs: Prefs): string[] {
   const title = it.source === 'GPW' && prefs.sayGpw ? `GPW: ${it.title}` : it.title
@@ -123,7 +123,7 @@ export function spokenParts(it: Item, prefs: Prefs): string[] {
   return lead ? [title, lead] : [title]
 }
 
-// English news (MarketWatch) is read with the English voice
+// English news (CNBC) is read with the English voice
 export function speakItem(it: Item, prefs: Prefs, voices: SpeechSynthesisVoice[], onEnd?: () => void) {
   const parts = spokenParts(it, prefs)
   const lang = langOf(it.source, it.label)
