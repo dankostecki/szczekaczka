@@ -1,8 +1,8 @@
 // RSS sources. Fetched on the server (/api/news): browsers cannot read these feeds directly (CORS).
 
-export type Source = 'ESPI' | 'GPW' | 'STOOQ' | 'PAP' | 'MARKETWATCH'
+export type Source = 'ESPI' | 'GPW' | 'STOOQ' | 'PAP' | 'CNBC'
 
-export const SOURCES: Source[] = ['ESPI', 'GPW', 'STOOQ', 'PAP', 'MARKETWATCH']
+export const SOURCES: Source[] = ['ESPI', 'GPW', 'STOOQ', 'PAP', 'CNBC']
 
 // Language of a feed: read aloud with a voice for it
 export type Lang = 'pl' | 'en'
@@ -26,9 +26,10 @@ export const FEEDS: FeedConfig[] = [
   { source: 'PAP',   label: 'BIZNES',      url: 'https://pap-mediaroom.pl/kategoria/biznes-i-finanse/rss.xml',         minAge: 120 },
   { source: 'PAP',   label: 'NAUKA',       url: 'https://pap-mediaroom.pl/kategoria/nauka-i-technologie/rss.xml',      minAge: 120 },
   { source: 'PAP',   label: 'POLITYKA',    url: 'https://pap-mediaroom.pl/kategoria/polityka-i-społeczenstwo/rss.xml', minAge: 120 },
-  // In English: Top Stories and Bulletins. MarketPulse (mw_marketpulse) is not used: Dow Jones stopped adding to it in 2025.
-  { source: 'MARKETWATCH', label: 'TOP',   url: 'https://feeds.content.dowjones.io/public/rss/mw_topstories', minAge: 120, lang: 'en' },
-  { source: 'MARKETWATCH', label: 'PILNE', url: 'https://feeds.content.dowjones.io/public/rss/mw_bulletins',  lang: 'en' },
+  // In English: CNBC Earnings, Economy, Finance
+  { source: 'CNBC',  label: 'WYNIKI',      url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=15839135', minAge: 120, lang: 'en' },
+  { source: 'CNBC',  label: 'GOSPODARKA',  url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258', minAge: 120, lang: 'en' },
+  { source: 'CNBC',  label: 'FINANSE',     url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664', minAge: 120, lang: 'en' },
 ]
 
 // "GPW:PRASA" — key for a single channel (settings, filters)
@@ -66,11 +67,11 @@ export const SOURCE_INFO: Record<Source, { name: string; publisher: string; site
     site: 'https://pap-mediaroom.pl/rss',
     about: 'Komunikaty prasowe firm i instytucji z serwisu PAP MediaRoom Polskiej Agencji Prasowej, z kategorii: biznes i finanse, nauka i technologie, polityka i społeczeństwo.',
   },
-  MARKETWATCH: {
-    name: 'MarketWatch',
-    publisher: 'Dow Jones & Company, Inc.',
-    site: 'https://www.marketwatch.com',
-    about: 'Wiadomości serwisu MarketWatch po angielsku: najważniejsze (TOP, kanał Top Stories) i pilne (PILNE, kanał Bulletins). Na głos czyta je głos angielski.',
+  CNBC: {
+    name: 'CNBC',
+    publisher: 'CNBC LLC',
+    site: 'https://www.cnbc.com/rss-feeds/',
+    about: 'Wiadomości amerykańskiej telewizji biznesowej CNBC po angielsku, z kategorii: wyniki spółek (Earnings), gospodarka (Economy) i finanse (Finance). Na głos czyta je głos angielski.',
   },
 }
 

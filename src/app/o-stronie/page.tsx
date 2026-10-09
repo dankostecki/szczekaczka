@@ -15,7 +15,7 @@ export default function About() {
     <LegalPage title="O stronie i źródła" dated={false}>
       <p>
         Szczekaczka zbiera w jednym miejscu komunikaty spółek giełdowych (ESPI/EBI), komunikaty Giełdy Papierów
-        Wartościowych w Warszawie, wiadomości Stooq, komunikaty prasowe z PAP MediaRoom oraz, po angielsku, wiadomości MarketWatch. Nowe newsy może czytać na głos i pokazywać jako powiadomienia
+        Wartościowych w Warszawie, wiadomości Stooq, komunikaty prasowe z PAP MediaRoom oraz, po angielsku, wiadomości CNBC. Nowe newsy może czytać na głos i pokazywać jako powiadomienia
         na pulpicie. Autor: <a href={AUTHOR.url} target="_blank" rel="noopener noreferrer">{AUTHOR.name}</a>.
       </p>
 
@@ -30,7 +30,7 @@ export default function About() {
         const info = SOURCE_INFO[src]
         return (
           <section key={src} className="source" style={{ ['--c' as string]: `var(--src-${src.toLowerCase()})` }}>
-            <h3><i className="dot" /> {src}: {info.name}</h3>
+            <h3><i className="dot" /> {info.name === src ? src : `${src}: ${info.name}`}</h3>
             <p>{info.about}</p>
             <p>
               Wydawca: <b>{info.publisher}</b> ·{' '}

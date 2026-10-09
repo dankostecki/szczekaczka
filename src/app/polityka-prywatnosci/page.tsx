@@ -139,7 +139,7 @@ export default function PrivacyPolicy() {
         także w tej wersji dostarcza serwer na Cloudflare.
       </p>
 
-      <h3>Źródła newsów: Bankier.pl, GPW, Stooq, PAP MediaRoom, MarketWatch</h3>
+      <h3>Źródła newsów: Bankier.pl, GPW, Stooq, PAP MediaRoom, CNBC</h3>
       <p>
         Kanały RSS pobiera serwer Serwisu, a nie Twoja przeglądarka, więc serwisy źródłowe nie dostają Twojego adresu IP.
         Gdy klikniesz w news, przechodzisz na stronę źródła i od tej chwili obowiązuje polityka prywatności tamtego
