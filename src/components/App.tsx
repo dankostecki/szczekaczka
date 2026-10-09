@@ -285,6 +285,7 @@ export default function App() {
               <button className="brand-name" onClick={() => choose('ALL')}>Szczekaczka</button>
               <a className="by" href={AUTHOR.url} target="_blank" rel="noopener noreferrer">by {AUTHOR.name}</a>
             </span>
+            <span className="beta" title="Wersja testowa: mogą pojawiać się błędy">BETA</span>
           </div>
 
           <span className="updated" title={status === 'live'

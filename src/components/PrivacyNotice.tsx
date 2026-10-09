@@ -2,23 +2,23 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { NOTICE_KEY } from '@/lib/site'
+import { NOTICE_KEY, NOTICE_VERSION } from '@/lib/site'
 
-// Shown once on the first visit. The site has no cookies and nothing optional to agree to
-// (only storage the features need), so this informs rather than asks for consent.
+// Shown once on the first visit (and once more after it changes). The site has no cookies and
+// nothing optional to agree to (only storage the features need), so this informs rather than asks for consent.
 export default function PrivacyNotice() {
   const [open, setOpen] = useState(false)
   const button = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     let seen = false
-    try { seen = localStorage.getItem(NOTICE_KEY) === '1' } catch {}
+    try { seen = localStorage.getItem(NOTICE_KEY) === NOTICE_VERSION } catch {}
     if (!seen) setOpen(true)
   }, [])
   useEffect(() => { if (open) button.current?.focus() }, [open])
 
   function close() {
-    try { localStorage.setItem(NOTICE_KEY, '1') } catch {}
+    try { localStorage.setItem(NOTICE_KEY, NOTICE_VERSION) } catch {}
     setOpen(false)
   }
 
@@ -26,6 +26,10 @@ export default function PrivacyNotice() {
   return (
     <div className="overlay notice-overlay">
       <div className="notice" role="dialog" aria-modal="true" aria-labelledby="notice-title">
+        <p className="notice-beta">
+          <span className="beta">BETA</span>
+          <span><b>To wersja testowa.</b> Szczekaczka jest jeszcze sprawdzana, więc mogą pojawiać się błędy.</span>
+        </p>
         <h2 id="notice-title">Prywatność w Szczekaczce</h2>
         <ul>
           <li><b>Bez cookies i bez śledzenia.</b> Nie ma tu analityki, reklam ani skryptów z innych serwerów.</li>

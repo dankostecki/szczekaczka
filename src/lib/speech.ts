@@ -4,6 +4,7 @@ import type { Item } from './news'
 import type { Prefs } from './prefs'
 import { feedKey, langOf, type Lang } from './sources'
 import { sayNumbers } from './macronext'
+import { sayNames } from './say'
 
 export const speechSupported = () =>
   typeof window !== 'undefined' && 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window
@@ -116,15 +117,16 @@ export function spokenLead(description: string, title: string): string {
   return lead
 }
 
-// What is read for one headline: the title (GPW with its name in front), then the lead for the
-// channels where it is switched on. MacroNext's announcements: their "lead" is the figures, read
-// whole, with numbers and units in words.
+// What is read for one headline: the title (company reports with "Nowe ESPI:" in front, GPW with
+// its name), then the lead for the channels where it is switched on; names in capitals as words,
+// "S.A." and the like in full (say.ts). MacroNext's announcements: their "lead" is the figures,
+// read whole, with numbers and units in words.
 export function spokenParts(it: Item, prefs: Prefs): string[] {
   const withLead = prefs.leadFeeds.includes(feedKey(it.source, it.label))
-  if (it.source === 'MACRONEXT') return [sayNumbers(`${it.title}.`), withLead ? sayNumbers(it.description) : ''].filter(Boolean)
-  const title = it.source === 'GPW' ? `GPW: ${it.title}` : it.title
+  if (it.source === 'MACRONEXT') return [`${it.title}.`, withLead ? it.description : ''].filter(Boolean).map((p) => sayNumbers(sayNames(p)))
+  const title = it.source === 'GPW' ? `GPW: ${it.title}` : it.source === 'ESPI' ? `Nowe ESPI: ${it.title}` : it.title
   const lead = withLead ? spokenLead(it.description, it.title) : ''
-  return lead ? [title, lead] : [title]
+  return (lead ? [title, lead] : [title]).map(sayNames)
 }
 
 // News in English is read with the English voice
