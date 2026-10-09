@@ -28,7 +28,7 @@ const filterName = (f: Filter) => (f === 'ALL' ? 'Wszystko' : f === 'SAVED' ? 'Z
 const filterColor = (f: Filter) => (f === 'ALL' || f === 'SAVED' ? undefined : `var(--src-${f.toLowerCase()})`)
 
 // A source tab (or one of its channels) with nothing on it: why. Its channels are shown,
-// or the tab would not be there; errors are named "CNBC · WYNIKI".
+// or the tab would not be there; errors are named "REUTERS · MARKETS".
 function emptyTab(src: Source, label: string | null, errors: FeedError[]): string {
   const name = label ? `${src} · ${label}` : src
   const failing = errors.filter((e) => (label ? e.feed === name : e.feed.startsWith(`${src} · `)))

@@ -148,47 +148,58 @@ export function sayRow(row: MacroRow): string {
 // ── Announcements: everything released at one time goes in one ──
 
 export interface MacroGroup {
-  id: string          // "MACRONEXT:MAKRO:2026-10-09T12:30" (the release, UTC)
-  at: number          // release time, ms
+  id: string          // "MACRONEXT:MAKRO:2026-10-09T12:30" (the release, UTC); "…:2026-10-09:dzis" for the day's undated ones
+  at: number          // release time, ms; for the undated ones, when they are announced (MORNING)
   day: string         // "2026-10-9", for the link
+  allDay?: boolean    // releases without a time ("?"): announced in the morning, "Dziś …"
   countries: string[]
-  lines: string[]     // one per row read
+  lines: string[]     // one per row read; with the country in front where it changes, when there are several
   data: boolean       // false when only speeches and meetings: no "dane makro" then
   done?: boolean      // announced (or too late to)
 }
 
+// Releases without a time are announced together at this time (Polish), after the morning reading
+export const MORNING: [number, number] = [6, 40]
+
 const TALK = /^(wystąpienie|konferencja|przemówienie|zeznanie|spotkanie|szczyt|seminarium|sympozjum|debata)/i
 
-// The day's rows that are announced, grouped by release time. A report with parts is read
-// by its parts only; rows without a time cannot be announced.
+// The day's rows that are announced, grouped by release time; those without a time ("?") in one
+// group of their own, announced in the morning. A report with parts is read by its parts only.
 export function dayGroups(rows: MacroRow[], keyPrefix: string, y: number, m: number, d: number): MacroGroup[] {
-  const groups = new Map<number, MacroGroup>()
+  const groups = new Map<number, MacroGroup & { said: [string, string][] }>()
+  const day = `${y}-${m}-${d}`
   const add = (row: MacroRow) => {
     const hm = row.time.match(/^(\d{2}):(\d{2})$/)
-    if (!hm) return
-    const at = warsawToUtc(y, m, d, +hm[1], +hm[2])
-    let g = groups.get(at)
+    const at = hm ? warsawToUtc(y, m, d, +hm[1], +hm[2]) : warsawToUtc(y, m, d, ...MORNING)
+    const key = hm ? at : -1
+    let g = groups.get(key)
     if (!g) {
-      g = { id: `${keyPrefix}:${new Date(at).toISOString().slice(0, 16)}`, at, day: `${y}-${m}-${d}`, countries: [], lines: [], data: false }
-      groups.set(at, g)
+      const id = hm ? `${keyPrefix}:${new Date(at).toISOString().slice(0, 16)}` : `${keyPrefix}:${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}:dzis`
+      g = { id, at, day, ...(hm ? {} : { allDay: true }), countries: [], lines: [], data: false, said: [] }
+      groups.set(key, g)
     }
     if (row.country && !g.countries.includes(row.country)) g.countries.push(row.country)
-    g.lines.push(sayRow(row))
+    g.said.push([row.country, sayRow(row)])
     if (!TALK.test(row.title)) g.data = true
   }
   for (const row of rows) {
     if (!row.children.length) { if (announced(row)) add(row); continue }
     for (const c of row.children) if (announced(c, row.title)) add(c)
   }
-  return [...groups.values()].sort((a, b) => a.at - b.at)
+  return [...groups.values()].map(({ said, ...g }) => ({
+    ...g,
+    lines: said.map(([country, line], i) => (g.countries.length > 1 && country && country !== said[i - 1]?.[0] ? `${country}: ${line}` : line)),
+  })).sort((a, b) => a.at - b.at)
 }
 
 const plural = (n: number, one: string, few: string, many: string) =>
   n === 1 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? few : many
 
-// "Za 10 minut dane makro: USA, Kanada" / "Za 10 minut: Strefa Euro" (speeches only)
+// "Za 10 minut dane makro: USA, Kanada" / "Za 10 minut: Strefa Euro" (speeches only) /
+// "Dziś dane makro bez podanej godziny: Chiny"
 export function groupTitle(g: MacroGroup, minutes = LEAD_MINUTES): string {
-  const when = `Za ${minutes} ${plural(minutes, 'minutę', 'minuty', 'minut')}`
+  const when = g.allDay ? 'Dziś' : `Za ${minutes} ${plural(minutes, 'minutę', 'minuty', 'minut')}`
+  if (g.allDay) return `${when}${g.data ? ' dane makro' : ''} bez podanej godziny${g.countries.length ? `: ${g.countries.join(', ')}` : ''}`
   const where = g.countries.join(', ')
   return g.data ? `${when} dane makro${where ? `: ${where}` : ''}` : `${when}${where ? `: ${where}` : ''}`
 }

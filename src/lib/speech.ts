@@ -2,7 +2,7 @@
 // server; the available voices depend on the system and the browser.
 import type { Item } from './news'
 import type { Prefs } from './prefs'
-import { langOf, type Lang } from './sources'
+import { feedKey, langOf, type Lang } from './sources'
 import { sayNumbers } from './macronext'
 
 export const speechSupported = () =>
@@ -116,17 +116,18 @@ export function spokenLead(description: string, title: string): string {
   return lead
 }
 
-// What is read for one headline. Stooq, ESPI, PAP and CNBC: the title alone, GPW optionally with
-// its name in front; then the lead when that is switched on. MacroNext's announcements are read
-// whole (the figures are the point), with numbers and units in words.
+// What is read for one headline: the title (GPW with its name in front), then the lead for the
+// channels where it is switched on. MacroNext's announcements: their "lead" is the figures, read
+// whole, with numbers and units in words.
 export function spokenParts(it: Item, prefs: Prefs): string[] {
-  if (it.source === 'MACRONEXT') return [sayNumbers(`${it.title}.`), sayNumbers(it.description)].filter((p) => p !== '.' && p !== '')
-  const title = it.source === 'GPW' && prefs.sayGpw ? `GPW: ${it.title}` : it.title
-  const lead = prefs.readLead ? spokenLead(it.description, it.title) : ''
+  const withLead = prefs.leadFeeds.includes(feedKey(it.source, it.label))
+  if (it.source === 'MACRONEXT') return [sayNumbers(`${it.title}.`), withLead ? sayNumbers(it.description) : ''].filter(Boolean)
+  const title = it.source === 'GPW' ? `GPW: ${it.title}` : it.title
+  const lead = withLead ? spokenLead(it.description, it.title) : ''
   return lead ? [title, lead] : [title]
 }
 
-// English news (CNBC) is read with the English voice
+// English news (Reuters) is read with the English voice
 export function speakItem(it: Item, prefs: Prefs, voices: SpeechSynthesisVoice[], onEnd?: () => void) {
   const parts = spokenParts(it, prefs)
   const lang = langOf(it.source, it.label)

@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { FEEDS, SOURCES, feedKey, labelsOf, CHECK_SECONDS, QUIET_CHECK_SECONDS } from '@/lib/sources'
+import { FEEDS, SOURCES, LEAD_KEYS, feedKey, CHECK_SECONDS, QUIET_CHECK_SECONDS, type Source } from '@/lib/sources'
 import type { Prefs, Theme } from '@/lib/prefs'
 import { polishVoices, voicesFor, pickVoice, speak, stopSpeaking, voiceLabel } from '@/lib/speech'
 import { AUTHOR, STORAGE_PREFIX } from '@/lib/site'
@@ -57,6 +57,47 @@ const PERM_TEXT: Record<NotificationPermission | 'unsupported', string> = {
 
 const THEMES: [Theme, string][] = [['system', 'Systemowy'], ['light', 'Jasny'], ['dark', 'Ciemny']]
 
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg className={`chev${open ? ' open' : ''}`} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
+  )
+}
+
+// A checkbox for one channel or for all of a source's: half-ticked when only some are on
+function Box({ on, some, disabled, onChange, label }: { on: boolean; some: boolean; disabled?: boolean; onChange: () => void; label: string }) {
+  return (
+    <input type="checkbox" checked={on} disabled={disabled} onChange={onChange} aria-label={label}
+      ref={(el) => { if (el) el.indeterminate = some && !on }} />
+  )
+}
+
+type List = 'hiddenFeeds' | 'speakFeeds' | 'notifyFeeds' | 'leadFeeds'
+
+// The four checkboxes of a row: shown, read aloud, notified, read with the lead. For a source's row
+// they stand for all its channels: a click turns them all on, or all off when all are on.
+function ChannelBoxes({ keys, name, prefs, onChange }: { keys: string[]; name: string; prefs: Prefs; onChange: (patch: Partial<Prefs>) => void }) {
+  const shown = keys.filter((k) => !prefs.hiddenFeeds.includes(k))
+  const set = (list: List, which: string[], on: boolean) =>
+    onChange({ [list]: on ? [...new Set([...prefs[list], ...which])] : prefs[list].filter((k) => !which.includes(k)) })
+  const box = (list: Exclude<List, 'hiddenFeeds'>, which: string[], title: string) => {
+    const n = which.filter((k) => shown.includes(k) && prefs[list].includes(k)).length
+    const on = shown.length > 0 && n === which.filter((k) => shown.includes(k)).length && n > 0
+    return <td><Box on={on} some={n > 0} disabled={shown.length === 0} label={`${title}: ${name}`}
+      onChange={() => set(list, which, !on)} /></td>
+  }
+  const leads = keys.filter((k) => LEAD_KEYS.includes(k))
+  return (
+    <>
+      <td><Box on={shown.length === keys.length} some={shown.length > 0} label={`Pokazuj na liście: ${name}`}
+        onChange={() => set('hiddenFeeds', keys, shown.length === keys.length)} /></td>
+      {box('speakFeeds', keys, 'Czytaj na głos')}
+      {box('notifyFeeds', keys, 'Powiadomienia')}
+      {leads.length ? box('leadFeeds', leads, 'Czytaj też lead') : <td className="none" title="Tylko tytuły">–</td>}
+    </>
+  )
+}
+
 export default function Settings(p: Props) {
   const { prefs, onChange } = p
   const pl = polishVoices(p.voices)
@@ -93,10 +134,9 @@ export default function Settings(p: Props) {
     window.location.reload()
   }
 
-  function toggleChannel(list: 'hiddenFeeds' | 'speakFeeds' | 'notifyFeeds', key: string) {
-    const cur = prefs[list]
-    onChange({ [list]: cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key] })
-  }
+  // Sources with their channels shown
+  const [open, setOpen] = useState<Set<Source>>(() => new Set())
+  const toggleOpen = (src: Source) => setOpen((o) => { const n = new Set(o); if (n.has(src)) n.delete(src); else n.add(src); return n })
 
   return (
     <div className="overlay" onClick={p.onClose}>
@@ -115,29 +155,50 @@ export default function Settings(p: Props) {
                 <th title="Pokazuj na liście"><Eye size={16} /></th>
                 <th title="Czytaj na głos"><Speaker on size={16} /></th>
                 <th title="Powiadomienia"><Bell on size={16} /></th>
+                <th title="Czytaj też lead (bez zaznaczenia: sam tytuł)" className="lead">Lead</th>
               </tr>
             </thead>
             <tbody>
-              {SOURCES.map((src) => FEEDS.filter((f) => f.source === src).map((f) => {
-                const key = feedKey(f.source, f.label)
-                const name = labelsOf(src).length === 1 ? src : `${src} · ${f.label}`
-                const hidden = prefs.hiddenFeeds.includes(key)
+              {SOURCES.map((src) => {
+                const feeds = FEEDS.filter((f) => f.source === src)
+                const keys = feeds.map((f) => feedKey(f.source, f.label))
+                const many = keys.length > 1
+                const expanded = many && open.has(src)
+                const count = keys.reduce((n, k) => n + (p.counts[k] ?? 0), 0)
                 return (
-                  <tr key={key} className={hidden ? 'off' : ''} style={{ ['--c' as string]: `var(--src-${src.toLowerCase()})` }}>
-                    <td><span className="ch"><i className="dot" />{name}<span className="n">{p.counts[key] ?? 0}</span></span></td>
-                    <td><input type="checkbox" checked={!hidden} onChange={() => toggleChannel('hiddenFeeds', key)} aria-label={`Pokazuj na liście: ${name}`} /></td>
-                    <td><input type="checkbox" checked={!hidden && prefs.speakFeeds.includes(key)} disabled={hidden}
-                      onChange={() => toggleChannel('speakFeeds', key)} aria-label={`Czytaj na głos: ${name}`} /></td>
-                    <td><input type="checkbox" checked={!hidden && prefs.notifyFeeds.includes(key)} disabled={hidden}
-                      onChange={() => toggleChannel('notifyFeeds', key)} aria-label={`Powiadomienia: ${name}`} /></td>
-                  </tr>
+                  <Fragment key={src}>
+                    <tr className={`group${keys.every((k) => prefs.hiddenFeeds.includes(k)) ? ' off' : ''}`}
+                      style={{ ['--c' as string]: `var(--src-${src.toLowerCase()})` }}>
+                      <td>
+                        {many ? (
+                          <button className="ch" onClick={() => toggleOpen(src)} aria-expanded={expanded}
+                            title={expanded ? 'Zwiń kanały' : 'Rozwiń kanały'}>
+                            <Chevron open={expanded} /><i className="dot" />{src}<span className="n">{count}</span>
+                          </button>
+                        ) : <span className="ch"><span className="chev-space" /><i className="dot" />{src}<span className="n">{count}</span></span>}
+                      </td>
+                      <ChannelBoxes keys={keys} name={src} prefs={prefs} onChange={onChange} />
+                    </tr>
+                    {expanded && feeds.map((f) => {
+                      const key = feedKey(f.source, f.label)
+                      return (
+                        <tr key={key} className={`sub${prefs.hiddenFeeds.includes(key) ? ' off' : ''}`}
+                          style={{ ['--c' as string]: `var(--src-${src.toLowerCase()})` }}>
+                          <td><span className="ch">{f.label}<span className="n">{p.counts[key] ?? 0}</span></span></td>
+                          <ChannelBoxes keys={[key]} name={`${src} · ${f.label}`} prefs={prefs} onChange={onChange} />
+                        </tr>
+                      )
+                    })}
+                  </Fragment>
                 )
-              }))}
+              })}
             </tbody>
           </table>
           <p className="hint">
-            Oko: kanał na liście. Odznaczony kanał od razu znika z listy i nie jest czytany ani pokazywany
-            w powiadomieniach. Newsy wszystkich kanałów i tak przychodzą w tle, więc po zaznaczeniu kanał wraca od razu.
+            Wiersz źródła ustawia wszystkie jego kanały naraz, a strzałka je rozwija, żeby ustawić każdy osobno.
+            Oko: kanał na liście; odznaczony od razu znika z listy i nie jest czytany ani pokazywany w powiadomieniach
+            (newsy i tak przychodzą w tle, więc po zaznaczeniu wraca od razu). Lead: po tytule czytana jest zajawka,
+            bez zaznaczenia sam tytuł. Reuters podaje tylko tytuły.
           </p>
         </section>
 
@@ -167,7 +228,7 @@ export default function Settings(p: Props) {
                 Chrome ma „Google polski”, a Mac i iPhone np. Zosię.
               </p>
               <div className="voice-pick">
-                <span>Głos angielski (CNBC)</span>
+                <span>Głos angielski (Reuters)</span>
                 <div>
                   <select value={chosenEn} onChange={(e) => onChange({ voiceURIEn: e.target.value })} aria-label="Głos angielski">
                     <option value="">Automatyczny{autoEn ? ` (${voiceLabel(autoEn)})` : ''}</option>
@@ -182,15 +243,7 @@ export default function Settings(p: Props) {
                 {en.length === 0 ? 'Ta przeglądarka nie ma angielskich głosów, więc czyta swoim domyślnym.'
                   : `Angielskie głosy w tej przeglądarce: ${en.length}.`}
               </p>
-              <div className="setting">
-                <span>Czytaj</span>
-                <div className="segmented">
-                  <button className={prefs.readLead ? '' : 'on'} onClick={() => onChange({ readLead: false })}>Sam tytuł</button>
-                  <button className={prefs.readLead ? 'on' : ''} onClick={() => onChange({ readLead: true })}>Tytuł i lead</button>
-                </div>
-              </div>
-              <Switch label="Mów „GPW:” przed komunikatami GPW" checked={prefs.sayGpw} onChange={() => onChange({ sayGpw: !prefs.sayGpw })} />
-              <p className="hint">Stooq, ESPI, PAP i CNBC są czytane bez nazwy źródła. Zapowiedzi MacroNext są czytane w całości. Z leadu czytane są pełne zdania (lead ucięty przez źródło do miejsca ucięcia), bez daty, „(PAP)” i powtórzonego tytułu.</p>
+              <p className="hint">Komunikaty GPW są czytane z „GPW:” na początku, pozostałe newsy bez nazwy źródła. Lead czytany jest tylko w kanałach zaznaczonych w kolumnie „Lead” wyżej: pełne zdania (lead ucięty przez źródło do miejsca ucięcia), bez daty, „(PAP)” i powtórzonego tytułu. Zapowiedzi MacroNext mają w leadzie dane (konsensus, poprzedni odczyt).</p>
               <label className="setting">
                 <span>Tempo <b>{prefs.rate.toFixed(1)}×</b></span>
                 <input type="range" min={0.6} max={1.8} step={0.1} value={prefs.rate}
@@ -272,7 +325,7 @@ export default function Settings(p: Props) {
 
         <p className="foot">
           Szczekaczka by <a href={AUTHOR.url} target="_blank" rel="noopener noreferrer">{AUTHOR.name}</a>.
-          Źródła: <Link href="/o-stronie">Bankier.pl (ESPI/EBI), GPW, Stooq, PAP MediaRoom, CNBC, MacroNext</Link>.
+          Źródła: <Link href="/o-stronie">Bankier.pl (ESPI/EBI), GPW, Stooq, PAP MediaRoom, Reuters, MacroNext</Link>.
         </p>
       </aside>
     </div>

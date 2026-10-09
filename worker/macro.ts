@@ -6,7 +6,7 @@ import { feedKey, type FeedConfig } from '../src/lib/sources'
 import { HEADERS, SHOW_ERROR_AFTER, TIMEOUT_S, pageInfo, retain, type CheckResult, type FeedState } from './feeds'
 
 // Raise this when reading the calendar changes: it is then read again at once, not at the next time above
-export const MACRO_VERSION = 1
+export const MACRO_VERSION = 2 // 2: releases without a time, announced in the morning
 const RETRY_MINUTES = [1, 2, 4, 8, 15] // after failed reads in a row
 const LEAD_MS = LEAD_MINUTES * 60_000
 const LATE_MS = 60_000 // less than this before the release, the announcement is not made
@@ -28,14 +28,23 @@ const fetchDue = (s: FeedState | undefined): number => {
   return failures ? s.checkedAt + RETRY_MINUTES[Math.min(failures, RETRY_MINUTES.length) - 1] * 60_000 : nextFetch(s.checkedAt)
 }
 
+const dayKey = ({ y, m, d }: { y: number; m: number; d: number }) => `${y}-${m}-${d}`
+
+// When a group is announced, and after when it no longer is: 10 minutes before the release, but
+// not with under a minute left; the day's undated releases from the morning until the day ends
+const announceAt = (g: MacroGroup) => (g.allDay ? g.at : g.at - LEAD_MS)
+function lastAt(g: MacroGroup): number {
+  if (!g.allDay) return g.at - LATE_MS
+  const [y, m, d] = g.day.split('-').map(Number)
+  return warsawToUtc(y, m, d + 1, 0, 0)
+}
+
 // When the poller should next call checkMacro: a reading, or an announcement
 export function macroDueAt(s: FeedState | undefined): number {
   let due = fetchDue(s)
-  for (const g of s?.calendar ?? []) if (!g.done) due = Math.min(due, g.at - LEAD_MS)
+  for (const g of s?.calendar ?? []) if (!g.done) due = Math.min(due, announceAt(g))
   return due
 }
-
-const dayKey = ({ y, m, d }: { y: number; m: number; d: number }) => `${y}-${m}-${d}`
 const clock = (t: number) => new Date(t).toLocaleTimeString('pl-PL', { timeZone: 'Europe/Warsaw', hour: '2-digit', minute: '2-digit' })
 
 // One day's releases, or why they could not be read
@@ -81,7 +90,7 @@ export async function checkMacro(feed: FeedConfig, prev: FeedState | undefined, 
       state.error = null
       log = days.map((day, i) => {
         const groups = read[i] as MacroGroup[]
-        return `${dayKey(day)}: ${groups.length ? groups.map((g) => `${clock(g.at)} ${g.countries.join('/')}`).join(', ') : 'nothing'}`
+        return `${dayKey(day)}: ${groups.length ? groups.map((g) => `${g.allDay ? '?' : clock(g.at)} ${g.countries.join('/')}`).join(', ') : 'nothing'}`
       }).join('; ')
     }
   }
@@ -90,17 +99,17 @@ export async function checkMacro(feed: FeedConfig, prev: FeedState | undefined, 
   // added) says how many minutes are left; with under a minute left it is not made.
   const add: NewsItem[] = []
   for (const g of state.calendar!) {
-    if (g.done || now < g.at - LEAD_MS) continue
+    if (g.done || now < announceAt(g)) continue
     g.done = true
     dirty = true
-    if (now > g.at - LATE_MS) continue
+    if (now > lastAt(g)) continue
     const minutes = Math.min(LEAD_MINUTES, Math.ceil((g.at - now) / 60_000))
     // The day's page; the time makes each link different, or the page would show one announcement a day
-    add.push({ id: g.id, title: groupTitle(g, minutes), description: g.lines.join(' '), link: `${feed.url}${g.day}#${clock(g.at)}`,
+    add.push({ id: g.id, title: groupTitle(g, minutes), description: g.lines.join(' '), link: `${feed.url}${g.day}${g.allDay ? '' : `#${clock(g.at)}`}`,
       pubDate: new Date(now).toISOString(), source: feed.source, label: feed.label })
   }
   // Releases more than a day old are forgotten
-  state.calendar = state.calendar!.filter((g) => g.at > now - DAY_MS)
+  state.calendar = state.calendar!.filter((g) => lastAt(g) > now - DAY_MS)
 
   state.items = retain([...old.items, ...add], new Set(), now)
   const kept = new Set(state.items.map((i) => i.id))

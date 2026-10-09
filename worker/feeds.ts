@@ -106,7 +106,8 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
   leadsUrl = feed.leads): Promise<CheckResult> {
   const old: FeedState = prev ?? { items: [], error: null, checkedAt: 0 }
   // Before 24-hour keeping, everything stored was in the feed
-  const current = new Set(old.current ?? old.items.map((i) => i.id))
+  // A search (Google News) keeps old results: its entries are kept only for their first 24 hours
+  const current = new Set(feed.via === 'google-news' ? [] : old.current ?? old.items.map((i) => i.id))
   // Nothing new from the source: only entries older than 24 hours may go
   const aged = (patch: Partial<FeedState>): CheckResult => {
     const items = retain(old.items, current, now)
@@ -171,9 +172,11 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
     const xml = full.length > MAX_XML_CHARS ? full.slice(0, MAX_XML_CHARS) : full
     parsed = parseFeedXml(xml, feed, MAX_PER_FEED)
     if (parsed.length === 0 && !/<(item|entry)[\s>]/i.test(xml)) return failed('odpowiedź bez wpisów RSS')
+    // A search returns old results too (some years old): only the last 24 hours
+    if (feed.via === 'google-news') parsed = parsed.filter((i) => i.pubDate && now - Date.parse(i.pubDate) < KEEP_MS)
   }
   const before = new Map(old.items.map((i) => [i.id, i]))
-  // An entry keeps the time it was first read with: CNBC moves an article's date each time it edits
+  // An entry keeps the time it was first read with: CNBC moved an article's date each time it edited
   // it, which would lift an old article above the new ones. After a parser change it is read anew.
   const fresh = parsed.map((it) => {
     const b = before.get(it.id)
