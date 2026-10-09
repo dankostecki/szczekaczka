@@ -13,10 +13,17 @@ export interface FeedConfig {
   url: string
   minAge?: number // seconds: a feed that rarely changes is checked at most this often (never more often than usual)
   lang?: Lang     // 'pl' when not given
+  format?: 'pap-list' // not RSS: the ESPI / EBI report table of biznes.pap.pl (parse.ts)
+  group?: string      // channels with the same reports (ESPI from Bankier and PAP): a report that one
+                      // of them already has is left out of the others
 }
 
 export const FEEDS: FeedConfig[] = [
-  { source: 'ESPI',  label: 'ESPI/EBI',    url: 'https://www.bankier.pl/rss/espi.xml' },
+  // Bankier's RSS has only some of the reports (10 at a time, many never appear), so the full
+  // ESPI and EBI lists of PAP Biznes are read too; a report in both shows once
+  { source: 'ESPI',  label: 'BANKIER',     url: 'https://www.bankier.pl/rss/espi.xml', group: 'espi' },
+  { source: 'ESPI',  label: 'PAP ESPI',    url: 'https://biznes.pap.pl/espi',          group: 'espi', format: 'pap-list' },
+  { source: 'ESPI',  label: 'PAP EBI',     url: 'https://biznes.pap.pl/espi/ebi',      group: 'espi', format: 'pap-list' },
   { source: 'GPW',   label: 'KOMUNIKATY',  url: 'https://www.gpw.pl/rss_komunikaty',             minAge: 120 },
   { source: 'GPW',   label: 'PRASA',       url: 'https://www.gpw.pl/rss_komunikaty_prasowe',     minAge: 600 },
   { source: 'GPW',   label: 'AKTUALNOŚCI', url: 'https://www.gpw.pl/rss_aktualnosci',           minAge: 600 },
@@ -36,6 +43,19 @@ export const FEEDS: FeedConfig[] = [
 export const feedKey = (source: string, label: string) => `${source}:${label}`
 export const FEED_KEYS = FEEDS.map((f) => feedKey(f.source, f.label))
 
+// Channels that got a new name: settings and stored news move to it (old key -> new key)
+export const RENAMED_FEEDS: Record<string, string> = { 'ESPI:ESPI/EBI': 'ESPI:BANKIER' }
+export const renamedKey = (key: string) => RENAMED_FEEDS[key] ?? key
+// An item id starts with its channel key ("ESPI:ESPI/EBI:https://…")
+export function renamedId(id: string): string {
+  for (const [from, to] of Object.entries(RENAMED_FEEDS)) if (id.startsWith(`${from}:`)) return to + id.slice(from.length)
+  return id
+}
+export function renamedItem<T extends { id: string; source: string; label: string }>(item: T): T {
+  const key = renamedKey(feedKey(item.source, item.label))
+  return key === feedKey(item.source, item.label) ? item : { ...item, id: renamedId(item.id), label: key.slice(key.indexOf(':') + 1) }
+}
+
 const FEED_LANG = new Map(FEEDS.map((f) => [feedKey(f.source, f.label), f.lang ?? 'pl']))
 export const langOf = (source: string, label: string): Lang => FEED_LANG.get(feedKey(source, label)) ?? 'pl'
 
@@ -44,10 +64,10 @@ export const labelsOf = (source: Source) => FEEDS.filter((f) => f.source === sou
 // Who publishes each source, for the "O stronie i źródła" page
 export const SOURCE_INFO: Record<Source, { name: string; publisher: string; site: string; about: string }> = {
   ESPI: {
-    name: 'Bankier.pl – komunikaty spółek ESPI/EBI',
-    publisher: 'Bankier.pl',
-    site: 'https://www.bankier.pl/gielda/wiadomosci/komunikaty-spolek',
-    about: 'Raporty bieżące i okresowe spółek giełdowych z systemów ESPI i EBI, publikowane przez Bankier.pl. Autorami raportów są spółki; oficjalnie publikuje je system ESPI/EBI.',
+    name: 'Komunikaty spółek ESPI/EBI (Bankier.pl i PAP Biznes)',
+    publisher: 'Bankier.pl oraz Polska Agencja Prasowa S.A. (serwis PAP Biznes)',
+    site: 'https://biznes.pap.pl/espi',
+    about: 'Raporty bieżące i okresowe spółek giełdowych z systemów ESPI i EBI: z kanału RSS Bankier.pl (tytuł i zajawka) oraz z list raportów ESPI i EBI serwisu PAP Biznes (tytuł). Kanał Bankiera nie ma wszystkich raportów, dlatego są dwa źródła; raport, który jest w obu, pokazuje się raz. Autorami raportów są spółki; oficjalnie publikuje je system ESPI/EBI.',
   },
   GPW: {
     name: 'Giełda Papierów Wartościowych w Warszawie',

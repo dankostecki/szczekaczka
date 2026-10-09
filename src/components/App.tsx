@@ -1,7 +1,7 @@
 'use client'
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { SOURCES, labelsOf, type Source } from '@/lib/sources'
+import { SOURCES, labelsOf, renamedId, renamedItem, type Source } from '@/lib/sources'
 import type { NewsItem } from '@/lib/parse'
 import { type Item, type FeedError, freshItems, keyOf, dayKey, dayLabel, clock, withTime } from '@/lib/news'
 import { connectLive, type LiveStatus } from '@/lib/live'
@@ -35,6 +35,13 @@ function emptyTab(src: Source, label: string | null, errors: FeedError[]): strin
   return failing.length
     ? `Nie udało się pobrać newsów z ${name} (powód w ramce wyżej). Kolejna próba za chwilę.`
     : `Na razie brak newsów z ${name}.`
+}
+
+// Read and saved news of a renamed channel get its new ids, saved back once
+function moved<T>(key: string, list: T[], rename: (x: T) => T): T[] {
+  const out = list.map(rename)
+  if (out.some((x, i) => x !== list[i])) saveJson(key, out)
+  return out
 }
 
 export default function App() {
@@ -75,8 +82,8 @@ export default function App() {
     setPrefs(loadPrefs())
     setReady(true)
     setPerm(notifyPermission())
-    setReadIds(new Set(loadJson<string[]>(READ_KEY, [])))
-    setSaved(loadJson<NewsItem[]>(SAVED_KEY, []).map(withTime))
+    setReadIds(new Set(moved(READ_KEY, loadJson<string[]>(READ_KEY, []), renamedId)))
+    setSaved(moved(SAVED_KEY, loadJson<NewsItem[]>(SAVED_KEY, []), renamedItem).map(withTime))
     if (!speechSupported()) return
     setCanSpeak(true)
     const update = () => setVoices(window.speechSynthesis.getVoices())
