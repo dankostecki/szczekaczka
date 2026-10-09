@@ -2,7 +2,6 @@
 // Checking one feed per call keeps each call far below the 10 ms of CPU of the free plan.
 import { DurableObject } from 'cloudflare:workers'
 import { FEEDS, feedKey, renamedKey, renamedId, renamedItem, CHECK_SECONDS, QUIET_CHECK_SECONDS, HUBS, HEARTBEAT_SECONDS, type FeedConfig } from '../src/lib/sources'
-import { knownReport } from '../src/lib/reports'
 import { marketHours } from '../src/lib/schedule'
 import type { Delta, FeedSnapshot, Heartbeat } from '../src/lib/protocol'
 import { checkFeed, type FeedState } from './feeds'
@@ -141,20 +140,12 @@ export class Poller extends DurableObject<Env> {
     return Math.max(next, now + MIN_GAP_MS)
   }
 
-  // Channels of one group carry the same reports (ESPI from Bankier and from PAP): a report one
-  // of them already has is left out of the others, so it shows and is read aloud once
-  private inOtherChannels(feed: FeedConfig) {
-    if (!feed.group) return undefined
-    const others = FEEDS.filter((f) => f.group === feed.group && f !== feed)
-      .flatMap((f) => this.feeds.get(feedKey(f.source, f.label))?.items ?? [])
-    return others.length ? knownReport(others) : undefined
-  }
-
   private async check(feed: FeedConfig) {
     const key = feedKey(feed.source, feed.label)
     const url = this.env.FEED_ORIGIN ? `${this.env.FEED_ORIGIN}/${feed.url.replace(/^https?:\/\//, '')}` : feed.url
     const prev = this.feeds.get(key)
-    const r = await checkFeed(feed, prev, url, Date.now(), this.inOtherChannels(feed))
+    const leads = feed.leads && this.env.FEED_ORIGIN ? `${this.env.FEED_ORIGIN}/${feed.leads.replace(/^https?:\/\//, '')}` : feed.leads
+    const r = await checkFeed(feed, prev, url, Date.now(), leads)
     this.feeds.set(key, r.state)
     if (r.problem) console.log(`feed ${key}: failed check ${r.state.failures} in a row: ${r.problem}`)
     if (r.gap) console.log(`feed ${key}: all ${r.state.current?.length} entries are new, some may have been missed`)

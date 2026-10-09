@@ -13,17 +13,15 @@ export interface FeedConfig {
   url: string
   minAge?: number // seconds: a feed that rarely changes is checked at most this often (never more often than usual)
   lang?: Lang     // 'pl' when not given
-  format?: 'pap-list' // not RSS: the ESPI / EBI report table of biznes.pap.pl (parse.ts)
-  group?: string      // channels with the same reports (ESPI from Bankier and PAP): a report that one
-                      // of them already has is left out of the others
+  format?: 'bankier-list' // not RSS: Bankier's web page with the list of company reports (parse.ts)
+  leads?: string           // an RSS feed with leads for some of the entries (matched by link)
 }
 
 export const FEEDS: FeedConfig[] = [
-  // Bankier's RSS has only some of the reports (10 at a time, many never appear), so the full
-  // ESPI and EBI lists of PAP Biznes are read too; a report in both shows once
-  { source: 'ESPI',  label: 'BANKIER',     url: 'https://www.bankier.pl/rss/espi.xml', group: 'espi' },
-  { source: 'ESPI',  label: 'PAP ESPI',    url: 'https://biznes.pap.pl/espi',          group: 'espi', format: 'pap-list' },
-  { source: 'ESPI',  label: 'PAP EBI',     url: 'https://biznes.pap.pl/espi/ebi',      group: 'espi', format: 'pap-list' },
+  // Bankier's ESPI RSS has only some of the reports (10 at a time, many never appear in it), so
+  // the reports come from Bankier's list page, which has them all; leads from the RSS
+  { source: 'ESPI',  label: 'BANKIER',     url: 'https://www.bankier.pl/gielda/wiadomosci/komunikaty-spolek',
+    format: 'bankier-list', leads: 'https://www.bankier.pl/rss/espi.xml' },
   { source: 'GPW',   label: 'KOMUNIKATY',  url: 'https://www.gpw.pl/rss_komunikaty',             minAge: 120 },
   { source: 'GPW',   label: 'PRASA',       url: 'https://www.gpw.pl/rss_komunikaty_prasowe',     minAge: 600 },
   { source: 'GPW',   label: 'AKTUALNOŚCI', url: 'https://www.gpw.pl/rss_aktualnosci',           minAge: 600 },
@@ -64,10 +62,10 @@ export const labelsOf = (source: Source) => FEEDS.filter((f) => f.source === sou
 // Who publishes each source, for the "O stronie i źródła" page
 export const SOURCE_INFO: Record<Source, { name: string; publisher: string; site: string; about: string }> = {
   ESPI: {
-    name: 'Komunikaty spółek ESPI/EBI (Bankier.pl i PAP Biznes)',
-    publisher: 'Bankier.pl oraz Polska Agencja Prasowa S.A. (serwis PAP Biznes)',
-    site: 'https://biznes.pap.pl/espi',
-    about: 'Raporty bieżące i okresowe spółek giełdowych z systemów ESPI i EBI: z kanału RSS Bankier.pl (tytuł i zajawka) oraz z list raportów ESPI i EBI serwisu PAP Biznes (tytuł). Kanał Bankiera nie ma wszystkich raportów, dlatego są dwa źródła; raport, który jest w obu, pokazuje się raz. Autorami raportów są spółki; oficjalnie publikuje je system ESPI/EBI.',
+    name: 'Bankier.pl – komunikaty spółek ESPI/EBI',
+    publisher: 'Bankier.pl',
+    site: 'https://www.bankier.pl/gielda/wiadomosci/komunikaty-spolek',
+    about: 'Raporty bieżące i okresowe spółek giełdowych z systemów ESPI i EBI z listy komunikatów Bankier.pl (godzina i tytuł; zajawka z kanału RSS Bankiera, gdy raport w nim jest). Kanał RSS Bankiera nie ma wszystkich raportów, dlatego czytana jest lista ze strony. Autorami raportów są spółki; oficjalnie publikuje je system ESPI/EBI.',
   },
   GPW: {
     name: 'Giełda Papierów Wartościowych w Warszawie',

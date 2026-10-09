@@ -186,52 +186,31 @@ export function parseFeedXml(xml: string, feed: FeedConfig, limit = Infinity): N
   return items
 }
 
-// ── The ESPI / EBI report lists of PAP Biznes (biznes.pap.pl/espi, /espi/ebi) ──
-// An HTML page, no RSS: a table with one row per report (time, number, company, title):
-//   <tr><td class="text-right">07:36</td><td class="text-left">23/2026</td>
-//       <td class="text-left"><a href="?company=1393&selectCompany=1393">GreenX Metals Ltd.</a></td>
-//       <td><a href="/wiadomosci/firmy/greenx-…">GREENX METALS LTD. (23/2026) Zawiadomienie o…</a></td></tr>
-// The list is of one day, named in the links under the table ("/articles/espi/2026/10/9?limit=25").
+// ── The list of company reports on Bankier.pl (bankier.pl/gielda/wiadomosci/komunikaty-spolek) ──
+// Bankier's ESPI RSS has only some of the reports; this page has them all, newest first:
+//   <li class="m-quotes-announcements-list__item"><div class="m-quotes-announcements-item">
+//     <span class="m-quotes-announcements-item__date">09.10.2026 10:42</span>
+//     <a class="m-quotes-announcements-item__anchor" href="https://www.bankier.pl/wiadomosc/…-9210077.html" …>
+//       PRIME ASI SA: Zawiadomienie w trybie art. 19 ust. 1 MAR</a>
+//     <div class="a-quotes-badge -white -source"><span class="value">espi</span></div>…
 
-// Just the table and the links under it: the rest of the page differs on every visit, and is
-// not worth the CPU. null when the page has no such table (changed or an error page).
-export function papListSection(html: string): string | null {
-  const head = html.search(/>\s*godzina\s*</i)
-  if (head < 0) return null
-  const start = html.lastIndexOf('<table', head)
-  const day = html.indexOf('/articles/', head)
-  return html.slice(start < 0 ? head : start, day < 0 ? head + 300_000 : day + 40)
+// Just the list: the rest of the page (about 570 KB) is not worth the CPU, and differs on every
+// visit. null when the page has no list (changed, or an error page).
+export function bankierListSection(html: string): string | null {
+  const start = html.indexOf('m-quotes-announcements-list"')
+  if (start < 0) return null
+  const end = html.indexOf('</ul>', start)
+  return html.slice(start, end < 0 ? start + 200_000 : end)
 }
 
-// "YYYY-MM-DD" in Warsaw
-function warsawDay(ms: number): string {
-  const d = new Date(ms + warsawOffset(ms))
-  return d.toISOString().slice(0, 10)
-}
-
-const pad2 = (n: string) => n.padStart(2, '0')
-
-// Newest first, as on the page. Title: "GreenX Metals Ltd.: Zawiadomienie o…" (company, then the
-// title without the repeated name and number), like Bankier's "KOOL2PLAY S.A.: …".
-export function parsePapList(section: string, feed: FeedConfig, limit = Infinity, now = Date.now()): NewsItem[] {
-  const listDay = section.match(/\/articles\/(?:espi|ebi)\/(\d{4})\/(\d{1,2})\/(\d{1,2})/)
-  let day = listDay ? `${listDay[1]}-${pad2(listDay[2])}-${pad2(listDay[3])}` : warsawDay(now)
+export function parseBankierList(section: string, feed: FeedConfig, limit = Infinity): NewsItem[] {
   const items: NewsItem[] = []
-  for (const [, row] of section.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
-    const time = row.match(/<td[^>]*>\s*(\d{1,2}):(\d{2})\s*<\/td>/)
-    if (!time) {
-      // A day heading inside the table: "2026.10.09 – Piątek"
-      const d = row.match(/(\d{4})\.(\d{2})\.(\d{2})/)
-      if (d) day = `${d[1]}-${d[2]}-${d[3]}`
-      continue
-    }
-    const report = row.match(/<a\b[^>]*href="(\/wiadomosci\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/i)
-    if (!report) continue
-    const company = cleanText(row.match(/<a\b[^>]*href="\?company=[^"]*"[^>]*>([\s\S]*?)<\/a>/i)?.[1] ?? '')
-    const full = cleanText(report[2])
-    const text = full.replace(/^.*?\(\d+\/\d{4}\)\s*/, '') || full
-    items.push(makeItem(feed, company ? `${company}: ${text}` : full, absolute(decodeEntities(report[1]), feed.url), '',
-      `${day} ${pad2(time[1])}:${time[2]}`))
+  for (const [, li] of section.matchAll(/<li class="m-quotes-announcements-list__item">([\s\S]*?)<\/li>/g)) {
+    const a = li.match(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/)
+    const title = a ? cleanText(a[2]) : ''
+    if (!a || !title) continue
+    const date = li.match(/__date">\s*([\d.]+\s+\d{1,2}:\d{2})/)?.[1] ?? '' // "09.10.2026 10:42", Warsaw time
+    items.push(makeItem(feed, title, absolute(decodeEntities(a[1]), feed.url), '', date))
     if (items.length >= limit) break
   }
   return items
