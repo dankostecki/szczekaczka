@@ -62,6 +62,23 @@ export function warsawToUtc(y: number, mo: number, d: number, h = 0, mi = 0, s =
   return guess - warsawOffset(guess - warsawOffset(guess))
 }
 
+// Wall-clock time in New York (NYSE's hours) to UTC ms. The USA and Poland change between summer
+// and winter time on different weekends, so the gap between them is 5 or 6 hours.
+const newYorkFmt = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/New_York', hourCycle: 'h23',
+  year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+})
+function newYorkOffset(utcMs: number): number {
+  const hour = Math.floor(utcMs / 3_600_000) * 3_600_000
+  const parts = newYorkFmt.formatToParts(new Date(hour))
+  const n = (t: string) => Number(parts.find((p) => p.type === t)?.value)
+  return Date.UTC(n('year'), n('month') - 1, n('day'), n('hour'), n('minute')) - hour
+}
+export function newYorkToUtc(y: number, mo: number, d: number, h = 0, mi = 0): number {
+  const guess = Date.UTC(y, mo - 1, d, h, mi)
+  return guess - newYorkOffset(guess - newYorkOffset(guess))
+}
+
 // The Polish calendar date at a moment
 export function warsawDate(utcMs: number): { y: number; m: number; d: number } {
   const wall = new Date(utcMs + warsawOffset(utcMs))

@@ -13,6 +13,7 @@ import { AUTHOR } from '@/lib/site'
 import NewsRow from './NewsRow'
 import Settings from './Settings'
 import PrivacyNotice from './PrivacyNotice'
+import ScrollRow from './ScrollRow'
 import { SiteFooter } from './LegalPage'
 import { Megaphone, Speaker, Bell, Refresh, Sun, Moon, Gear, Search, Close, Star } from './Icons'
 
@@ -34,7 +35,9 @@ function emptyTab(src: Source, label: string | null, errors: FeedError[]): strin
   const failing = errors.filter((e) => (label ? e.feed === name : e.feed.startsWith(`${src} · `)))
   if (src === 'MACRONEXT') return failing.length
     ? 'Nie udało się pobrać kalendarium MacroNext (powód w ramce wyżej). Kolejna próba za chwilę.'
-    : 'Na razie brak zapowiedzi. Zapowiedzi danych makro z kalendarium MacroNext pojawiają się tu 10 minut przed publikacją.'
+    : label === 'GIEŁDA' ? 'Na razie brak zapowiedzi. Zapowiedzi z kalendarium giełdowego MacroNext pojawiają się tu przed sesją na GPW i przed sesją oraz po sesji w Nowym Jorku.'
+    : label === 'MAKRO' ? 'Na razie brak zapowiedzi. Zapowiedzi danych makro z kalendarium MacroNext pojawiają się tu 10 minut przed publikacją.'
+    : 'Na razie brak zapowiedzi. Zapowiedzi danych makro pojawiają się tu 10 minut przed publikacją, a zapowiedzi z kalendarium giełdowego przed sesją.'
   return failing.length
     ? `Nie udało się pobrać newsów z ${name} (powód w ramce wyżej). Kolejna próba za chwilę.`
     : `Na razie brak newsów z ${name}.`
@@ -333,7 +336,7 @@ export default function App() {
         </div>
 
         <div className="filters wrap">
-          <div className="chips" role="tablist">
+          <ScrollRow className="chips" role="tablist" active={activeFilter}>
             {filters.map((f) => (
               <button key={f} role="tab" aria-selected={activeFilter === f} className={`chip ${activeFilter === f ? 'on' : ''}`}
                 style={{ ['--c' as string]: filterColor(f) }} onClick={() => choose(f)}>
@@ -341,7 +344,7 @@ export default function App() {
                 {filterName(f)}
               </button>
             ))}
-          </div>
+          </ScrollRow>
           <label className="search">
             <Search size={16} />
             <input ref={searchRef} value={query} onChange={(e) => setQuery(e.target.value)}
@@ -352,14 +355,14 @@ export default function App() {
         </div>
 
         {subLabels.length > 1 && (
-          <div className="chips sub wrap">
+          <ScrollRow className="chips sub" outer="wrap" active={activeLabel}>
             {[null, ...subLabels].map((l) => (
               <button key={l ?? '*'} className={`chip small ${activeLabel === l ? 'on' : ''}`}
                 style={{ ['--c' as string]: filterColor(activeFilter) }} onClick={() => setLabel(l)}>
                 {l ?? 'Wszystkie'}
               </button>
             ))}
-          </div>
+          </ScrollRow>
         )}
       </header>
 

@@ -31,8 +31,8 @@ export const DEFAULT_PREFS: Prefs = {
   hiddenFeeds: [],
   speakFeeds: FEED_KEYS,
   notifyFeeds: FEED_KEYS,
-  // Titles only, but MacroNext's announcements: their "lead" is the figures
-  leadFeeds: ['MACRONEXT:MAKRO'],
+  // Titles only, but MacroNext's announcements: their "lead" is the figures, the companies
+  leadFeeds: ['MACRONEXT:MAKRO', 'MACRONEXT:GIEŁDA'],
   knownFeeds: FEED_KEYS,
   watchlist: '',
 }
@@ -60,11 +60,13 @@ export function loadPrefs(): Prefs {
     // Channels that no longer exist (GPW calendar, GPW indices) are dropped, and the
     // cleaned settings are written back so nothing about them stays in the browser
     const existing = (list: string[]) => list.filter((k) => FEED_KEYS.includes(k))
-    // A channel added since the settings were saved starts like for a new visitor: read aloud and notified
+    // A channel added since the settings were saved starts like for a new visitor: read aloud and
+    // notified, with its lead if new visitors have it
     const known = saved.knownFeeds ?? KNOWN_BEFORE.map(renamedKey)
     const added = FEED_KEYS.filter((k) => !known.includes(k))
     const cleaned: Prefs = {
-      ...p, hiddenFeeds: existing(p.hiddenFeeds), leadFeeds: existing(p.leadFeeds), knownFeeds: FEED_KEYS,
+      ...p, hiddenFeeds: existing(p.hiddenFeeds), knownFeeds: FEED_KEYS,
+      leadFeeds: [...existing(p.leadFeeds), ...added.filter((k) => DEFAULT_PREFS.leadFeeds.includes(k) && !p.leadFeeds.includes(k))],
       speakFeeds: [...existing(p.speakFeeds), ...added.filter((k) => !p.speakFeeds.includes(k))],
       notifyFeeds: [...existing(p.notifyFeeds), ...added.filter((k) => !p.notifyFeeds.includes(k))],
     }

@@ -10,7 +10,7 @@
 ## Architektura
 
 ```
-  Bankier (lista komunikatów + RSS), GPW, Stooq, PAP (RSS), MacroNext (kalendarium)
+  Bankier (lista komunikatów + RSS), GPW, Stooq, PAP (RSS), MacroNext (kalendarium makro i giełdowe na dziś)
             │  co 60 s (GPW i noc rzadziej), jeden kanał na raz
             ▼
   ┌───────────────────┐      zmiany (delta)      ┌──────────────┐
@@ -46,7 +46,7 @@ Założenie: 1000 użytkowników, każdy średnio 10 połączeń dziennie (otwar
 | Limit dzienny (plan Free) | Na co idzie | Zużycie / dzień | Wykorzystanie |
 |---|---|---|---|
 | Workers: 100 tys. zapytań | `/ws` (10 tys.) + `/api/news` (około 10 tys.) | około 20 tys. | około 20% |
-| Durable Objects: 100 tys. zapytań | połączenia (10 tys.), listy (10 tys.), alarmy Pollera (najwyżej około 9 tys. przy 11 kanałach; MacroNext dodaje kilkanaście na dobę), rozsyłanie do hubów (około 9 tys.) | około 38 tys. | około 38% |
+| Durable Objects: 100 tys. zapytań | połączenia (10 tys.), listy (10 tys.), alarmy Pollera (najwyżej około 9 tys. przy 12 kanałach; dwa kanały MacroNext dodają kilkanaście na dobę), rozsyłanie do hubów (około 9 tys.) | około 38 tys. | około 38% |
 | Durable Objects: 100 tys. zapisanych wierszy | alarmy (około 9 tys.), zmiany kanałów (około 5 tys.) | około 14 tys. | około 14% |
 | Durable Objects: 13 tys. GB-s | Poller czeka na źródło przy każdym sprawdzeniu, huby tylko chwilę przy rozsyłaniu | poniżej 1 tys. | poniżej 10% |
 | Pliki statyczne | strona, regulamin, polityka, źródła | dowolnie dużo | bez limitu |
