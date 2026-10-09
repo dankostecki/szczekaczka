@@ -20,6 +20,7 @@ export interface CheckResult {
   add: NewsItem[]
   remove: string[]
   problem?: string // why this check failed (for the logs)
+  gap?: boolean    // none of the entries was there last time: some may have come and gone unseen
 }
 
 // Feeds hold only their latest few entries (ESPI 10, PAP 10, Stooq 30, GPW 50): when a new
@@ -131,5 +132,6 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
   const state: FeedState = { items, current: [...inFeed], error: null, failures: 0, hash, ...meta, checkedAt: now, parser: PARSER_VERSION }
   // An added entry that is already too old to keep (a feed item without a date is always kept)
   const added = add.filter((i) => kept.has(i.id))
-  return { state, changed: added.length > 0 || remove.length > 0 || old.error !== null, add: added, remove }
+  const gap = current.size > 0 && fresh.length > 0 && !fresh.some((i) => current.has(i.id))
+  return { state, changed: added.length > 0 || remove.length > 0 || old.error !== null, add: added, remove, gap }
 }
