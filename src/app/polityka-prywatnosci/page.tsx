@@ -139,7 +139,7 @@ export default function PrivacyPolicy() {
         także w tej wersji dostarcza serwer na Cloudflare.
       </p>
 
-      <h3>Źródła newsów: Bankier.pl, GPW, Stooq, PAP MediaRoom</h3>
+      <h3>Źródła newsów: Bankier.pl, GPW, Stooq, PAP MediaRoom, MarketWatch</h3>
       <p>
         Kanały RSS pobiera serwer Serwisu, a nie Twoja przeglądarka, więc serwisy źródłowe nie dostają Twojego adresu IP.
         Gdy klikniesz w news, przechodzisz na stronę źródła i od tej chwili obowiązuje polityka prywatności tamtego
@@ -153,7 +153,8 @@ export default function PrivacyPolicy() {
         (Microsoft). Gdy wybierzesz taki głos, przeglądarka wysyła czytany tekst, czyli nagłówki i zajawki newsów, do
         serwerów Google lub Microsoft. Te dane przetwarza producent przeglądarki na własnych zasadach, opisanych
         w jego polityce prywatności. Administrator ich nie otrzymuje. Głosy lokalne (np. Paulina w Windows, Zosia na
-        Macu) działają na Twoim urządzeniu.
+        Macu) działają na Twoim urządzeniu. Newsy po angielsku czyta wybrany głos angielski (np. „Google US English”
+        w Chrome, Aria w Edge), na tych samych zasadach.
       </p>
 
       <h3>Powiadomienia na pulpicie</h3>

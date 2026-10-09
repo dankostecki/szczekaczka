@@ -10,7 +10,7 @@
 ## Architektura
 
 ```
-  Bankier, GPW, Stooq, PAP (RSS)
+  Bankier, GPW, Stooq, PAP, MarketWatch (RSS)
             │  co 60 s (GPW i noc rzadziej), jeden kanał na raz
             ▼
   ┌───────────────────┐      zmiany (delta)      ┌──────────────┐
@@ -25,7 +25,7 @@
 
 - **`worker/poller.ts` (Poller)**: jeden obiekt na całą stronę. Budzi się alarmem, sprawdza **jeden** kanał, który najdłużej czeka, i ustawia następny alarm. Pyta źródło z `If-None-Match`/`If-Modified-Since`, a gdy treść jest ta sama (304 albo ten sam skrót sha1), niczego nie parsuje. Zmiany zapisuje w SQLite obiektu i nadaje numer wersji (`v`).
 - **Ostatnie 24 godziny:** kanały trzymają tylko swoje ostatnie wpisy, więc Poller łączy to, co jest w kanale, z wpisami, które z niego wypadły w ciągu ostatnich 24 h od publikacji (najwyżej 500 na kanał). Do stron idą tylko nowe i poprawione wpisy oraz identyfikatory tych, które się zestarzały. Cała lista jest przez to większa (przy pełnym dniu ESPI około 1 MB JSON, po kompresji kilkaset KB), ale pobiera się ją tylko przy otwarciu strony; transfer na Cloudflare jest darmowy. Poller trzyma gotowy JSON każdego kanału osobno i po zmianie składa na nowo tylko jeden kanał.
-- **Częstotliwość**: ESPI i Stooq co 60 s w pon.–pt. 7:00–23:00, poza tym co 3 min. GPW: komunikaty co 2 min, prasa i aktualności co 10 min. PAP MediaRoom: co 2 min. W nocy i w weekendy żaden kanał nie jest sprawdzany częściej niż co 3 min (`src/lib/sources.ts`).
+- **Częstotliwość**: ESPI i Stooq co 60 s w pon.–pt. 7:00–23:00, poza tym co 3 min. GPW: komunikaty co 2 min, prasa i aktualności co 10 min. PAP MediaRoom: co 2 min. MarketWatch: TOP co 2 min, PILNE co 60 s. W nocy i w weekendy żaden kanał nie jest sprawdzany częściej niż co 3 min (`src/lib/sources.ts`).
 - **`worker/hub.ts` (Hub 0–3)**: trzymają połączenia WebSocket przeglądarek (cztery, żeby rozłożyć ruch). Używają WebSocket Hibernation: między wiadomościami obiekt znika z pamięci i nic nie kosztuje, a połączenia zostają otwarte. Wiadomości wychodzące do przeglądarek są darmowe.
 - **Protokół** (`src/lib/protocol.ts`, klient w `src/lib/live.ts`):
   - wejście na stronę: `GET /api/news` (cała lista z wersją `v`), równolegle WebSocket `/ws`;
@@ -46,8 +46,8 @@ Założenie: 1000 użytkowników, każdy średnio 10 połączeń dziennie (otwar
 | Limit dzienny (plan Free) | Na co idzie | Zużycie / dzień | Wykorzystanie |
 |---|---|---|---|
 | Workers: 100 tys. zapytań | `/ws` (10 tys.) + `/api/news` (około 10 tys.) | około 20 tys. | około 20% |
-| Durable Objects: 100 tys. zapytań | połączenia (10 tys.), listy (10 tys.), alarmy Pollera (około 8 tys. przy 11 kanałach), rozsyłanie do hubów (około 8 tys.) | około 36 tys. | około 36% |
-| Durable Objects: 100 tys. zapisanych wierszy | alarmy (około 8 tys.), zmiany kanałów (około 4 tys.) | około 12 tys. | około 12% |
+| Durable Objects: 100 tys. zapytań | połączenia (10 tys.), listy (10 tys.), alarmy Pollera (około 9 tys. przy 12 kanałach), rozsyłanie do hubów (około 9 tys.) | około 38 tys. | około 38% |
+| Durable Objects: 100 tys. zapisanych wierszy | alarmy (około 9 tys.), zmiany kanałów (około 5 tys.) | około 14 tys. | około 14% |
 | Durable Objects: 13 tys. GB-s | Poller czeka na źródło przy każdym sprawdzeniu, huby tylko chwilę przy rozsyłaniu | poniżej 1 tys. | poniżej 10% |
 | Pliki statyczne | strona, regulamin, polityka, źródła | dowolnie dużo | bez limitu |
 
@@ -64,7 +64,7 @@ Założenie: 1000 użytkowników, każdy średnio 10 połączeń dziennie (otwar
 
 ## Czemu tak, a nie inaczej
 
-- **Webhooki od źródeł:** Bankier, GPW, Stooq i PAP MediaRoom udostępniają tylko kanały RSS, bez powiadomień (webhooków ani WebSub, czyli `rel="hub"` w kanale). Ktoś musi je odpytywać. Tutaj robi to jeden Poller dla wszystkich.
+- **Webhooki od źródeł:** Bankier, GPW, Stooq, PAP MediaRoom i MarketWatch udostępniają tylko kanały RSS, bez powiadomień (webhooków ani WebSub, czyli `rel="hub"` w kanale). Ktoś musi je odpytywać. Tutaj robi to jeden Poller dla wszystkich.
 - **WebSocket w Durable Object z hibernacją zamiast SSE:** strumień SSE w Workerze trzyma otwarte wywołanie przez cały czas połączenia. WebSocket z hibernacją nie kosztuje nic między wiadomościami.
 - **Durable Objects zamiast osobnej usługi Pub/Sub:** to standardowy i darmowy sposób Cloudflare na rozsyłanie wiadomości przez WebSockety, bez nowego dostawcy (a więc bez zmian w polityce prywatności).
 - **Poprzednio (Vercel):** każda przeglądarka pytała co minutę, a funkcja przetwarzała kanały przy wygaśnięciu wspólnej kopii. Na darmowym planie Vercela limitem było CPU (4 h na 30 dni) i liczba zapytań rosła z liczbą użytkowników. Pomiar przed optymalizacją: około 0,17 s CPU na wywołanie, w tym 144 ms na tworzenie formatera dat dla każdej daty; po poprawce cała runda kosztuje około 13 ms.

@@ -86,6 +86,9 @@ function parseWarsaw(s: string): number {
 // A zone at the end: "+0100", "+01:00", "CET", "CEST"
 const ZONE = /\s*(?:([+-])(\d{2}):?(\d{2})|\b(CEST|CET)\b)$/i
 
+// Zones the native parser reads itself: GMT, UTC, Z, and the US ones of RFC 822 (EST, EDT, …)
+const EXPLICIT = /(GMT|UTC|Z)$|\b(UT|[ECMP][SD]T)$/i
+
 // Dates without a zone are Polish sources' local time. Polish feeds also often write
 // "+0100" (CET) all year, so in summer the time came out an hour late: a CET/CEST
 // offset is dropped and the time is read as Warsaw time. Other zones (GMT, Z) stay.
@@ -97,7 +100,7 @@ export function parseDate(s: string): string {
     : z[4] ? (z[4].toUpperCase() === 'CEST' ? 120 : 60)
     : (z[1] === '-' ? -1 : 1) * (Number(z[2]) * 60 + Number(z[3]))
   let ms: number
-  if (!z && !/(GMT|UTC|Z)$/i.test(s)) ms = parseWarsaw(s)
+  if (!z && !EXPLICIT.test(s)) ms = parseWarsaw(s)
   else if (offset === 60 || offset === 120) ms = parseWarsaw(s.slice(0, z!.index).trim())
   else ms = new Date(s).getTime()
   if (Number.isNaN(ms)) ms = new Date(s).getTime()

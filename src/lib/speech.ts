@@ -2,45 +2,56 @@
 // server; the available voices depend on the system and the browser.
 import type { Item } from './news'
 import type { Prefs } from './prefs'
+import { langOf, type Lang } from './sources'
 
 export const speechSupported = () =>
   typeof window !== 'undefined' && 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window
 
-const isPolish = (v: SpeechSynthesisVoice) => v.lang.toLowerCase().replace('_', '-').startsWith('pl')
+const LANG_TAG: Record<Lang, string> = { pl: 'pl-PL', en: 'en-US' }
+const tag = (v: SpeechSynthesisVoice) => v.lang.toLowerCase().replace('_', '-')
+const NATURAL = /natural|online|neural|enhanced|premium/i
 
-// Natural/online voices first (Edge: Zofia, Marek), then Google (Chrome), then the rest
-// (Windows Paulina, Apple Zosia / Krzysztof, Android, eSpeak)
+// Natural/online voices first (Edge: Zofia, Marek; Aria, Jenny), then Google (Chrome), then
+// the rest (Windows Paulina, Apple Zosia / Samantha, Android, eSpeak). English: US accent first,
+// and a few good default voices before the alphabet (Edge alone has dozens).
+const PREFERRED_EN = /\b(aria|jenny|guy|andrew|emma|ava|samantha|google us english)\b/i
 const rank = (v: SpeechSynthesisVoice) =>
-  (/natural|online|neural|enhanced|premium/i.test(v.name) ? 4 : 0) + (/google/i.test(v.name) ? 2 : 0) + (v.default ? 0.5 : 0)
+  (NATURAL.test(v.name) ? 4 : 0) + (/google/i.test(v.name) ? 2 : 0) + (v.default ? 0.5 : 0)
+  + (tag(v).startsWith('en-us') ? 1 : 0) + (tag(v).startsWith('en') && PREFERRED_EN.test(v.name) ? 0.75 : 0)
 
-// Every Polish voice the browser and system offer, best first
-export function polishVoices(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice[] {
+// Every voice for a language the browser and system offer, best first
+export function voicesFor(voices: SpeechSynthesisVoice[], lang: Lang): SpeechSynthesisVoice[] {
   const seen = new Set<string>()
   return voices
-    .filter((v) => isPolish(v) && !seen.has(v.voiceURI) && seen.add(v.voiceURI))
+    .filter((v) => tag(v).startsWith(lang) && !seen.has(v.voiceURI) && seen.add(v.voiceURI))
     .sort((a, b) => rank(b) - rank(a) || a.name.localeCompare(b.name))
 }
+export const polishVoices = (voices: SpeechSynthesisVoice[]) => voicesFor(voices, 'pl')
 
-// The chosen voice if this browser has it, else the best Polish one. Undefined when
-// there is none: then the browser uses its default voice for pl-PL.
-export const pickVoice = (voices: SpeechSynthesisVoice[], uri: string) => {
-  const pl = polishVoices(voices)
-  return (uri && pl.find((v) => v.voiceURI === uri)) || pl[0]
+// The chosen voice if this browser has it, else the best one for the language. Undefined when
+// there is none: then the browser uses its default voice for the language.
+export const pickVoice = (voices: SpeechSynthesisVoice[], uri: string, lang: Lang = 'pl') => {
+  const list = voicesFor(voices, lang)
+  return (uri && list.find((v) => v.voiceURI === uri)) || list[0]
 }
 
-const FEMALE = /\b(paulina|zofia|zosia|agnieszka|ewa|maja|anna|ola|aleksandra|natalia|google polski)\b/i
-const MALE = /\b(marek|krzysztof|adam|jacek|jan|kuba|jakub|piotr|tomasz)\b/i
+const FEMALE = /\b(paulina|zofia|zosia|agnieszka|ewa|maja|anna|ola|aleksandra|natalia|google polski|aria|jenny|emma|ava|michelle|sonia|libby|maisie|natasha|clara|samantha|karen|moira|tessa|fiona|victoria|zira|susan|hazel|catherine|serena|female)\b/i
+const MALE = /\b(marek|krzysztof|adam|jacek|jan|kuba|jakub|piotr|tomasz|guy|andrew|brian|christopher|eric|roger|ryan|thomas|william|daniel|alex|fred|david|mark|george|james|liam|male)\b/i
+const REGION: Record<string, string> = { us: 'USA', gb: 'UK', au: 'Australia', ca: 'Kanada', ie: 'Irlandia', in: 'Indie', nz: 'Nowa Zelandia', za: 'RPA' }
 
 // "Microsoft Zofia Online (Natural) - Polish (Poland)" -> "Zofia · kobieta · naturalny · Microsoft"
+// "Microsoft Aria Online (Natural) - English (United States)" -> "Aria · kobieta · naturalny · USA · Microsoft"
 export function voiceLabel(v: SpeechSynthesisVoice): string {
   const vendor = /microsoft/i.test(v.name) ? 'Microsoft' : /google/i.test(v.name) ? 'Google' : ''
-  const natural = /natural|online|neural|enhanced|premium/i.test(v.name)
+  const natural = NATURAL.test(v.name)
   const name = v.name
-    .replace(/\s*[-–]\s*Polish.*$/i, '')
+    .replace(/\s*[-–]\s*(Polish|English)\b.*$/i, '')
     .replace(/\((natural|enhanced|premium)\)|\b(microsoft|online|desktop)\b/gi, '')
     .replace(/\s+/g, ' ').trim() || v.name
   const gender = FEMALE.test(v.name) ? 'kobieta' : MALE.test(v.name) ? 'mężczyzna' : ''
-  return [name, gender, natural && 'naturalny', vendor && !name.toLowerCase().includes(vendor.toLowerCase()) && vendor]
+  const code = tag(v).startsWith('en') ? tag(v).split('-')[1] ?? '' : ''
+  const region = code && !/\b(US|UK)\b/.test(name) ? REGION[code] ?? code.toUpperCase() : ''
+  return [name, gender, natural && 'naturalny', region, vendor && !name.toLowerCase().includes(vendor.toLowerCase()) && vendor]
     .filter(Boolean).join(' · ')
 }
 
@@ -62,14 +73,14 @@ export function chunks(text: string, max = 180): string[] {
 }
 
 // onEnd: called once the text has been read, or when it was stopped (cancel ends it with an error)
-export function speak(text: string, prefs: Prefs, voices: SpeechSynthesisVoice[], onEnd?: () => void) {
+export function speak(text: string, prefs: Prefs, voices: SpeechSynthesisVoice[], onEnd?: () => void, lang: Lang = 'pl') {
   if (!speechSupported()) return
-  const voice = pickVoice(voices, prefs.voiceURI)
+  const voice = pickVoice(voices, lang === 'en' ? prefs.voiceURIEn : prefs.voiceURI, lang)
   const parts = chunks(text)
   parts.forEach((part, i) => {
     const u = new SpeechSynthesisUtterance(part)
     if (voice) u.voice = voice
-    u.lang = voice?.lang ?? 'pl-PL'
+    u.lang = voice?.lang ?? LANG_TAG[lang]
     u.rate = prefs.rate
     if (onEnd && i === parts.length - 1) { u.onend = onEnd; u.onerror = onEnd }
     window.speechSynthesis.speak(u) // the browser queues utterances itself
@@ -104,7 +115,7 @@ export function spokenLead(description: string, title: string): string {
   return lead
 }
 
-// What is read for one headline. Stooq, ESPI and PAP: the title alone, GPW optionally with
+// What is read for one headline. Stooq, ESPI, PAP and MarketWatch: the title alone, GPW optionally with
 // its name in front; then the lead when that is switched on.
 export function spokenParts(it: Item, prefs: Prefs): string[] {
   const title = it.source === 'GPW' && prefs.sayGpw ? `GPW: ${it.title}` : it.title
@@ -112,9 +123,11 @@ export function spokenParts(it: Item, prefs: Prefs): string[] {
   return lead ? [title, lead] : [title]
 }
 
+// English news (MarketWatch) is read with the English voice
 export function speakItem(it: Item, prefs: Prefs, voices: SpeechSynthesisVoice[], onEnd?: () => void) {
   const parts = spokenParts(it, prefs)
-  parts.forEach((part, i) => speak(part, prefs, voices, i === parts.length - 1 ? onEnd : undefined))
+  const lang = langOf(it.source, it.label)
+  parts.forEach((part, i) => speak(part, prefs, voices, i === parts.length - 1 ? onEnd : undefined, lang))
 }
 
 // `fresh` is oldest first. Over the limit: read the newest ones, sum up the rest.

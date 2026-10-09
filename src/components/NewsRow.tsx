@@ -2,6 +2,7 @@
 
 import { memo, useRef, useState } from 'react'
 import { type Item, tagOf, clock, ago, fullDate } from '@/lib/news'
+import { langOf } from '@/lib/sources'
 import { Star, Copy, Check, Speaker } from './Icons'
 
 interface Props {
@@ -29,11 +30,13 @@ function NewsRow({ item, now, read, saved, fresh, watched, onRead, onSave, onSpe
     timer.current = setTimeout(() => setCopied(false), 1500)
   }
 
+  const lang = langOf(item.source, item.label)
+
   return (
     <article className={`row${read ? ' read' : ''}${fresh ? ' fresh' : ''}${watched ? ' watched' : ''}`}
       style={{ ['--c' as string]: `var(--src-${item.source.toLowerCase()})` }}>
       <div className="meta">
-        <span className="tag"><i className="dot" />{tagOf(item)}</span>
+        <span className="tag"><i className="dot" /><span title={tagOf(item)}>{tagOf(item)}</span></span>
         <time dateTime={item.pubDate || undefined} title={fullDate(item.time)}>{clock(item.time)}</time>
         {since && <span className="ago">· {since}</span>}
         {fresh && <span className="badge new">NOWE</span>}
@@ -53,9 +56,9 @@ function NewsRow({ item, now, read, saved, fresh, watched, onRead, onSave, onSpe
       </div>
       {item.link
         ? <a className="title" href={item.link} target="_blank" rel="noopener noreferrer"
-            onClick={() => onRead(item.id)} onAuxClick={() => onRead(item.id)}>{item.title}</a>
-        : <span className="title" onClick={() => onRead(item.id)}>{item.title}</span>}
-      {item.description && <p className="desc">{item.description}</p>}
+            lang={lang === 'pl' ? undefined : lang} onClick={() => onRead(item.id)} onAuxClick={() => onRead(item.id)}>{item.title}</a>
+        : <span className="title" lang={lang === 'pl' ? undefined : lang} onClick={() => onRead(item.id)}>{item.title}</span>}
+      {item.description && <p className="desc" lang={lang === 'pl' ? undefined : lang}>{item.description}</p>}
     </article>
   )
 }
