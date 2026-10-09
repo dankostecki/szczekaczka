@@ -18,7 +18,6 @@
   --src-gpw: #059669;
   --src-stooq: #d97706;
   --src-pap: #0284c7;
-  --src-reuters: #c026d3;
   --src-macronext: #4d7c0f;
   color-scheme: light;
 }
@@ -43,7 +42,6 @@
     --src-gpw: #3dd6a3;
     --src-stooq: #f8c24a;
     --src-pap: #5cc8f5;
-    --src-reuters: #e879f9;
     --src-macronext: #a3e635;
     color-scheme: dark;
   }
@@ -68,7 +66,6 @@
   --src-gpw: #3dd6a3;
   --src-stooq: #f8c24a;
   --src-pap: #5cc8f5;
-  --src-reuters: #e879f9;
   --src-macronext: #a3e635;
   color-scheme: dark;
 }
@@ -359,7 +356,6 @@ button:disabled { cursor: default; opacity: 0.5; }
 .channels tr.group td { font-weight: 600; }
 .channels tr.sub td { border-top-style: dashed; font-size: 13.5px; }
 .channels tr.sub .ch { padding-left: 44px; color: var(--text-2); }
-.channels td.none { color: var(--text-3); }
 
 .panel textarea {
   width: 100%; resize: vertical; padding: 10px 12px;

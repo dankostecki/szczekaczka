@@ -1,8 +1,8 @@
 // News sources. Fetched on the server (/api/news): browsers cannot read these feeds directly (CORS).
 
-export type Source = 'ESPI' | 'GPW' | 'STOOQ' | 'PAP' | 'REUTERS' | 'MACRONEXT'
+export type Source = 'ESPI' | 'GPW' | 'STOOQ' | 'PAP' | 'MACRONEXT'
 
-export const SOURCES: Source[] = ['ESPI', 'GPW', 'STOOQ', 'PAP', 'REUTERS', 'MACRONEXT']
+export const SOURCES: Source[] = ['ESPI', 'GPW', 'STOOQ', 'PAP', 'MACRONEXT']
 
 // Language of a feed: read aloud with a voice for it
 export type Lang = 'pl' | 'en'
@@ -17,9 +17,6 @@ export interface FeedConfig {
   // 'macronext': MacroNext's calendar of macro data, announced before each release (worker/macro.ts)
   format?: 'bankier-list' | 'macronext'
   leads?: string           // an RSS feed with leads for some of the entries (matched by link)
-  // A Google News search limited to one site: only titles (" - Reuters" taken off) and times, no
-  // leads; entries more than 24 hours old are left out (the search returns some years old)
-  via?: 'google-news'
 }
 
 export const FEEDS: FeedConfig[] = [
@@ -36,12 +33,6 @@ export const FEEDS: FeedConfig[] = [
   { source: 'PAP',   label: 'BIZNES',      url: 'https://pap-mediaroom.pl/kategoria/biznes-i-finanse/rss.xml',         minAge: 120 },
   { source: 'PAP',   label: 'NAUKA',       url: 'https://pap-mediaroom.pl/kategoria/nauka-i-technologie/rss.xml',      minAge: 120 },
   { source: 'PAP',   label: 'POLITYKA',    url: 'https://pap-mediaroom.pl/kategoria/polityka-i-społeczenstwo/rss.xml', minAge: 120 },
-  // In English: Reuters Markets, Business, World. Reuters has no public RSS, so these are Google News
-  // searches limited to the sections of reuters.com; "when:1d" keeps them to the last day (without
-  // it most of the Markets results are days or years old)
-  { source: 'REUTERS', label: 'MARKETS',  url: 'https://news.google.com/rss/search?q=site:reuters.com/markets+when:1d&hl=en-US&gl=US&ceid=US:en', minAge: 120, lang: 'en', via: 'google-news' },
-  { source: 'REUTERS', label: 'BUSINESS', url: 'https://news.google.com/rss/search?q=site:reuters.com/business+when:1d&hl=en-US&gl=US&ceid=US:en', minAge: 120, lang: 'en', via: 'google-news' },
-  { source: 'REUTERS', label: 'WORLD',    url: 'https://news.google.com/rss/search?q=site:reuters.com/world+when:1d&hl=en-US&gl=US&ceid=US:en', minAge: 120, lang: 'en', via: 'google-news' },
   // Not news but announcements made by this site, 10 minutes before each release in MacroNext's
   // calendar; `url` is the start of the address of a day's page ("…/d/2026-10-9")
   { source: 'MACRONEXT', label: 'MAKRO',  url: 'https://macronext.pl/pl/dane-makro/d/', format: 'macronext' },
@@ -65,8 +56,8 @@ export function renamedItem<T extends { id: string; source: string; label: strin
 }
 
 const FEED_LANG = new Map(FEEDS.map((f) => [feedKey(f.source, f.label), f.lang ?? 'pl']))
-// Channels whose entries have a lead to read (Google News searches give only titles)
-export const LEAD_KEYS = FEEDS.filter((f) => f.via !== 'google-news').map((f) => feedKey(f.source, f.label))
+// Whether any channel is in English (the settings then offer an English voice)
+export const HAS_ENGLISH = FEEDS.some((f) => f.lang === 'en')
 export const langOf = (source: string, label: string): Lang => FEED_LANG.get(feedKey(source, label)) ?? 'pl'
 
 export const labelsOf = (source: Source) => FEEDS.filter((f) => f.source === source).map((f) => f.label)
@@ -96,12 +87,6 @@ export const SOURCE_INFO: Record<Source, { name: string; publisher: string; site
     publisher: 'Polska Agencja Prasowa S.A.',
     site: 'https://pap-mediaroom.pl/rss',
     about: 'Komunikaty prasowe firm i instytucji z serwisu PAP MediaRoom Polskiej Agencji Prasowej, z kategorii: biznes i finanse, nauka i technologie, polityka i społeczeństwo.',
-  },
-  REUTERS: {
-    name: 'Reuters (przez Google News)',
-    publisher: 'Thomson Reuters; wyszukiwanie Google News (Google LLC)',
-    site: 'https://www.reuters.com',
-    about: 'Nagłówki agencji Reuters po angielsku z działów Markets, Business i World. Reuters nie udostępnia publicznego RSS, więc są to wyniki wyszukiwania Google News ograniczonego do tych działów reuters.com, z ostatniej doby: tylko tytuł i godzina, bez zajawki, a link prowadzi przez Google News. Na głos czyta je głos angielski.',
   },
   MACRONEXT: {
     name: 'MacroNext – kalendarium danych makro',

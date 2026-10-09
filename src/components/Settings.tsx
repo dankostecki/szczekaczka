@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { FEEDS, SOURCES, LEAD_KEYS, feedKey, CHECK_SECONDS, QUIET_CHECK_SECONDS, type Source } from '@/lib/sources'
+import { FEEDS, SOURCES, HAS_ENGLISH, feedKey, CHECK_SECONDS, QUIET_CHECK_SECONDS, type Source } from '@/lib/sources'
 import type { Prefs, Theme } from '@/lib/prefs'
 import { polishVoices, voicesFor, pickVoice, speak, stopSpeaking, voiceLabel } from '@/lib/speech'
 import { AUTHOR, STORAGE_PREFIX } from '@/lib/site'
@@ -86,14 +86,13 @@ function ChannelBoxes({ keys, name, prefs, onChange }: { keys: string[]; name: s
     return <td><Box on={on} some={n > 0} disabled={shown.length === 0} label={`${title}: ${name}`}
       onChange={() => set(list, which, !on)} /></td>
   }
-  const leads = keys.filter((k) => LEAD_KEYS.includes(k))
   return (
     <>
       <td><Box on={shown.length === keys.length} some={shown.length > 0} label={`Pokazuj na liście: ${name}`}
         onChange={() => set('hiddenFeeds', keys, shown.length === keys.length)} /></td>
       {box('speakFeeds', keys, 'Czytaj na głos')}
       {box('notifyFeeds', keys, 'Powiadomienia')}
-      {leads.length ? box('leadFeeds', leads, 'Czytaj też lead') : <td className="none" title="Tylko tytuły">–</td>}
+      {box('leadFeeds', keys, 'Czytaj też lead')}
     </>
   )
 }
@@ -198,7 +197,7 @@ export default function Settings(p: Props) {
             Wiersz źródła ustawia wszystkie jego kanały naraz, a strzałka je rozwija, żeby ustawić każdy osobno.
             Oko: kanał na liście; odznaczony od razu znika z listy i nie jest czytany ani pokazywany w powiadomieniach
             (newsy i tak przychodzą w tle, więc po zaznaczeniu wraca od razu). Lead: po tytule czytana jest zajawka,
-            bez zaznaczenia sam tytuł. Reuters podaje tylko tytuły.
+            bez zaznaczenia sam tytuł.
           </p>
         </section>
 
@@ -227,22 +226,24 @@ export default function Settings(p: Props) {
                 Zestaw zależy od przeglądarki i systemu: najwięcej naturalnych głosów (np. Zofia, Marek) ma Microsoft Edge,
                 Chrome ma „Google polski”, a Mac i iPhone np. Zosię.
               </p>
-              <div className="voice-pick">
-                <span>Głos angielski (Reuters)</span>
-                <div>
-                  <select value={chosenEn} onChange={(e) => onChange({ voiceURIEn: e.target.value })} aria-label="Głos angielski">
-                    <option value="">Automatyczny{autoEn ? ` (${voiceLabel(autoEn)})` : ''}</option>
-                    {en.map((v) => <option key={v.voiceURI} value={v.voiceURI}>{voiceLabel(v)}</option>)}
-                  </select>
-                  <button className="play" title="Odsłuchaj" aria-label="Odsłuchaj głos angielski"
-                    onClick={() => previewEn(chosenEn)}><Play size={15} /></button>
+              {HAS_ENGLISH && (<>
+                <div className="voice-pick">
+                  <span>Głos angielski</span>
+                  <div>
+                    <select value={chosenEn} onChange={(e) => onChange({ voiceURIEn: e.target.value })} aria-label="Głos angielski">
+                      <option value="">Automatyczny{autoEn ? ` (${voiceLabel(autoEn)})` : ''}</option>
+                      {en.map((v) => <option key={v.voiceURI} value={v.voiceURI}>{voiceLabel(v)}</option>)}
+                    </select>
+                    <button className="play" title="Odsłuchaj" aria-label="Odsłuchaj głos angielski"
+                      onClick={() => previewEn(chosenEn)}><Play size={15} /></button>
+                  </div>
                 </div>
-              </div>
-              <p className="hint">
-                Newsy po angielsku czyta ten głos.{' '}
-                {en.length === 0 ? 'Ta przeglądarka nie ma angielskich głosów, więc czyta swoim domyślnym.'
-                  : `Angielskie głosy w tej przeglądarce: ${en.length}.`}
-              </p>
+                <p className="hint">
+                  Newsy po angielsku czyta ten głos.{' '}
+                  {en.length === 0 ? 'Ta przeglądarka nie ma angielskich głosów, więc czyta swoim domyślnym.'
+                    : `Angielskie głosy w tej przeglądarce: ${en.length}.`}
+                </p>
+              </>)}
               <p className="hint">Komunikaty GPW są czytane z „GPW:” na początku, pozostałe newsy bez nazwy źródła. Lead czytany jest tylko w kanałach zaznaczonych w kolumnie „Lead” wyżej: pełne zdania (lead ucięty przez źródło do miejsca ucięcia), bez daty, „(PAP)” i powtórzonego tytułu. Zapowiedzi MacroNext mają w leadzie dane (konsensus, poprzedni odczyt).</p>
               <label className="setting">
                 <span>Tempo <b>{prefs.rate.toFixed(1)}×</b></span>
@@ -325,7 +326,7 @@ export default function Settings(p: Props) {
 
         <p className="foot">
           Szczekaczka by <a href={AUTHOR.url} target="_blank" rel="noopener noreferrer">{AUTHOR.name}</a>.
-          Źródła: <Link href="/o-stronie">Bankier.pl (ESPI/EBI), GPW, Stooq, PAP MediaRoom, Reuters, MacroNext</Link>.
+          Źródła: <Link href="/o-stronie">Bankier.pl (ESPI/EBI), GPW, Stooq, PAP MediaRoom, MacroNext</Link>.
         </p>
       </aside>
     </div>
