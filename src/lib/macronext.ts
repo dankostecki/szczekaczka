@@ -339,45 +339,5 @@ export function stockGroups(rows: StockRow[], keyPrefix: string, y: number, m: n
   return groups.sort((a, b) => a.at - b.at)
 }
 
-// Said in words: "NWZA ws. zmiany statutu" -> "Nadzwyczajne walne zgromadzenie akcjonariuszy w sprawie zmiany statutu"
-const STOCK_WORDS: [RegExp, string][] = [
-  [/\bNWZA\b/g, 'Nadzwyczajne walne zgromadzenie akcjonariuszy'],
-  [/\bZWZA\b/g, 'Zwyczajne walne zgromadzenie akcjonariuszy'],
-  [/\bWZA\b/g, 'Walne zgromadzenie akcjonariuszy'],
-  [/\bNWZ\b/g, 'Nadzwyczajne walne zgromadzenie'],
-  [/\bZWZ\b/g, 'Zwyczajne walne zgromadzenie'],
-  [/(^|\s)ws\.(?=\s)/g, '$1w sprawie'],
-  [/(^|\s)m\.in\.(?=\s)/g, '$1między innymi'],
-  [/\bNewConnect\b/g, 'New Connect'],
-]
-const ORDINAL: Record<string, [string, string]> = { I: ['pierwszy', 'pierwsze'], II: ['drugi', 'drugie'], III: ['trzeci', 'trzecie'], IV: ['czwarty', 'czwarte'] }
-export function sayStock(text: string): string {
-  let t = text
-  for (const [re, said] of STOCK_WORDS) t = t.replace(re, said)
-  return t.replace(/\b(I|II|III|IV) (kwartał|półrocze)/g, (m, n: string, what: string) => `${ORDINAL[n][what === 'kwartał' ? 0 : 1]} ${what}`)
-}
-
-// ── Reading aloud: numbers with their units in words ──
-
-const UNITS: Record<string, [string, string, string, string]> = { // one, 2–4, 5+, a fraction
-  'tys.': ['tysiąc', 'tysiące', 'tysięcy', 'tysiąca'],
-  'mln': ['milion', 'miliony', 'milionów', 'miliona'],
-  'mld': ['miliard', 'miliardy', 'miliardów', 'miliarda'],
-  'bln': ['bilion', 'biliony', 'bilionów', 'biliona'],
-  'pkt': ['punkt', 'punkty', 'punktów', 'punktu'],
-  'godz.': ['godzina', 'godziny', 'godzin', 'godziny'],
-}
-
-// "-41,7 tys." -> "minus 41,7 tysiąca", "-2,1 mln brk" -> "minus 2,1 miliona baryłek"
-export function sayNumbers(text: string): string {
-  return text
-    .replace(/(^|[\s(])-(?=\d)/g, '$1minus ')
-    .replace(/(\d+(?:,\d+)?)\s*(tys\.|godz\.|(?:mln|mld|bln|pkt)(?![a-ząćęłńóśźż]))(\s+brk\b)?/g,
-      (m: string, num: string, unit: string, barrels: string | undefined, at: number, all: string) => {
-        const forms = UNITS[unit]
-        const word = num.includes(',') ? forms[3] : plural(+num, forms[0], forms[1], forms[2])
-        // "8 tys. Stopa…", or at the very end: the abbreviation's dot also ended the sentence
-        const end = unit.endsWith('.') && !barrels && /^\s*($|[A-ZĄĆĘŁŃÓŚŹŻ])/.test(all.slice(at + m.length))
-        return `${num} ${word}${barrels ? ' baryłek' : ''}${end ? '.' : ''}`
-      })
-}
+// Numbers with their units in words: shared with all news (say.ts)
+export { sayNumbers } from './say'
