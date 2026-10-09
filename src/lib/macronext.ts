@@ -201,15 +201,58 @@ export function dayGroups(rows: MacroRow[], keyPrefix: string, y: number, m: num
 const plural = (n: number, one: string, few: string, many: string) =>
   n === 1 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? few : many
 
-// "Za 10 minut dane makro: USA, Kanada" / "Dziś dane makro bez podanej godziny: Chiny". Speeches and
-// meetings are named, without a country: "Za 10 minut wystąpienie szefowej Fed z Bostonu (Susan Collins)",
-// "Za 10 minut dane makro: USA oraz wystąpienie szefa Fed z St. Louis (Alberto Musalem)"
-export function groupTitle(g: MacroGroup, minutes = LEAD_MINUTES): string {
-  const when = g.allDay ? 'Dziś' : `Za ${minutes} ${plural(minutes, 'minutę', 'minuty', 'minut')}`
-  const talks = (g.talks ?? []).join(' oraz ')
-  if (!g.lines.length) return `${when}${g.allDay ? ' bez podanej godziny:' : ''} ${talks}`
-  const data = `${when} dane makro${g.allDay ? ' bez podanej godziny' : ''}${g.countries.length ? `: ${g.countries.join(', ')}` : ''}`
-  return talks ? `${data} oraz ${talks}` : data
+// The countries as they follow "dane makro z": "z USA", "ze strefy euro", "z Wielkiej Brytanii"
+const FROM: Record<string, string> = {
+  'USA': 'USA', 'Strefa Euro': 'strefy euro', 'Polska': 'Polski', 'Niemcy': 'Niemiec', 'Francja': 'Francji', 'Włochy': 'Włoch',
+  'Hiszpania': 'Hiszpanii', 'Wielka Brytania': 'Wielkiej Brytanii', 'Japonia': 'Japonii', 'Chiny': 'Chin', 'Kanada': 'Kanady',
+  'Australia': 'Australii', 'Nowa Zelandia': 'Nowej Zelandii', 'Szwajcaria': 'Szwajcarii', 'Szwecja': 'Szwecji', 'Norwegia': 'Norwegii',
+  'Dania': 'Danii', 'Czechy': 'Czech', 'Węgry': 'Węgier', 'Rumunia': 'Rumunii', 'Słowacja': 'Słowacji', 'Turcja': 'Turcji',
+  'Rosja': 'Rosji', 'Ukraina': 'Ukrainy', 'Indie': 'Indii', 'Chile': 'Chile', 'Brazylia': 'Brazylii', 'Meksyk': 'Meksyku',
+  'RPA': 'RPA', 'Korea Płd.': 'Korei Południowej', 'Korea Południowa': 'Korei Południowej', 'Holandia': 'Holandii',
+  'Austria': 'Austrii', 'Belgia': 'Belgii', 'Irlandia': 'Irlandii', 'Portugalia': 'Portugalii', 'Grecja': 'Grecji',
+  'Finlandia': 'Finlandii', 'Hongkong': 'Hongkongu', 'Singapur': 'Singapuru', 'Tajwan': 'Tajwanu', 'Izrael': 'Izraela',
+}
+
+// "dane makro z USA i Kanady", "dane makro ze strefy euro"; a country not in the list above: "dane makro: Islandia"
+function dataFrom(countries: string[]): string {
+  const names = countries.map((c) => FROM[c])
+  if (!names.length) return 'dane makro'
+  if (names.some((n) => !n)) return `dane makro: ${countries.join(', ')}`
+  const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} i ${names.at(-1)}` : names[0]
+  return `dane makro ${/^([sśzźż][^aeiouyąęó]|włoch)/i.test(list) ? 'ze' : 'z'} ${list}`
+}
+
+// "8:00", "14:30"
+const clockOf = (t: number) => new Date(t).toLocaleTimeString('pl-PL', { timeZone: 'Europe/Warsaw', hour: 'numeric', minute: '2-digit' })
+
+// The announcement's title, as it stays on the list: with the release time, which does not go out
+// of date. Speeches and meetings are named, without a country. "O 16:00 dane makro z USA",
+// "O 22:00 wystąpienie szefowej Fed z Bostonu (Susan Collins)", "O 14:30 dane makro z USA oraz
+// wystąpienie …", "Dziś bez podanej godziny: dane makro z Chin". Read aloud: sayMacroTitle.
+export function groupTitle(g: MacroGroup): string {
+  const what = [g.lines.length ? dataFrom(g.countries) : '', ...(g.talks ?? [])].filter(Boolean).join(' oraz ')
+  return `${g.allDay ? 'Dziś bez podanej godziny:' : `O ${clockOf(g.at)}`} ${what}`
+}
+
+const HOURS = ['zero', 'pierwszej', 'drugiej', 'trzeciej', 'czwartej', 'piątej', 'szóstej', 'siódmej', 'ósmej', 'dziewiątej', 'dziesiątej',
+  'jedenastej', 'dwunastej', 'trzynastej', 'czternastej', 'piętnastej', 'szesnastej', 'siedemnastej', 'osiemnastej', 'dziewiętnastej',
+  'dwudziestej', 'dwudziestej pierwszej', 'dwudziestej drugiej', 'dwudziestej trzeciej']
+
+// The title as it is said: "Za 10 minut dane makro z USA" while the release is ahead (when the
+// announcement comes, or soon after it), "O szesnastej dane makro z USA" once it is out.
+// sentAt: when the announcement was made (the server's clock, so a computer clock that is behind does not add minutes)
+export function sayMacroTitle(title: string, link: string, sentAt: number, now = Date.now()): string {
+  const t = title.match(/^O (\d{1,2}):(\d{2}) /)
+  if (!t) return title
+  const d = link.match(/\/d\/(\d{4})-(\d{1,2})-(\d{1,2})#/)
+  const left = d ? Math.ceil((warsawToUtc(+d[1], +d[2], +d[3], +t[1], +t[2]) - Math.max(now, sentAt)) / 60_000) : 0
+  const rest = title.slice(t[0].length)
+  if (left >= 1) {
+    const n = Math.min(left, LEAD_MINUTES)
+    return `Za ${n} ${plural(n, 'minutę', 'minuty', 'minut')} ${rest}`
+  }
+  const minutes = t[2] === '00' ? '' : t[2].startsWith('0') ? ` zero ${+t[2]}` : ` ${t[2]}`
+  return `O ${HOURS[+t[1]]}${minutes} ${rest}`
 }
 
 // ── Reading aloud: numbers with their units in words ──
