@@ -11,6 +11,7 @@ export default function LegalPage({ title, dated = true, children }: { title: st
           <Link href="/" className="brand back" title="Wróć do newsów">
             <span className="logo"><Megaphone size={18} /></span>
             <span className="brand-name">Szczekaczka</span>
+            <span className="beta" title="Wersja testowa: mogą pojawiać się błędy">BETA</span>
           </Link>
           <Link href="/" className="act back-link">← Wróć do newsów</Link>
         </div>

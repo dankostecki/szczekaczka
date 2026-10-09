@@ -118,6 +118,15 @@ button:disabled { cursor: default; opacity: 0.5; }
   background: var(--accent); color: #fff;
 }
 
+/* The site is still being tested */
+.beta {
+  flex-shrink: 0; padding: 2px 6px; border-radius: 6px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .06em; line-height: 1.3;
+  color: var(--accent); background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.notice-beta { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 16px; padding: 10px 12px; border-radius: 11px; background: var(--accent-soft); font-size: 14px; line-height: 1.45; color: var(--text-2); }
+.notice-beta .beta { margin-top: 1px; }
+
 .updated { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--border-strong); }
 .pulse.on { background: #22c55e; animation: pulse 2s ease-in-out infinite; }

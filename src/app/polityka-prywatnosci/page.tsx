@@ -97,7 +97,7 @@ export default function PrivacyPolicy() {
           </tr>
           <tr>
             <td><code>szczekaczka:notice</code></td>
-            <td>Informacja, że zamknięto okno o prywatności, żeby nie pokazywać go ponownie.</td>
+            <td>Informacja, że zamknięto okno o wersji testowej i prywatności (numer jego wersji), żeby nie pokazywać go ponownie.</td>
             <td>Do czasu usunięcia</td>
           </tr>
         </tbody>
