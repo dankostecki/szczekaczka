@@ -247,18 +247,44 @@ const EN_LETTERS: Record<string, string> = {
   N: 'en', O: 'ou', P: 'pi', Q: 'kju', R: 'ar', S: 'es', T: 'ti', U: 'ju', V: 'wi', W: 'dablju', X: 'eks', Y: 'łaj', Z: 'zi',
 }
 // Abbreviations that are said in English in Polish too ("AI" is "ej aj", not "a i"); the rest is spelled the Polish way (PKB, NBP, USA)
-const SPELLED_EN = ['AI', 'AGI', 'IT', 'CEO', 'CFO', 'COO', 'CTO', 'CIO', 'GPT', 'API', 'UX', 'VR', 'NFT', 'BBC', 'CNN', 'CNBC', 'IBM', 'AMD']
+const SPELLED_EN = ['AI', 'AGI', 'IT', 'CEO', 'CFO', 'COO', 'CTO', 'CIO', 'GPT', 'API', 'UX', 'VR', 'NFT', 'BBC', 'CNN', 'CNBC', 'IBM', 'AMD',
+  'IPO', 'NFP', 'FDA']
 // Names said in English, written for a Polish voice
 const NAMES_EN: [RegExp, string][] = [
   [/(?<![\p{L}\d])USGS(?![\p{L}\d])/gu, 'Junajted Stejts Dżiolodżikal Serwej'],
   [/(?<![\p{L}\d])OpenAI(?![\p{L}\d])/gu, 'Open ej aj'],
   [/(?<![\p{L}\d])ChatGPT(?![\p{L}\d])/gu, 'Czat dżi pi ti'],
+  [/(?<![\p{L}\d])PayU(?![\p{L}\d])/gu, 'Pej ju'],
+  // "Pay" in names: "OPay" -> "O pej", "Google Pay" -> "Google pej", "PayPal" -> "PejPal"
+  [/(?<=\p{L})Pay(?!\p{Ll})/gu, ' pej'],
+  [/(?<!\p{L})Pay(?!\p{Ll})/gu, 'Pej'],
 ]
 const SPELLED_EN_RE = new RegExp(String.raw`(?<![\p{L}\d])(${SPELLED_EN.join('|')})(?![\p{L}\d])`, 'gu')
 export function sayEnglish(text: string): string {
   let t = text
   for (const [re, said] of NAMES_EN) t = t.replace(re, said)
   return t.replace(SPELLED_EN_RE, (m) => [...m].map((c) => EN_LETTERS[c]).join(' '))
+}
+
+// ── Markets ──
+
+// Currency codes in a pair: "EUR/PLN" is "euro pe el en", "USD/PLN" "u es de pe el en"
+const CURRENCIES = new Set(['PLN', 'EUR', 'USD', 'CHF', 'GBP', 'JPY', 'CZK', 'HUF', 'NOK', 'SEK', 'DKK', 'CAD', 'AUD', 'NZD', 'CNY', 'TRY', 'RON', 'RUB', 'UAH'])
+const PL_LETTERS: Record<string, string> = {
+  A: 'a', B: 'be', C: 'ce', D: 'de', E: 'e', F: 'ef', G: 'gie', H: 'ha', I: 'i', J: 'jot', K: 'ka', L: 'el', M: 'em', N: 'en', O: 'o',
+  P: 'pe', Q: 'ku', R: 'er', S: 'es', T: 'te', U: 'u', V: 'fał', W: 'wu', X: 'iks', Y: 'igrek', Z: 'zet',
+}
+const sayCurrency = (code: string) => (code === 'EUR' ? 'euro' : [...code].map((c) => PL_LETTERS[c]).join(' '))
+// "WIG20" -> "wig 20", "mWIG40" -> "mwig 40" (a word, not spelled); "S&P 500" -> "es and pi 500";
+// "na FX/FI" -> "na rynku walutowym i obligacji"
+export function sayMarkets(text: string): string {
+  return text
+    .replace(/(?<![\p{L}\d])([ms]?)WIG(\d*)(?!\p{L})/gu, (m, pre: string, num: string) => `${pre}wig${num ? ` ${num}` : ''}`)
+    .replace(/(?<![\p{L}\d])S&P(?:\s?(\d+))?(?![\p{L}\d])/gu, (m, num?: string) => `es and pi${num ? ` ${num}` : ''}`)
+    .replace(/(?<!\p{L})([Nn][Aa]|[Ww])\s+FX\/FI(?!\p{L})/gu, '$1 rynku walutowym i obligacji')
+    .replace(/(?<!\p{L})FX\/FI(?!\p{L})/gu, 'rynek walutowy i obligacji')
+    .replace(/(?<![\p{L}\d])([A-Z]{3})\/([A-Z]{3})(?![\p{L}\d])/gu, (m, a: string, b: string) =>
+      CURRENCIES.has(a) && CURRENCIES.has(b) ? `${sayCurrency(a)} ${sayCurrency(b)}` : m)
 }
 
 // ── Pauses ──
@@ -274,5 +300,5 @@ export function sayAloud(text: string): string {
   let t = sayQuarters(sayCompounds(text))
   t = sayYears(t)
   for (const [re, said] of WORDS) t = t.replace(re, said)
-  return sayPauses(sayNumbers(sayNames(sayEnglish(t))))
+  return sayPauses(sayNumbers(sayNames(sayEnglish(sayMarkets(t)))))
 }
