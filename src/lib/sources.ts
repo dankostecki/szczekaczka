@@ -1,8 +1,8 @@
-// RSS sources. Fetched on the server (/api/news): browsers cannot read these feeds directly (CORS).
+// News sources. Fetched on the server (/api/news): browsers cannot read these feeds directly (CORS).
 
-export type Source = 'ESPI' | 'GPW' | 'STOOQ' | 'PAP' | 'CNBC'
+export type Source = 'ESPI' | 'GPW' | 'STOOQ' | 'PAP' | 'CNBC' | 'MACRONEXT'
 
-export const SOURCES: Source[] = ['ESPI', 'GPW', 'STOOQ', 'PAP', 'CNBC']
+export const SOURCES: Source[] = ['ESPI', 'GPW', 'STOOQ', 'PAP', 'CNBC', 'MACRONEXT']
 
 // Language of a feed: read aloud with a voice for it
 export type Lang = 'pl' | 'en'
@@ -13,7 +13,9 @@ export interface FeedConfig {
   url: string
   minAge?: number // seconds: a feed that rarely changes is checked at most this often (never more often than usual)
   lang?: Lang     // 'pl' when not given
-  format?: 'bankier-list' // not RSS: Bankier's web page with the list of company reports (parse.ts)
+  // Not RSS. 'bankier-list': Bankier's web page with the list of company reports (parse.ts);
+  // 'macronext': MacroNext's calendar of macro data, announced before each release (worker/macro.ts)
+  format?: 'bankier-list' | 'macronext'
   leads?: string           // an RSS feed with leads for some of the entries (matched by link)
 }
 
@@ -35,6 +37,9 @@ export const FEEDS: FeedConfig[] = [
   { source: 'CNBC',  label: 'WYNIKI',      url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=15839135', minAge: 120, lang: 'en' },
   { source: 'CNBC',  label: 'GOSPODARKA',  url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258', minAge: 120, lang: 'en' },
   { source: 'CNBC',  label: 'FINANSE',     url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664', minAge: 120, lang: 'en' },
+  // Not news but announcements made by this site, 10 minutes before each release in MacroNext's
+  // calendar; `url` is the start of the address of a day's page ("…/d/2026-10-9")
+  { source: 'MACRONEXT', label: 'MAKRO',  url: 'https://macronext.pl/pl/dane-makro/d/', format: 'macronext' },
 ]
 
 // "GPW:PRASA" — key for a single channel (settings, filters)
@@ -90,6 +95,12 @@ export const SOURCE_INFO: Record<Source, { name: string; publisher: string; site
     publisher: 'CNBC LLC',
     site: 'https://www.cnbc.com/rss-feeds/',
     about: 'Wiadomości amerykańskiej telewizji biznesowej CNBC po angielsku, z kategorii: wyniki spółek (Earnings), gospodarka (Economy) i finanse (Finance). Na głos czyta je głos angielski.',
+  },
+  MACRONEXT: {
+    name: 'MacroNext – kalendarium danych makro',
+    publisher: 'MacroNext',
+    site: 'https://macronext.pl/pl/dane-makro',
+    about: 'Zapowiedzi publikacji danych makroekonomicznych i wydarzeń banków centralnych, 10 minut przed nimi: kraj, nazwa danych, okres, konsensus (prognoza z kalendarium) i poprzedni odczyt. Zapowiedzi tworzy ta strona z kalendarium MacroNext, czytanego o 0:01 i 6:30; są w nich dane o wysokiej i średniej wadze oraz wszystkie wydarzenia banków centralnych (bez zwykłych danych z Węgier, Rumunii, Czech i Słowacji).',
   },
 }
 

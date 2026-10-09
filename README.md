@@ -1,6 +1,6 @@
 # Szczekaczka
 
-Prosty czytnik newsów z polskiego rynku: komunikaty spółek (ESPI/EBI), komunikaty GPW, newsy Stooq, komunikaty prasowe PAP MediaRoom i, po angielsku, wiadomości CNBC w jednej liście. Nowe nagłówki czyta na głos i pokazuje jako powiadomienia na pulpicie.
+Prosty czytnik newsów z polskiego rynku: komunikaty spółek (ESPI/EBI), komunikaty GPW, newsy Stooq, komunikaty prasowe PAP MediaRoom, po angielsku wiadomości CNBC, a także zapowiedzi danych makro 10 minut przed publikacją (z kalendarium MacroNext), w jednej liście. Nowe nagłówki czyta na głos i pokazuje jako powiadomienia na pulpicie.
 
 ## Źródła
 
@@ -17,6 +17,7 @@ Prosty czytnik newsów z polskiego rynku: komunikaty spółek (ESPI/EBI), komuni
 | CNBC (po angielsku) | WYNIKI (Earnings) | `https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=15839135` |
 | CNBC (po angielsku) | GOSPODARKA (Economy) | `https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258` |
 | CNBC (po angielsku) | FINANSE (Finance) | `https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664` |
+| MACRONEXT | MAKRO | `https://macronext.pl/pl/dane-makro/d/2026-10-9` (kalendarium dnia, nie RSS): zapowiedzi tworzy serwer |
 
 Lista jest w `src/lib/sources.ts`.
 
@@ -24,6 +25,7 @@ Lista jest w `src/lib/sources.ts`.
 
 - Przeglądarka nie może czytać tych kanałów bezpośrednio (CORS), więc pobiera je serwer na **Cloudflare Workers**: jeden proces (Durable Object `Poller`) sprawdza kanały dla wszystkich użytkowników, co 60 s (rzadziej zmieniające się kanały GPW oraz noc i weekend rzadziej), parsuje je (także kodowania ISO-8859-2 / windows-1250) i zapamiętuje.
 - **ESPI z listy komunikatów Bankiera.** Kanał RSS Bankiera ma tylko część raportów (10 naraz, wiele nigdy się w nim nie pojawia), więc serwer czyta stronę z listą komunikatów Bankier.pl (godzina, tytuł, link; czytana jest tylko lista, około 26 ostatnich raportów). Zajawki bierze z kanału RSS, gdy raport w nim jest. Gdy strona z listą nie przyjdzie, kanał bierze raporty z samego RSS (jak dawniej), a od trzeciej takiej próby ramka mówi „są tylko raporty z RSS”. Listy ESPI/EBI z PAP Biznes nie da się czytać z Cloudflare (PAP odsyła serwerom Cloudflare stronę bez listy).
+- **Zapowiedzi danych makro (MacroNext).** Serwer czyta kalendarium MacroNext na dziś i jutro o 0:01 i 6:30 (czas polski) i 10 minut przed każdą publikacją wysyła zapowiedź: „Za 10 minut dane makro: Kanada. Stopa bezrobocia za wrzesień, konsensus 6,5%, poprzednio 6,4%. …”. Publikacje o tej samej godzinie idą w jednej zapowiedzi. Brane są dane o wysokiej i średniej wadze i wszystkie wydarzenia banków centralnych (wystąpienia, protokoły, decyzje), bez zwykłych danych z Węgier, Rumunii, Czech i Słowacji (`src/lib/macronext.ts`). Raport z podpunktami (np. „Inflacja konsumencka”) jest czytany podpunktami. Skróty są czytane słowami: n.s.a. – dane niewyrównane sezonowo, s.a. – wyrównane sezonowo, w.d.a. – wyrównane o liczbę dni roboczych, fin. – odczyt finalny, wst. – odczyt wstępny, wg – według, (r/r) – rok do roku, (m/m) – miesiąc do miesiąca. Kolumna „Prognoza” jest czytana jako konsensus. Wydarzenia bez godziny („?”) nie mają zapowiedzi. Zapowiedź prowadzi do strony dnia w MacroNext.
 - **Lista pokazuje ostatnie 24 godziny.** Kanały RSS trzymają tylko kilka–kilkadziesiąt ostatnich wpisów (ESPI 10, PAP 10, Stooq 30, GPW 50), więc serwer zachowuje wpisy, które z nich wypadły, przez 24 h od publikacji (najwyżej 500 na kanał). Wpisy wciąż obecne w kanale zostają, nawet jeśli są starsze.
 - **Nowe newsy przychodzą same przez WebSocket**, bez odświeżania strony: przy wejściu strona pobiera całą listę (`/api/news`), a potem serwer wysyła tylko zmiany. Nowe newsy dostają znacznik NOWE. Gdy WebSocket nie działa (np. sieć firmowa), lista odświeża się co 3 min.
 - **Koszt sprawdzania źródeł nie rośnie z liczbą użytkowników.** Darmowy plan Cloudflare wystarcza z zapasem na około 1000 użytkowników. Architektura, limity, wyliczenia i ryzyka: [`docs/cloudflare.md`](docs/cloudflare.md).

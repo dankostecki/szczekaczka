@@ -1,6 +1,7 @@
 // Checking one feed: download it if it changed, parse it, and say what is new.
 import { decodeBody, parseFeedXml, bankierListSection, parseBankierList, type NewsItem } from '../src/lib/parse'
 import type { FeedConfig } from '../src/lib/sources'
+import type { MacroGroup } from '../src/lib/macronext'
 
 export interface FeedState {
   items: NewsItem[]   // what the feed has now, plus what dropped out of it in the last 24 h
@@ -12,6 +13,7 @@ export interface FeedState {
   checkedAt: number
   failures?: number // failed checks in a row
   parser?: number   // PARSER_VERSION the items were read with
+  calendar?: MacroGroup[] // MacroNext only: releases to announce (macro.ts)
 }
 
 export interface CheckResult {
@@ -21,6 +23,8 @@ export interface CheckResult {
   remove: string[]
   problem?: string // why this check failed (for the logs)
   gap?: boolean    // none of the entries was there last time: some may have come and gone unseen
+  dirty?: boolean  // the state changed in a way the pages do not see (MacroNext's calendar): save it
+  log?: string     // what to log about this check
 }
 
 // Feeds hold only their latest few entries (ESPI 10, PAP 10, Stooq 30, GPW 50): when a new
@@ -47,7 +51,7 @@ function shorten(text: string): string {
 export const PARSER_VERSION = 2
 
 // How long to wait for a source. Waiting costs no CPU, only delays the other channels.
-const TIMEOUT_S = 15
+export const TIMEOUT_S = 15
 // A source that fails once (a slow moment at GPW) is not worth a red box on every page:
 // the error is shown from this many failed checks in a row. The poller retries sooner
 // after a failure, so that is a few minutes. A channel with nothing on the list (a new one)
@@ -55,7 +59,7 @@ const TIMEOUT_S = 15
 export const SHOW_ERROR_AFTER = 3
 
 // What came instead of the expected page, to show and log: "12 KB, „Just a moment...”, z adresu …"
-function pageInfo(page: string, res: Response, url: string): string {
+export function pageInfo(page: string, res: Response, url: string): string {
   const title = page.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1].replace(/\s+/g, ' ').trim().slice(0, 60)
   return [`${Math.round(page.length / 1024)} KB`, title && `„${title}”`, res.url && res.url !== url && `z adresu ${res.url.slice(0, 80)}`]
     .filter(Boolean).join(', ')
@@ -70,14 +74,14 @@ const time = (i: NewsItem) => (i.pubDate ? Date.parse(i.pubDate) : 0)
 
 // The entries to keep: those in the feed, and those published in the last 24 hours;
 // newest first, at most MAX_KEEP
-function retain(items: NewsItem[], current: Set<string>, now: number): NewsItem[] {
+export function retain(items: NewsItem[], current: Set<string>, now: number): NewsItem[] {
   return items
     .filter((i) => current.has(i.id) || (i.pubDate !== '' && now - time(i) < KEEP_MS))
     .sort((a, b) => time(b) - time(a))
     .slice(0, MAX_KEEP)
 }
 
-const HEADERS = {
+export const HEADERS = {
   'User-Agent': 'Mozilla/5.0 (compatible; Szczekaczka/1.0; +https://github.com/dankostecki/szczekaczka)',
   'Accept-Language': 'pl,en;q=0.8',
 }

@@ -58,7 +58,7 @@ function NewsRow({ item, now, read, saved, fresh, watched, onRead, onSave, onSpe
         ? <a className="title" href={item.link} target="_blank" rel="noopener noreferrer"
             lang={lang === 'pl' ? undefined : lang} onClick={() => onRead(item.id)} onAuxClick={() => onRead(item.id)}>{item.title}</a>
         : <span className="title" lang={lang === 'pl' ? undefined : lang} onClick={() => onRead(item.id)}>{item.title}</span>}
-      {item.description && <p className="desc" lang={lang === 'pl' ? undefined : lang}>{item.description}</p>}
+      {item.description && <p className={`desc${item.source === 'MACRONEXT' ? ' whole' : ''}`} lang={lang === 'pl' ? undefined : lang}>{item.description}</p>}
     </article>
   )
 }

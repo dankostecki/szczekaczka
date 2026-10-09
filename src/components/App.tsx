@@ -32,6 +32,9 @@ const filterColor = (f: Filter) => (f === 'ALL' || f === 'SAVED' ? undefined : `
 function emptyTab(src: Source, label: string | null, errors: FeedError[]): string {
   const name = label ? `${src} · ${label}` : src
   const failing = errors.filter((e) => (label ? e.feed === name : e.feed.startsWith(`${src} · `)))
+  if (src === 'MACRONEXT') return failing.length
+    ? 'Nie udało się pobrać kalendarium MacroNext (powód w ramce wyżej). Kolejna próba za chwilę.'
+    : 'Na razie brak zapowiedzi. Zapowiedzi danych makro z kalendarium MacroNext pojawiają się tu 10 minut przed publikacją.'
   return failing.length
     ? `Nie udało się pobrać newsów z ${name} (powód w ramce wyżej). Kolejna próba za chwilę.`
     : `Na razie brak newsów z ${name}.`
