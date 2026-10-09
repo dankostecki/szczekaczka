@@ -54,6 +54,13 @@ const TIMEOUT_S = 15
 // shows it at once: there is nothing to see anyway, and the page should say why.
 export const SHOW_ERROR_AFTER = 3
 
+// What came instead of the expected page, to show and log: "12 KB, „Just a moment...”, z adresu …"
+function pageInfo(page: string, res: Response, url: string): string {
+  const title = page.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1].replace(/\s+/g, ' ').trim().slice(0, 60)
+  return [`${Math.round(page.length / 1024)} KB`, title && `„${title}”`, res.url && res.url !== url && `z adresu ${res.url.slice(0, 80)}`]
+    .filter(Boolean).join(', ')
+}
+
 async function sha1(buf: BufferSource): Promise<string> {
   const d = new Uint8Array(await crypto.subtle.digest('SHA-1', buf))
   return Array.from(d, (b) => b.toString(16).padStart(2, '0')).join('')
@@ -85,17 +92,19 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
     const state: FeedState = { ...old, ...patch, items, checkedAt: now }
     return { state, changed: remove.length > 0 || state.error !== old.error, add: [], remove }
   }
-  const failed = (message: string): CheckResult => {
+  // `detail`: for the logs only
+  const failed = (message: string, detail?: string): CheckResult => {
     const failures = (old.failures ?? 0) + 1
     const show = failures >= SHOW_ERROR_AFTER || old.items.length === 0
-    return { ...aged({ failures, error: show ? message : old.error }), problem: message }
+    return { ...aged({ failures, error: show ? message : old.error }), problem: detail ? `${message} | ${detail}` : message }
   }
 
   let res: Response
   try {
     const headers: Record<string, string> = {
       'User-Agent': 'Mozilla/5.0 (compatible; Szczekaczka/1.0; +https://github.com/dankostecki/szczekaczka)',
-      'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
+      'Accept': feed.format === 'pap-list' ? 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8'
+        : 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
       'Accept-Language': 'pl,en;q=0.8',
     }
     const reread = old.parser !== PARSER_VERSION
@@ -111,8 +120,12 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
 
   const buf = await res.arrayBuffer()
   // PAP's report list is a web page: only its table counts (the rest changes on every visit)
-  const section = feed.format === 'pap-list' ? papListSection(decodeBody(buf, res.headers.get('content-type'))) : null
-  if (feed.format === 'pap-list' && section === null) return failed('strona bez listy raportów')
+  const page = feed.format === 'pap-list' ? decodeBody(buf, res.headers.get('content-type')) : ''
+  const section = feed.format === 'pap-list' ? papListSection(page) : null
+  if (feed.format === 'pap-list' && section === null) {
+    const text = page.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<[^>]+>/gi, ' ').replace(/\s+/g, ' ').trim()
+    return failed(`strona bez listy raportów: ${pageInfo(page, res, url)}`, `${res.headers.get('server') ?? ''} ${text.slice(0, 300)}`)
+  }
   const hash = await sha1(section === null ? buf : new TextEncoder().encode(section))
   const meta = { etag: res.headers.get('etag') ?? undefined, lastModified: res.headers.get('last-modified') ?? undefined }
   if (prev && hash === old.hash && old.parser === PARSER_VERSION) return aged({ ...meta, error: null, failures: 0 })

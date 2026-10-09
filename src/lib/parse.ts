@@ -196,7 +196,7 @@ export function parseFeedXml(xml: string, feed: FeedConfig, limit = Infinity): N
 // Just the table and the links under it: the rest of the page differs on every visit, and is
 // not worth the CPU. null when the page has no such table (changed or an error page).
 export function papListSection(html: string): string | null {
-  const head = html.indexOf('>GODZINA<')
+  const head = html.search(/>\s*godzina\s*</i)
   if (head < 0) return null
   const start = html.lastIndexOf('<table', head)
   const day = html.indexOf('/articles/', head)
