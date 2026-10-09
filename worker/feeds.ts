@@ -19,6 +19,7 @@ export interface CheckResult {
   changed: boolean // items or error differ from before
   add: NewsItem[]
   remove: string[]
+  problem?: string // why this check failed (for the logs)
 }
 
 // Feeds hold only their latest few entries (ESPI 10, PAP 10, Stooq 30, GPW 50): when a new
@@ -48,7 +49,8 @@ export const PARSER_VERSION = 2
 const TIMEOUT_S = 15
 // A source that fails once (a slow moment at GPW) is not worth a red box on every page:
 // the error is shown from this many failed checks in a row. The poller retries sooner
-// after a failure, so that is a few minutes.
+// after a failure, so that is a few minutes. A channel with nothing on the list (a new one)
+// shows it at once: there is nothing to see anyway, and the page should say why.
 export const SHOW_ERROR_AFTER = 3
 
 async function sha1(buf: ArrayBuffer): Promise<string> {
@@ -81,7 +83,8 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
   }
   const failed = (message: string): CheckResult => {
     const failures = (old.failures ?? 0) + 1
-    return aged({ failures, error: failures >= SHOW_ERROR_AFTER ? message : old.error })
+    const show = failures >= SHOW_ERROR_AFTER || old.items.length === 0
+    return { ...aged({ failures, error: show ? message : old.error }), problem: message }
   }
 
   let res: Response

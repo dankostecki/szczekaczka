@@ -27,6 +27,16 @@ const FILTERS: Filter[] = ['ALL', ...SOURCES, 'SAVED']
 const filterName = (f: Filter) => (f === 'ALL' ? 'Wszystko' : f === 'SAVED' ? 'Zapisane' : f)
 const filterColor = (f: Filter) => (f === 'ALL' || f === 'SAVED' ? undefined : `var(--src-${f.toLowerCase()})`)
 
+// A source tab (or one of its channels) with nothing on it: why. Its channels are shown,
+// or the tab would not be there; errors are named "CNBC · WYNIKI".
+function emptyTab(src: Source, label: string | null, errors: FeedError[]): string {
+  const name = label ? `${src} · ${label}` : src
+  const failing = errors.filter((e) => (label ? e.feed === name : e.feed.startsWith(`${src} · `)))
+  return failing.length
+    ? `Nie udało się pobrać newsów z ${name} (powód w ramce wyżej). Kolejna próba za chwilę.`
+    : `Na razie brak newsów z ${name}.`
+}
+
 export default function App() {
   const [items,     setItems]     = useState<Item[]>([])
   const [errors,    setErrors]    = useState<FeedError[]>([])
@@ -349,6 +359,7 @@ export default function App() {
           <p className="empty">
             {activeFilter === 'SAVED' && !q ? 'Nic jeszcze nie zapisano. Kliknij gwiazdkę przy newsie, żeby go tu odłożyć.'
               : q ? 'Brak wyników dla tego wyszukiwania.'
+              : activeFilter !== 'ALL' && activeFilter !== 'SAVED' ? emptyTab(activeFilter, activeLabel, shownErrors)
               : items.length > 0 ? 'Kanały z newsami są ukryte. Pokaż je w ustawieniach (kolumna z okiem).'
               : 'Brak newsów.'}
           </p>
