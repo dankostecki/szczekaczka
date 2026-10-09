@@ -249,6 +249,8 @@ button:disabled { cursor: default; opacity: 0.5; }
   margin-top: 14px; padding: 10px 12px; border-radius: 10px;
   background: var(--accent-soft); color: var(--text-2); font-size: 13px;
 }
+.errors.blocked { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.errors.blocked .btn { margin: 0; }
 .empty { margin: 80px 0; text-align: center; color: var(--text-3); }
 
 .skeleton {

@@ -152,9 +152,9 @@ export interface MacroGroup {
   at: number          // release time, ms; for the undated ones, when they are announced (MORNING)
   day: string         // "2026-10-9", for the link
   allDay?: boolean    // releases without a time ("?"): announced in the morning, "Dziś …"
-  countries: string[]
-  lines: string[]     // one per row read; with the country in front where it changes, when there are several
-  data: boolean       // false when only speeches and meetings: no "dane makro" then
+  countries: string[] // of the data
+  lines: string[]     // the data, one line per row read; with the country in front where it changes, when there are several
+  talks?: string[]    // speeches and meetings, named in the title without a country: "wystąpienie szefowej Fed z Bostonu (Susan Collins)"
   done?: boolean      // announced (or too late to)
 }
 
@@ -162,11 +162,13 @@ export interface MacroGroup {
 export const MORNING: [number, number] = [6, 40]
 
 const TALK = /^(wystąpienie|konferencja|przemówienie|zeznanie|spotkanie|szczyt|seminarium|sympozjum|debata)/i
+// "wystąpienie szefowej Fed z Bostonu (Susan Collins)", from its line
+const talkName = (line: string) => line.replace(/\.$/, '').replace(/^\p{Lu}/u, (c) => c.toLocaleLowerCase('pl'))
 
 // The day's rows that are announced, grouped by release time; those without a time ("?") in one
 // group of their own, announced in the morning. A report with parts is read by its parts only.
 export function dayGroups(rows: MacroRow[], keyPrefix: string, y: number, m: number, d: number): MacroGroup[] {
-  const groups = new Map<number, MacroGroup & { said: [string, string][] }>()
+  const groups = new Map<number, { id: string; at: number; day: string; allDay?: boolean; rows: MacroRow[] }>()
   const day = `${y}-${m}-${d}`
   const add = (row: MacroRow) => {
     const hm = row.time.match(/^(\d{2}):(\d{2})$/)
@@ -175,33 +177,39 @@ export function dayGroups(rows: MacroRow[], keyPrefix: string, y: number, m: num
     let g = groups.get(key)
     if (!g) {
       const id = hm ? `${keyPrefix}:${new Date(at).toISOString().slice(0, 16)}` : `${keyPrefix}:${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}:dzis`
-      g = { id, at, day, ...(hm ? {} : { allDay: true }), countries: [], lines: [], data: false, said: [] }
+      g = { id, at, day, ...(hm ? {} : { allDay: true }), rows: [] }
       groups.set(key, g)
     }
-    if (row.country && !g.countries.includes(row.country)) g.countries.push(row.country)
-    g.said.push([row.country, sayRow(row)])
-    if (!TALK.test(row.title)) g.data = true
+    g.rows.push(row)
   }
   for (const row of rows) {
     if (!row.children.length) { if (announced(row)) add(row); continue }
     for (const c of row.children) if (announced(c, row.title)) add(c)
   }
-  return [...groups.values()].map(({ said, ...g }) => ({
-    ...g,
-    lines: said.map(([country, line], i) => (g.countries.length > 1 && country && country !== said[i - 1]?.[0] ? `${country}: ${line}` : line)),
-  })).sort((a, b) => a.at - b.at)
+  return [...groups.values()].map(({ rows: all, ...g }) => {
+    const data = all.filter((r) => !TALK.test(r.title))
+    const countries = [...new Set(data.map((r) => r.country).filter(Boolean))]
+    return {
+      ...g,
+      countries,
+      lines: data.map((row, i) => (countries.length > 1 && row.country && row.country !== data[i - 1]?.country ? `${row.country}: ${sayRow(row)}` : sayRow(row))),
+      talks: all.filter((r) => TALK.test(r.title)).map((r) => talkName(sayRow(r))),
+    }
+  }).sort((a, b) => a.at - b.at)
 }
 
 const plural = (n: number, one: string, few: string, many: string) =>
   n === 1 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? few : many
 
-// "Za 10 minut dane makro: USA, Kanada" / "Za 10 minut: Strefa Euro" (speeches only) /
-// "Dziś dane makro bez podanej godziny: Chiny"
+// "Za 10 minut dane makro: USA, Kanada" / "Dziś dane makro bez podanej godziny: Chiny". Speeches and
+// meetings are named, without a country: "Za 10 minut wystąpienie szefowej Fed z Bostonu (Susan Collins)",
+// "Za 10 minut dane makro: USA oraz wystąpienie szefa Fed z St. Louis (Alberto Musalem)"
 export function groupTitle(g: MacroGroup, minutes = LEAD_MINUTES): string {
   const when = g.allDay ? 'Dziś' : `Za ${minutes} ${plural(minutes, 'minutę', 'minuty', 'minut')}`
-  if (g.allDay) return `${when}${g.data ? ' dane makro' : ''} bez podanej godziny${g.countries.length ? `: ${g.countries.join(', ')}` : ''}`
-  const where = g.countries.join(', ')
-  return g.data ? `${when} dane makro${where ? `: ${where}` : ''}` : `${when}${where ? `: ${where}` : ''}`
+  const talks = (g.talks ?? []).join(' oraz ')
+  if (!g.lines.length) return `${when}${g.allDay ? ' bez podanej godziny:' : ''} ${talks}`
+  const data = `${when} dane makro${g.allDay ? ' bez podanej godziny' : ''}${g.countries.length ? `: ${g.countries.join(', ')}` : ''}`
+  return talks ? `${data} oraz ${talks}` : data
 }
 
 // ── Reading aloud: numbers with their units in words ──
