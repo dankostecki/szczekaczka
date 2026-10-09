@@ -2,7 +2,6 @@
 // this code); only /api/news and /ws come here.
 import { HUBS } from '../src/lib/sources'
 import { type Env, poller, hub } from './env'
-import { probeSources } from './probe'
 
 export { Poller } from './poller'
 export { Hub } from './hub'
@@ -48,7 +47,6 @@ export default {
     const url = new URL(req.url)
     if (url.pathname === '/ws') return connect(req, env, url)
     if (url.pathname === '/api/news') return news(req, env, url)
-    if (url.pathname === '/api/probe-sources') return probeSources() // TEMPORARY test of market-data sources
     return env.ASSETS.fetch(req)
   },
   // Every 10 minutes: make sure the poller's loop is running (it starts itself on the
