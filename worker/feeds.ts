@@ -118,10 +118,10 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
     return { ...aged({ failures, error: show ? message : old.error }), problem: detail ? `${message} | ${detail}` : message }
   }
 
+  const reread = old.parser !== PARSER_VERSION
   let res: Response
   try {
     const headers: Record<string, string> = { ...HEADERS, Accept: feed.format ? 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8' : RSS_ACCEPT }
-    const reread = old.parser !== PARSER_VERSION
     if (old.etag && !reread) headers['If-None-Match'] = old.etag
     if (old.lastModified && !reread) headers['If-Modified-Since'] = old.lastModified
     res = await fetch(url, { headers, signal: AbortSignal.timeout(TIMEOUT_S * 1000) })
@@ -168,10 +168,14 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
     parsed = parseFeedXml(xml, feed, MAX_PER_FEED)
     if (parsed.length === 0 && !/<(item|entry)[\s>]/i.test(xml)) return failed('odpowiedź bez wpisów RSS')
   }
-  const fresh = parsed.map((it) => ({ ...it, description: shorten(it.description) }))
-
   const before = new Map(old.items.map((i) => [i.id, i]))
-  // New ids, and items whose title or lead was corrected
+  // An entry keeps the time it was first read with: CNBC moves an article's date each time it edits
+  // it, which would lift an old article above the new ones. After a parser change it is read anew.
+  const fresh = parsed.map((it) => {
+    const b = before.get(it.id)
+    return { ...it, description: shorten(it.description), pubDate: b?.pubDate && !reread ? b.pubDate : it.pubDate }
+  })
+  // New ids, and items whose title or lead was corrected (or their date, after a parser change)
   const add = fresh.filter((i) => {
     const b = before.get(i.id)
     return !b || b.title !== i.title || b.description !== i.description || b.pubDate !== i.pubDate
