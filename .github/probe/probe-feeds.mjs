@@ -1,70 +1,42 @@
-// Temporary diagnostic: how the Bankier ESPI feed behaves (item count, turnover, gaps, caching)
+// Temporary diagnostic #2: where to get every ESPI/EBI report (listings, RSS, robots.txt)
 const UA = 'Mozilla/5.0 (compatible; Szczekaczka/1.0; +https://github.com/dankostecki/szczekaczka)'
-const H = { 'User-Agent': UA, Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*', 'Accept-Language': 'pl,en;q=0.8' }
-const ESPI = 'https://www.bankier.pl/rss/espi.xml'
-const items = (xml) => [...xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)].map(([, b]) => {
-  const t = (n) => (b.match(new RegExp(`<${n}[^>]*>([\\s\\S]*?)</${n}>`, 'i'))?.[1] ?? '').replace(/<!\[CDATA\[|\]\]>/g, '').trim()
-  return { title: t('title'), link: t('link') || t('guid'), pubDate: t('pubDate'), desc: t('description').length, order: b.slice(0, 200).replace(/\s+/g, ' ').match(/<(\w+)/g)?.slice(0, 6).join('') }
-})
-const hdr = (r, ...n) => n.map((k) => `${k}=${r.headers.get(k) ?? '-'}`).join(' ')
-async function get(url, extra = {}) {
-  const t0 = Date.now()
-  const r = await fetch(url, { headers: { ...H, ...extra }, redirect: 'follow' })
-  const body = r.status === 200 ? await r.text() : ''
-  return { r, body, ms: Date.now() - t0 }
-}
-
-// 1. One look at the feed
-let { r, body, ms } = await get(ESPI)
-console.log(`ESPI status=${r.status} bytes=${body.length} ms=${ms} ${hdr(r, 'content-type', 'cache-control', 'age', 'etag', 'last-modified', 'expires', 'x-cache', 'cf-cache-status', 'server', 'via')}`)
-let list = items(body)
-console.log(`items=${list.length}; first item tag order: ${list[0]?.order}`)
-for (const i of list) console.log(`  ${i.pubDate} | desc ${i.desc} | ${i.title.slice(0, 90)} | ${i.link.slice(-40)}`)
-console.log('EQUNICO 9210030 in feed:', body.includes('9210030'))
-
-// 2. Conditional GET right away: does it answer 304 when nothing changed?
-const et = r.headers.get('etag'), lm = r.headers.get('last-modified')
-if (et || lm) { const c = await get(ESPI, { ...(et ? { 'If-None-Match': et } : {}), ...(lm ? { 'If-Modified-Since': lm } : {}) }); console.log(`conditional: status=${c.r.status}`) }
-
-// 3. Poll every 10 s for 6 minutes: turnover and gaps, plus conditional GET vs plain GET
-let prev = new Set(list.map((i) => i.link)), prevEt = et, prevLm = lm
-for (let n = 1; n <= 36; n++) {
-  await new Promise((res) => setTimeout(res, 10_000))
-  const [plain, cond] = await Promise.all([get(ESPI), get(ESPI, { ...(prevEt ? { 'If-None-Match': prevEt } : {}), ...(prevLm ? { 'If-Modified-Since': prevLm } : {}) })])
-  const now = items(plain.body)
-  const links = new Set(now.map((i) => i.link))
-  const fresh = now.filter((i) => !prev.has(i.link))
-  const overlap = now.filter((i) => prev.has(i.link)).length
-  const span = now.length ? `${now.at(-1).pubDate} .. ${now[0].pubDate}` : ''
-  const stale304 = cond.r.status === 304 && fresh.length > 0
-  console.log(`#${n} status=${plain.r.status} items=${now.length} new=${fresh.length} overlap=${overlap}${overlap === 0 && prev.size ? ' GAP!' : ''} cond=${cond.r.status}${stale304 ? ' STALE-304!' : ''} ${hdr(plain.r, 'age', 'cache-control')} span ${span}`)
-  for (const i of fresh) console.log(`    + ${i.pubDate} | ${i.title.slice(0, 90)}`)
-  if (plain.r.status === 200) { prev = links; prevEt = plain.r.headers.get('etag'); prevLm = plain.r.headers.get('last-modified') }
-}
-
-// 4. Other places with ESPI/EBI reports: do they have a longer list?
-const others = [
-  'https://www.bankier.pl/rss/espi.xml?limit=50',
-  'https://www.bankier.pl/rss/ebi.xml',
-  'https://www.bankier.pl/rss/komunikaty.xml',
-  'https://www.bankier.pl/gielda/wiadomosci/komunikaty-spolek',
-  'https://www.bankier.pl/gielda/wiadomosci/komunikaty-spolek/2',
-  'https://espiebi.pap.pl/rss.xml',
-  'https://espiebi.pap.pl/rss',
-  'https://espiebi.pap.pl/',
-  'https://www.stockwatch.pl/rss/komunikaty.aspx',
-  'https://www.stockwatch.pl/komunikaty-spolek/',
-  'https://www.parkiet.com/rss/komunikaty-espi',
-  'https://www.parkiet.com/komunikaty-espi',
-  'https://www.gpw.pl/komunikaty-spolek',
-  'https://biznes.pap.pl/espi',
-]
-for (const u of others) {
+const BROWSER = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36'
+async function get(url, ua = UA) {
   try {
-    const o = await get(u)
-    const n = items(o.body).length
-    const links = (o.body.match(/9210030|EQUNICO/gi) ?? []).length
-    const rss = [...o.body.matchAll(/<link[^>]+type=["']application\/(rss|atom)\+xml["'][^>]*>/gi)].map((m) => m[0].match(/href=["']([^"']+)/)?.[1]).filter(Boolean)
-    console.log(`${u} -> ${o.r.status} ${o.r.headers.get('content-type')} bytes=${o.body.length} items=${n} equnico=${links} rss-links=${rss.join(' ')}`)
-  } catch (e) { console.log(`${u} -> ${e.message}`) }
+    const r = await fetch(url, { headers: { 'User-Agent': ua, Accept: '*/*', 'Accept-Language': 'pl,en;q=0.8' }, redirect: 'follow' })
+    return { status: r.status, type: r.headers.get('content-type'), cache: r.headers.get('cache-control'), age: r.headers.get('age'), url: r.url, body: await r.text() }
+  } catch (e) { return { status: 'ERR ' + e.message, body: '' } }
+}
+const strip = (s) => s.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&#160;/g, ' ').replace(/\s+/g, ' ').trim()
+
+// robots.txt
+for (const host of ['https://espiebi.pap.pl', 'https://biznes.pap.pl', 'https://www.bankier.pl']) {
+  const r = await get(host + '/robots.txt')
+  console.log(`\n=== ${host}/robots.txt (${r.status})\n${r.body.slice(0, 1500)}`)
+}
+
+// RSS guesses, with our UA and a browser UA
+const guesses = ['https://espiebi.pap.pl/rss.xml', 'https://espiebi.pap.pl/rss', 'https://espiebi.pap.pl/feed', 'https://espiebi.pap.pl/rss/espi', 'https://espiebi.pap.pl/espi/rss.xml',
+  'https://biznes.pap.pl/rss', 'https://biznes.pap.pl/espi/rss', 'https://biznes.pap.pl/rss/espi', 'https://biznes.pap.pl/rss.xml', 'https://biznes.pap.pl/espi.xml']
+for (const u of guesses) for (const ua of [UA, BROWSER]) {
+  const r = await get(u, ua)
+  console.log(`${u} [${ua === UA ? 'our UA' : 'browser UA'}] -> ${r.status} ${r.type} bytes=${r.body.length} items=${(r.body.match(/<item\b/gi) ?? []).length}`)
+}
+
+// Listings: structure around report links
+for (const u of ['https://espiebi.pap.pl/', 'https://biznes.pap.pl/espi', 'https://www.bankier.pl/gielda/wiadomosci/komunikaty-spolek']) {
+  const r = await get(u)
+  console.log(`\n=== ${u} -> ${r.status} ${r.type} cache=${r.cache} age=${r.age} bytes=${r.body.length} final=${r.url}`)
+  const rss = [...r.body.matchAll(/href=["']([^"']*(rss|feed|xml)[^"']*)["']/gi)].map((m) => m[1])
+  console.log('rss-like hrefs:', [...new Set(rss)].slice(0, 15).join(' '))
+  const i = r.body.search(/EQUNICO/i)
+  if (i >= 0) console.log('--- raw around EQUNICO:\n' + r.body.slice(Math.max(0, i - 1500), i + 700))
+  // all anchor hrefs that look like report pages
+  const hrefs = [...r.body.matchAll(/href=["']([^"']+)["']/gi)].map((m) => m[1])
+  const counts = {}
+  for (const h of hrefs) { const k = h.replace(/[0-9]+/g, 'N').replace(/[?#].*$/, '').split('/').slice(0, 4).join('/'); counts[k] = (counts[k] ?? 0) + 1 }
+  console.log('href patterns:', Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, v]) => `${v}× ${k}`).join(' | '))
+  const text = strip(r.body)
+  const j = text.search(/EQUNICO/i)
+  console.log('--- text around EQUNICO:\n' + (j >= 0 ? text.slice(Math.max(0, j - 800), j + 800) : text.slice(0, 1500)))
 }
