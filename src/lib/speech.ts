@@ -127,7 +127,7 @@ export function spokenParts(it: Item, prefs: Prefs): string[] {
   return lead ? [title, lead] : [title]
 }
 
-// English news (Reuters) is read with the English voice
+// News in English is read with the English voice
 export function speakItem(it: Item, prefs: Prefs, voices: SpeechSynthesisVoice[], onEnd?: () => void) {
   const parts = spokenParts(it, prefs)
   const lang = langOf(it.source, it.label)

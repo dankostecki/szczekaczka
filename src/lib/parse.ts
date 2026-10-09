@@ -173,13 +173,6 @@ export function parseFeedXml(xml: string, feed: FeedConfig, limit = Infinity): N
     if (!title) continue
     const enclosure = block.match(/<enclosure\b[^>]*>/i)?.[0]
     const link = absolute(tag(block, 'link') || (enclosure ? attr(enclosure, 'url') : '') || tag(block, 'guid'), feed.url)
-    if (feed.via === 'google-news') {
-      // "US bonds rally after auction - Reuters": the site's name goes; the description is only the title again
-      const site = cleanText(tag(block, 'source')) || 'Reuters'
-      const bare = title.endsWith(` - ${site}`) ? title.slice(0, -site.length - 3).trim() : title
-      items.push(makeItem(feed, bare, link, '', tag(block, 'pubDate')))
-      continue
-    }
     items.push(makeItem(feed, title, link, tag(block, 'description') || tag(block, 'content:encoded'),
       tag(block, 'pubDate') || tag(block, 'dc:date')))
   }
