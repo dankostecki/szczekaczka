@@ -18,7 +18,7 @@
   --src-gpw: #059669;
   --src-stooq: #d97706;
   --src-pap: #0284c7;
-  --src-cnbc: #c026d3;
+  --src-reuters: #c026d3;
   --src-macronext: #4d7c0f;
   color-scheme: light;
 }
@@ -43,7 +43,7 @@
     --src-gpw: #3dd6a3;
     --src-stooq: #f8c24a;
     --src-pap: #5cc8f5;
-    --src-cnbc: #e879f9;
+    --src-reuters: #e879f9;
     --src-macronext: #a3e635;
     color-scheme: dark;
   }
@@ -68,7 +68,7 @@
   --src-gpw: #3dd6a3;
   --src-stooq: #f8c24a;
   --src-pap: #5cc8f5;
-  --src-cnbc: #e879f9;
+  --src-reuters: #e879f9;
   --src-macronext: #a3e635;
   color-scheme: dark;
 }
@@ -350,6 +350,16 @@ button:disabled { cursor: default; opacity: 0.5; }
 .channels input:disabled { cursor: default; opacity: .35; }
 .channels tr.off .ch { color: var(--text-3); }
 .channels tr.off .dot { opacity: .4; }
+.channels th.lead { font-size: 12px; font-weight: 600; letter-spacing: .02em; }
+.channels th:not(:first-child), .channels td:not(:first-child) { width: 44px; }
+.channels button.ch { width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.channels .chev { flex-shrink: 0; color: var(--text-3); transition: transform .15s; }
+.channels .chev.open { transform: rotate(90deg); }
+.channels .chev-space { width: 14px; flex-shrink: 0; }
+.channels tr.group td { font-weight: 600; }
+.channels tr.sub td { border-top-style: dashed; font-size: 13.5px; }
+.channels tr.sub .ch { padding-left: 44px; color: var(--text-2); }
+.channels td.none { color: var(--text-3); }
 
 .panel textarea {
   width: 100%; resize: vertical; padding: 10px 12px;

@@ -11,11 +11,10 @@ export interface Prefs {
   voiceURIEn: string     // '' = the best English voice, for news in English
   rate: number
   maxPerRefresh: number  // read at most this many headlines per refresh, sum up the rest
-  readLead: boolean      // read the lead after the title
-  sayGpw: boolean        // say "GPW:" before GPW headlines
   hiddenFeeds: string[]  // channels left off the list, and so not read aloud or notified either ("STOOQ:ŚWIAT")
   speakFeeds: string[]   // channels read aloud ("GPW:PRASA")
   notifyFeeds: string[]  // channels shown as notifications
+  leadFeeds: string[]    // channels read with the lead after the title; the others: the title only
   knownFeeds: string[]   // channels that existed when these settings were saved
   watchlist: string      // ESPI: only these companies are read aloud / notified
 }
@@ -29,11 +28,11 @@ export const DEFAULT_PREFS: Prefs = {
   voiceURIEn: '',
   rate: 1,
   maxPerRefresh: 3,
-  readLead: true,
-  sayGpw: true,
   hiddenFeeds: [],
   speakFeeds: FEED_KEYS,
   notifyFeeds: FEED_KEYS,
+  // Titles only, but MacroNext's announcements: their "lead" is the figures
+  leadFeeds: ['MACRONEXT:MAKRO'],
   knownFeeds: FEED_KEYS,
   watchlist: '',
 }
@@ -48,9 +47,13 @@ export function loadPrefs(): Prefs {
   try {
     const raw = localStorage.getItem(PREFS_KEY)
     if (!raw) return DEFAULT_PREFS
-    const saved = JSON.parse(raw) as Partial<Prefs>
+    const saved = JSON.parse(raw) as Partial<Prefs> & { readLead?: unknown; sayGpw?: unknown }
+    // Settings that are gone: one switch for the lead (now per channel, titles only to start with),
+    // and "GPW:" before GPW headlines (now always said)
+    const old = 'readLead' in saved || 'sayGpw' in saved
+    delete saved.readLead; delete saved.sayGpw
     // A renamed channel keeps its settings ("ESPI:ESPI/EBI" is now "ESPI:BANKIER")
-    const LISTS = ['hiddenFeeds', 'speakFeeds', 'notifyFeeds', 'knownFeeds'] as const
+    const LISTS = ['hiddenFeeds', 'speakFeeds', 'notifyFeeds', 'leadFeeds', 'knownFeeds'] as const
     const renamed = LISTS.some((k) => saved[k]?.some((key) => renamedKey(key) !== key))
     for (const k of LISTS) if (saved[k]) saved[k] = saved[k].map(renamedKey)
     const p = { ...DEFAULT_PREFS, ...saved } as Prefs
@@ -61,12 +64,12 @@ export function loadPrefs(): Prefs {
     const known = saved.knownFeeds ?? KNOWN_BEFORE.map(renamedKey)
     const added = FEED_KEYS.filter((k) => !known.includes(k))
     const cleaned: Prefs = {
-      ...p, hiddenFeeds: existing(p.hiddenFeeds), knownFeeds: FEED_KEYS,
+      ...p, hiddenFeeds: existing(p.hiddenFeeds), leadFeeds: existing(p.leadFeeds), knownFeeds: FEED_KEYS,
       speakFeeds: [...existing(p.speakFeeds), ...added.filter((k) => !p.speakFeeds.includes(k))],
       notifyFeeds: [...existing(p.notifyFeeds), ...added.filter((k) => !p.notifyFeeds.includes(k))],
     }
-    const changed = (['hiddenFeeds', 'speakFeeds', 'notifyFeeds'] as const).some((k) => cleaned[k].length !== p[k].length)
-      || known.length !== FEED_KEYS.length || added.length > 0 || renamed
+    const changed = (['hiddenFeeds', 'speakFeeds', 'notifyFeeds', 'leadFeeds'] as const).some((k) => cleaned[k].length !== p[k].length)
+      || known.length !== FEED_KEYS.length || added.length > 0 || renamed || old
     if (changed) savePrefs(cleaned)
     return cleaned
   } catch {
