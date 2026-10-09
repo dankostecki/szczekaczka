@@ -1,14 +1,18 @@
 // RSS sources. Fetched on the server (/api/news): browsers cannot read these feeds directly (CORS).
 
-export type Source = 'ESPI' | 'GPW' | 'STOOQ' | 'PAP'
+export type Source = 'ESPI' | 'GPW' | 'STOOQ' | 'PAP' | 'MARKETWATCH'
 
-export const SOURCES: Source[] = ['ESPI', 'GPW', 'STOOQ', 'PAP']
+export const SOURCES: Source[] = ['ESPI', 'GPW', 'STOOQ', 'PAP', 'MARKETWATCH']
+
+// Language of a feed: read aloud with a voice for it
+export type Lang = 'pl' | 'en'
 
 export interface FeedConfig {
   source: Source
   label: string
   url: string
   minAge?: number // seconds: a feed that rarely changes is checked at most this often (never more often than usual)
+  lang?: Lang     // 'pl' when not given
 }
 
 export const FEEDS: FeedConfig[] = [
@@ -22,11 +26,17 @@ export const FEEDS: FeedConfig[] = [
   { source: 'PAP',   label: 'BIZNES',      url: 'https://pap-mediaroom.pl/kategoria/biznes-i-finanse/rss.xml',         minAge: 120 },
   { source: 'PAP',   label: 'NAUKA',       url: 'https://pap-mediaroom.pl/kategoria/nauka-i-technologie/rss.xml',      minAge: 120 },
   { source: 'PAP',   label: 'POLITYKA',    url: 'https://pap-mediaroom.pl/kategoria/polityka-i-społeczenstwo/rss.xml', minAge: 120 },
+  // In English: Top Stories and Bulletins. MarketPulse (mw_marketpulse) is not used: Dow Jones stopped adding to it in 2025.
+  { source: 'MARKETWATCH', label: 'TOP',   url: 'https://feeds.content.dowjones.io/public/rss/mw_topstories', minAge: 120, lang: 'en' },
+  { source: 'MARKETWATCH', label: 'PILNE', url: 'https://feeds.content.dowjones.io/public/rss/mw_bulletins',  lang: 'en' },
 ]
 
 // "GPW:PRASA" — key for a single channel (settings, filters)
 export const feedKey = (source: string, label: string) => `${source}:${label}`
 export const FEED_KEYS = FEEDS.map((f) => feedKey(f.source, f.label))
+
+const FEED_LANG = new Map(FEEDS.map((f) => [feedKey(f.source, f.label), f.lang ?? 'pl']))
+export const langOf = (source: string, label: string): Lang => FEED_LANG.get(feedKey(source, label)) ?? 'pl'
 
 export const labelsOf = (source: Source) => FEEDS.filter((f) => f.source === source).map((f) => f.label)
 
@@ -55,6 +65,12 @@ export const SOURCE_INFO: Record<Source, { name: string; publisher: string; site
     publisher: 'Polska Agencja Prasowa S.A.',
     site: 'https://pap-mediaroom.pl/rss',
     about: 'Komunikaty prasowe firm i instytucji z serwisu PAP MediaRoom Polskiej Agencji Prasowej, z kategorii: biznes i finanse, nauka i technologie, polityka i społeczeństwo.',
+  },
+  MARKETWATCH: {
+    name: 'MarketWatch',
+    publisher: 'Dow Jones & Company, Inc.',
+    site: 'https://www.marketwatch.com',
+    about: 'Wiadomości serwisu MarketWatch po angielsku: najważniejsze (TOP, kanał Top Stories) i pilne (PILNE, kanał Bulletins). Na głos czyta je głos angielski.',
   },
 }
 

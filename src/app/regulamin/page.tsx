@@ -32,7 +32,8 @@ export default function Terms() {
           Serwis zbiera w jednej liście nagłówki i zajawki udostępniane publicznie w kanałach RSS przez:
           Bankier.pl (komunikaty spółek ESPI/EBI), Giełdę Papierów Wartościowych w Warszawie (komunikaty, komunikaty
           prasowe, aktualności), Stooq (biznes, kraj, świat) oraz PAP MediaRoom Polskiej Agencji
-          Prasowej (komunikaty prasowe: biznes i finanse, nauka i technologie, polityka i społeczeństwo). Pełna lista
+          Prasowej (komunikaty prasowe: biznes i finanse, nauka i technologie, polityka i społeczeństwo), a po angielsku
+          MarketWatch, serwis Dow Jones &amp; Company, Inc. (najważniejsze i pilne wiadomości). Pełna lista
           kanałów z adresami jest na stronie <Link href="/o-stronie">O stronie i źródła</Link>.
         </li>
         <li>
@@ -90,7 +91,7 @@ export default function Terms() {
           podatkowym. Decyzje inwestycyjne Użytkownik podejmuje na własną odpowiedzialność.
         </li>
         <li>
-          Treści pochodzą od podmiotów trzecich (Bankier.pl, GPW, Stooq, PAP MediaRoom oraz spółek i instytucji publikujących raporty i komunikaty) i są
+          Treści pochodzą od podmiotów trzecich (Bankier.pl, GPW, Stooq, PAP MediaRoom, MarketWatch oraz spółek i instytucji publikujących raporty i komunikaty) i są
           pokazywane w takiej postaci, w jakiej udostępniły je w kanałach RSS. Usługodawca nie odpowiada za ich
           treść, kompletność ani aktualność. Wiążące są wyłącznie raporty i komunikaty opublikowane w oficjalnych
           kanałach (system ESPI/EBI, strony spółek, strona GPW).

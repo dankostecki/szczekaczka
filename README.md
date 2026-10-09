@@ -1,6 +1,6 @@
 # Szczekaczka
 
-Prosty czytnik newsów z polskiego rynku: komunikaty spółek (ESPI/EBI), komunikaty GPW, newsy Stooq i komunikaty prasowe PAP MediaRoom w jednej liście. Nowe nagłówki czyta na głos i pokazuje jako powiadomienia na pulpicie.
+Prosty czytnik newsów z polskiego rynku: komunikaty spółek (ESPI/EBI), komunikaty GPW, newsy Stooq, komunikaty prasowe PAP MediaRoom i, po angielsku, wiadomości MarketWatch w jednej liście. Nowe nagłówki czyta na głos i pokazuje jako powiadomienia na pulpicie.
 
 ## Źródła
 
@@ -14,6 +14,8 @@ Prosty czytnik newsów z polskiego rynku: komunikaty spółek (ESPI/EBI), komuni
 | PAP | BIZNES | `https://pap-mediaroom.pl/kategoria/biznes-i-finanse/rss.xml` |
 | PAP | NAUKA | `https://pap-mediaroom.pl/kategoria/nauka-i-technologie/rss.xml` |
 | PAP | POLITYKA | `https://pap-mediaroom.pl/kategoria/polityka-i-społeczenstwo/rss.xml` |
+| MARKETWATCH (po angielsku) | TOP (Top Stories) | `https://feeds.content.dowjones.io/public/rss/mw_topstories` |
+| MARKETWATCH (po angielsku) | PILNE (Bulletins) | `https://feeds.content.dowjones.io/public/rss/mw_bulletins` |
 
 Lista jest w `src/lib/sources.ts`.
 
@@ -24,10 +26,11 @@ Lista jest w `src/lib/sources.ts`.
 - **Nowe newsy przychodzą same przez WebSocket**, bez odświeżania strony: przy wejściu strona pobiera całą listę (`/api/news`), a potem serwer wysyła tylko zmiany. Nowe newsy dostają znacznik NOWE. Gdy WebSocket nie działa (np. sieć firmowa), lista odświeża się co 3 min.
 - **Koszt sprawdzania źródeł nie rośnie z liczbą użytkowników.** Darmowy plan Cloudflare wystarcza z zapasem na około 1000 użytkowników. Architektura, limity, wyliczenia i ryzyka: [`docs/cloudflare.md`](docs/cloudflare.md).
 - Strona `/o-stronie` pokazuje wszystkie źródła, kanały i adresy RSS (generowane z `src/lib/sources.ts`).
-- **Głos** (Web Speech API): do wyboru wszystkie polskie głosy przeglądarki i systemu, z opisem (kobieta / mężczyzna, naturalny) i odsłuchem. Zestaw zależy od przeglądarki: Edge ma naturalne głosy Microsoft (np. Zofia, Marek), Chrome „Google polski”, Mac i iPhone np. Zosię. Automatycznie wybierany jest najlepszy (naturalny, potem Google). Czyta nowe newsy z zaznaczonych kanałów. W ustawieniach: sam tytuł albo tytuł i lead (pełne zdania, bez daty i „(PAP)” na początku), „GPW:” przed komunikatami GPW. Stooq, ESPI i PAP bez nazwy źródła. Przy wielu naraz czyta najnowsze, a resztę podsumowuje.
+- **Głos** (Web Speech API): do wyboru wszystkie polskie głosy przeglądarki i systemu, z opisem (kobieta / mężczyzna, naturalny) i odsłuchem. Zestaw zależy od przeglądarki: Edge ma naturalne głosy Microsoft (np. Zofia, Marek), Chrome „Google polski”, Mac i iPhone np. Zosię. Automatycznie wybierany jest najlepszy (naturalny, potem Google). Czyta nowe newsy z zaznaczonych kanałów. W ustawieniach: sam tytuł albo tytuł i lead (pełne zdania, bez daty i „(PAP)” na początku), „GPW:” przed komunikatami GPW. Stooq, ESPI, PAP i MarketWatch bez nazwy źródła. Przy wielu naraz czyta najnowsze, a resztę podsumowuje.
+- **Newsy po angielsku** (MarketWatch) czyta osobny głos angielski, wybierany w ustawieniach z listy angielskich głosów przeglądarki (z regionem, np. USA, UK). Automatycznie: naturalny, potem Google, akcent amerykański. Kanał MarketPulse (`mw_marketpulse`) nie jest używany, bo Dow Jones przestał go uzupełniać w 2025 r.
 - **Powiadomienia na pulpicie**: działają, dopóki strona jest otwarta w karcie.
 - **Obserwowane spółki**: ESPI przysyła bardzo dużo raportów, więc na głos i w powiadomieniach są tylko spółki z tej listy (nazwy lub tickery po przecinku). Na liście widać wszystkie.
-- **Kanały na liście**: w ustawieniach („Kanały”) każdy kanał można ukryć lub pokazać (oko), a osobno włączyć mu czytanie na głos i powiadomienia. Ukryty kanał od razu znika z listy i nie jest czytany ani pokazywany w powiadomieniach. Serwer i tak wysyła wszystkie kanały, więc ukrywanie i pokazywanie działa od razu i nic nie kosztuje.
+- **Kanały na liście**: w ustawieniach („Kanały”) każdy kanał można ukryć lub pokazać (oko), a osobno włączyć mu czytanie na głos i powiadomienia. Ukryty kanał od razu znika z listy i nie jest czytany ani pokazywany w powiadomieniach. Serwer i tak wysyła wszystkie kanały, więc ukrywanie i pokazywanie działa od razu i nic nie kosztuje. Nowo dodany kanał jest od razu czytany i pokazywany w powiadomieniach, także u osób, które mają już zapisane ustawienia.
 - Do tego: filtry źródeł i kanałów, wyszukiwarka (`/`), zapisane na później, oznaczanie przeczytanych, jasny i ciemny motyw, „nie wygaszaj ekranu”.
 
 Ustawienia, przeczytane i zapisane są trzymane tylko w przeglądarce (localStorage).

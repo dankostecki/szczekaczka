@@ -16,7 +16,7 @@ export const OPERATOR = {
 }
 
 // Date the current terms and privacy policy took effect
-export const LEGAL_DATE = '8 października 2026 r.'
+export const LEGAL_DATE = '9 października 2026 r.'
 
 // Everything the site keeps in the browser (localStorage); see the privacy policy
 export const STORAGE_PREFIX = 'szczekaczka:'

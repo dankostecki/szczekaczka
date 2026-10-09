@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import Link from 'next/link'
 import { FEEDS, SOURCES, feedKey, labelsOf, CHECK_SECONDS, QUIET_CHECK_SECONDS } from '@/lib/sources'
 import type { Prefs, Theme } from '@/lib/prefs'
-import { polishVoices, pickVoice, speak, stopSpeaking, voiceLabel } from '@/lib/speech'
+import { polishVoices, voicesFor, pickVoice, speak, stopSpeaking, voiceLabel } from '@/lib/speech'
 import { AUTHOR, STORAGE_PREFIX } from '@/lib/site'
 import type { AwakeState } from '@/lib/wakeLock'
 import type { LiveStatus } from '@/lib/live'
@@ -62,10 +62,18 @@ export default function Settings(p: Props) {
   const pl = polishVoices(p.voices)
   const auto = pickVoice(p.voices, '')
   const chosen = pl.some((v) => v.voiceURI === prefs.voiceURI) ? prefs.voiceURI : ''
+  const en = voicesFor(p.voices, 'en')
+  const autoEn = pickVoice(p.voices, '', 'en')
+  const chosenEn = en.some((v) => v.voiceURI === prefs.voiceURIEn) ? prefs.voiceURIEn : ''
 
   function preview(uri: string) {
     stopSpeaking()
     speak('Dzień dobry, tu Szczekaczka. Tak brzmi ten głos.', { ...prefs, voiceURI: uri }, p.voices)
+  }
+
+  function previewEn(uri: string) {
+    stopSpeaking()
+    speak('Hello, this is Szczekaczka. This is how this voice sounds.', { ...prefs, voiceURIEn: uri }, p.voices, undefined, 'en')
   }
 
   const { onClose } = p
@@ -158,6 +166,22 @@ export default function Settings(p: Props) {
                 Zestaw zależy od przeglądarki i systemu: najwięcej naturalnych głosów (np. Zofia, Marek) ma Microsoft Edge,
                 Chrome ma „Google polski”, a Mac i iPhone np. Zosię.
               </p>
+              <div className="voice-pick">
+                <span>Głos angielski (MarketWatch)</span>
+                <div>
+                  <select value={chosenEn} onChange={(e) => onChange({ voiceURIEn: e.target.value })} aria-label="Głos angielski">
+                    <option value="">Automatyczny{autoEn ? ` (${voiceLabel(autoEn)})` : ''}</option>
+                    {en.map((v) => <option key={v.voiceURI} value={v.voiceURI}>{voiceLabel(v)}</option>)}
+                  </select>
+                  <button className="play" title="Odsłuchaj" aria-label="Odsłuchaj głos angielski"
+                    onClick={() => previewEn(chosenEn)}><Play size={15} /></button>
+                </div>
+              </div>
+              <p className="hint">
+                Newsy po angielsku czyta ten głos.{' '}
+                {en.length === 0 ? 'Ta przeglądarka nie ma angielskich głosów, więc czyta swoim domyślnym.'
+                  : `Angielskie głosy w tej przeglądarce: ${en.length}.`}
+              </p>
               <div className="setting">
                 <span>Czytaj</span>
                 <div className="segmented">
@@ -166,7 +190,7 @@ export default function Settings(p: Props) {
                 </div>
               </div>
               <Switch label="Mów „GPW:” przed komunikatami GPW" checked={prefs.sayGpw} onChange={() => onChange({ sayGpw: !prefs.sayGpw })} />
-              <p className="hint">Stooq, ESPI i PAP są czytane bez nazwy źródła. Z leadu czytane są pełne zdania (lead ucięty przez źródło do miejsca ucięcia), bez daty, „(PAP)” i powtórzonego tytułu.</p>
+              <p className="hint">Stooq, ESPI, PAP i MarketWatch są czytane bez nazwy źródła. Z leadu czytane są pełne zdania (lead ucięty przez źródło do miejsca ucięcia), bez daty, „(PAP)” i powtórzonego tytułu.</p>
               <label className="setting">
                 <span>Tempo <b>{prefs.rate.toFixed(1)}×</b></span>
                 <input type="range" min={0.6} max={1.8} step={0.1} value={prefs.rate}
@@ -248,7 +272,7 @@ export default function Settings(p: Props) {
 
         <p className="foot">
           Szczekaczka by <a href={AUTHOR.url} target="_blank" rel="noopener noreferrer">{AUTHOR.name}</a>.
-          Źródła: <Link href="/o-stronie">Bankier.pl (ESPI/EBI), GPW, Stooq, PAP MediaRoom</Link>.
+          Źródła: <Link href="/o-stronie">Bankier.pl (ESPI/EBI), GPW, Stooq, PAP MediaRoom, MarketWatch</Link>.
         </p>
       </aside>
     </div>

@@ -1,5 +1,5 @@
 // User settings, kept in this browser (localStorage).
-import { FEED_KEYS } from './sources'
+import { FEEDS, FEED_KEYS, feedKey } from './sources'
 
 export type Theme = 'system' | 'light' | 'dark'
 
@@ -8,6 +8,7 @@ export interface Prefs {
   notify: boolean        // desktop notifications (permission survives reloads, so this is stored)
   keepAwake: boolean     // keep the screen on while the page is visible
   voiceURI: string       // '' = the best Polish voice (speech.ts)
+  voiceURIEn: string     // '' = the best English voice, for news in English
   rate: number
   maxPerRefresh: number  // read at most this many headlines per refresh, sum up the rest
   readLead: boolean      // read the lead after the title
@@ -15,6 +16,7 @@ export interface Prefs {
   hiddenFeeds: string[]  // channels left off the list, and so not read aloud or notified either ("STOOQ:ŚWIAT")
   speakFeeds: string[]   // channels read aloud ("GPW:PRASA")
   notifyFeeds: string[]  // channels shown as notifications
+  knownFeeds: string[]   // channels that existed when these settings were saved
   watchlist: string      // ESPI: only these companies are read aloud / notified
 }
 // Voice on/off is not stored: browsers allow speech only after a click on the page.
@@ -24,6 +26,7 @@ export const DEFAULT_PREFS: Prefs = {
   notify: false,
   keepAwake: true,
   voiceURI: '',
+  voiceURIEn: '',
   rate: 1,
   maxPerRefresh: 3,
   readLead: true,
@@ -31,8 +34,12 @@ export const DEFAULT_PREFS: Prefs = {
   hiddenFeeds: [],
   speakFeeds: FEED_KEYS,
   notifyFeeds: FEED_KEYS,
+  knownFeeds: FEED_KEYS,
   watchlist: '',
 }
+
+// Settings saved before `knownFeeds` was added knew every channel but MarketWatch
+const KNOWN_BEFORE = FEEDS.filter((f) => f.source !== 'MARKETWATCH').map((f) => feedKey(f.source, f.label))
 
 export const PREFS_KEY = 'szczekaczka:prefs'
 
@@ -40,13 +47,22 @@ export function loadPrefs(): Prefs {
   try {
     const raw = localStorage.getItem(PREFS_KEY)
     if (!raw) return DEFAULT_PREFS
-    const p = { ...DEFAULT_PREFS, ...JSON.parse(raw) } as Prefs
+    const saved = JSON.parse(raw) as Partial<Prefs>
+    const p = { ...DEFAULT_PREFS, ...saved } as Prefs
     // Channels that no longer exist (GPW calendar, GPW indices) are dropped, and the
     // cleaned settings are written back so nothing about them stays in the browser
-    const known = (list: string[]) => list.filter((k) => FEED_KEYS.includes(k))
-    const cleaned = { ...p, hiddenFeeds: known(p.hiddenFeeds), speakFeeds: known(p.speakFeeds), notifyFeeds: known(p.notifyFeeds) }
-    const removed = (['hiddenFeeds', 'speakFeeds', 'notifyFeeds'] as const).some((k) => cleaned[k].length !== p[k].length)
-    if (removed) savePrefs(cleaned)
+    const existing = (list: string[]) => list.filter((k) => FEED_KEYS.includes(k))
+    // A channel added since the settings were saved starts like for a new visitor: read aloud and notified
+    const known = saved.knownFeeds ?? KNOWN_BEFORE
+    const added = FEED_KEYS.filter((k) => !known.includes(k))
+    const cleaned: Prefs = {
+      ...p, hiddenFeeds: existing(p.hiddenFeeds), knownFeeds: FEED_KEYS,
+      speakFeeds: [...existing(p.speakFeeds), ...added.filter((k) => !p.speakFeeds.includes(k))],
+      notifyFeeds: [...existing(p.notifyFeeds), ...added.filter((k) => !p.notifyFeeds.includes(k))],
+    }
+    const changed = (['hiddenFeeds', 'speakFeeds', 'notifyFeeds'] as const).some((k) => cleaned[k].length !== p[k].length)
+      || known.length !== FEED_KEYS.length || added.length > 0
+    if (changed) savePrefs(cleaned)
     return cleaned
   } catch {
     return DEFAULT_PREFS

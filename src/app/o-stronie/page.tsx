@@ -15,7 +15,7 @@ export default function About() {
     <LegalPage title="O stronie i źródła" dated={false}>
       <p>
         Szczekaczka zbiera w jednym miejscu komunikaty spółek giełdowych (ESPI/EBI), komunikaty Giełdy Papierów
-        Wartościowych w Warszawie, wiadomości Stooq i komunikaty prasowe z PAP MediaRoom. Nowe newsy może czytać na głos i pokazywać jako powiadomienia
+        Wartościowych w Warszawie, wiadomości Stooq, komunikaty prasowe z PAP MediaRoom oraz, po angielsku, wiadomości MarketWatch. Nowe newsy może czytać na głos i pokazywać jako powiadomienia
         na pulpicie. Autor: <a href={AUTHOR.url} target="_blank" rel="noopener noreferrer">{AUTHOR.name}</a>.
       </p>
 
