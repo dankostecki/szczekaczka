@@ -92,7 +92,7 @@ export const SOURCE_INFO: Record<Source, { name: string; publisher: string; site
     name: 'MacroNext – kalendarium danych makro',
     publisher: 'MacroNext',
     site: 'https://macronext.pl/pl/dane-makro',
-    about: 'Zapowiedzi publikacji danych makroekonomicznych i wydarzeń banków centralnych, 10 minut przed nimi: kraj, nazwa danych, okres, konsensus (prognoza z kalendarium) i poprzedni odczyt. Wydarzenia bez podanej godziny są zapowiadane rano, o 6:40. Zapowiedzi tworzy ta strona z kalendarium MacroNext, czytanego o 0:01 i 6:30; są w nich dane o wysokiej i średniej wadze oraz wszystkie wydarzenia banków centralnych (bez zwykłych danych z Węgier, Rumunii, Czech i Słowacji).',
+    about: 'Zapowiedzi publikacji danych makroekonomicznych i wydarzeń banków centralnych, 10 minut przed nimi: kraj, nazwa danych, okres, konsensus (prognoza z kalendarium) i poprzedni odczyt; wystąpienia z tym, kto i skąd mówi (bez kraju). Wydarzenia bez podanej godziny są zapowiadane rano, o 6:40. Zapowiedzi tworzy ta strona z kalendarium MacroNext, czytanego o 0:01 i 6:30; są w nich dane o wysokiej i średniej wadze oraz wszystkie wydarzenia banków centralnych (bez zwykłych danych z Węgier, Rumunii, Czech i Słowacji).',
   },
 }
 

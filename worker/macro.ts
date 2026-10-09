@@ -6,7 +6,7 @@ import { feedKey, type FeedConfig } from '../src/lib/sources'
 import { HEADERS, SHOW_ERROR_AFTER, TIMEOUT_S, pageInfo, retain, type CheckResult, type FeedState } from './feeds'
 
 // Raise this when reading the calendar changes: it is then read again at once, not at the next time above
-export const MACRO_VERSION = 2 // 2: releases without a time, announced in the morning
+export const MACRO_VERSION = 3 // 2: releases without a time, announced in the morning; 3: speeches named in the title
 const RETRY_MINUTES = [1, 2, 4, 8, 15] // after failed reads in a row
 const LEAD_MS = LEAD_MINUTES * 60_000
 const LATE_MS = 60_000 // less than this before the release, the announcement is not made
@@ -90,7 +90,7 @@ export async function checkMacro(feed: FeedConfig, prev: FeedState | undefined, 
       state.error = null
       log = days.map((day, i) => {
         const groups = read[i] as MacroGroup[]
-        return `${dayKey(day)}: ${groups.length ? groups.map((g) => `${g.allDay ? '?' : clock(g.at)} ${g.countries.join('/')}`).join(', ') : 'nothing'}`
+        return `${dayKey(day)}: ${groups.length ? groups.map((g) => `${g.allDay ? '?' : clock(g.at)} ${[...g.countries, ...(g.talks?.length ? ['talk'] : [])].join('/')}`).join(', ') : 'nothing'}`
       }).join('; ')
     }
   }
@@ -104,7 +104,8 @@ export async function checkMacro(feed: FeedConfig, prev: FeedState | undefined, 
     dirty = true
     if (now > lastAt(g)) continue
     const minutes = Math.min(LEAD_MINUTES, Math.ceil((g.at - now) / 60_000))
-    // The day's page; the time makes each link different, or the page would show one announcement a day
+    // The day's page; the time makes each link different, or the page would show one announcement a day.
+    // The lead is the data; speeches are named in the title.
     add.push({ id: g.id, title: groupTitle(g, minutes), description: g.lines.join(' '), link: `${feed.url}${g.day}${g.allDay ? '' : `#${clock(g.at)}`}`,
       pubDate: new Date(now).toISOString(), source: feed.source, label: feed.label })
   }

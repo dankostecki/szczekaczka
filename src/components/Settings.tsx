@@ -206,6 +206,11 @@ export default function Settings(p: Props) {
           {p.canSpeak ? (
             <>
               <Switch label="Czytaj nowe newsy na głos" checked={p.voiceOn} onChange={p.onVoiceToggle} />
+              <p className="hint">
+                Po każdym otwarciu strony głos włącza się przyciskiem, bo przeglądarki nie pozwalają stronie mówić, zanim się jej
+                nie dotknie. Na telefonie strona czyta tylko wtedy, gdy jest na ekranie: po wygaszeniu lub zablokowaniu ekranu albo
+                przejściu do innej aplikacji przeglądarka ją usypia. Pomaga przełącznik „Nie wygaszaj ekranu” w części „Inne”.
+              </p>
               <div className="voices" role="radiogroup" aria-label="Głos">
                 <label className="voice">
                   <input type="radio" name="voice" checked={!chosen} onChange={() => onChange({ voiceURI: '' })} />

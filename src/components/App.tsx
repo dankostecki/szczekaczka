@@ -6,7 +6,7 @@ import type { NewsItem } from '@/lib/parse'
 import { type Item, type FeedError, freshItems, keyOf, dayKey, dayLabel, clock, withTime } from '@/lib/news'
 import { connectLive, type LiveStatus } from '@/lib/live'
 import { type Prefs, DEFAULT_PREFS, loadPrefs, savePrefs, loadJson, saveJson, watchMatcher } from '@/lib/prefs'
-import { speechSupported, speak, speakItem, announce, stopSpeaking } from '@/lib/speech'
+import { speechSupported, speak, speakItem, announce, stopSpeaking, onSpeechBlocked } from '@/lib/speech'
 import { notifyPermission, requestNotifyPermission, notifyHeadlines, testNotification } from '@/lib/notify'
 import { useWakeLock } from '@/lib/wakeLock'
 import { AUTHOR } from '@/lib/site'
@@ -58,6 +58,7 @@ export default function App() {
   const [prefs,     setPrefs]     = useState<Prefs>(DEFAULT_PREFS)
   const [ready,     setReady]     = useState(false) // prefs restored from this browser
   const [voiceOn,   setVoiceOn]   = useState(false)
+  const [blocked,   setBlocked]   = useState(false) // the browser would not speak without a tap
   const [voices,    setVoices]    = useState<SpeechSynthesisVoice[]>([])
   const [canSpeak,  setCanSpeak]  = useState(false) // known only after mount (no window on the server)
   const [perm,      setPerm]      = useState<NotificationPermission | 'unsupported'>('unsupported')
@@ -172,9 +173,15 @@ export default function App() {
 
   // ── Voice and notifications ──
   function toggleVoice() {
+    setBlocked(false)
     if (voiceOn) { stopSpeaking(); setVoiceOn(false); return }
     setVoiceOn(true)
     speak('Głos włączony.', prefs, voices) // speaking inside the click unlocks speech in strict browsers
+  }
+  useEffect(() => { onSpeechBlocked(() => setBlocked(true)); return () => onSpeechBlocked(undefined) }, [])
+  function unblock() {
+    setBlocked(false)
+    speak('Głos włączony.', prefs, voices) // inside the tap, as above
   }
   // The speaker on a headline: click to read it, click again to stop
   const [speakingId, setSpeakingId] = useState<string | null>(null)
@@ -361,6 +368,13 @@ export default function App() {
           <div className="errors" role="status">
             Chwilowo nie działa: {shownErrors.map((e) => `${e.feed} (${e.message})`).join(', ')}.
             Widać ostatnio pobrane newsy, kolejna próba za chwilę.
+          </div>
+        )}
+
+        {voiceOn && blocked && (
+          <div className="errors blocked" role="alert">
+            Przeglądarka nie pozwoliła przeczytać nowego newsa na głos. Telefony czasem wymagają ponownego dotknięcia strony.
+            <button className="btn" onClick={unblock}>Wznów czytanie</button>
           </div>
         )}
 

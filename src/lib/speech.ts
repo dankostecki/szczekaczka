@@ -74,9 +74,27 @@ export function chunks(text: string, max = 180): string[] {
   return out
 }
 
+// Phones stop speaking while the screen is off or another app is in front, and do not always start
+// again: what was queued then stays stuck, and nothing after it is read until a tap clears the queue.
+// So speech that has not moved for this long (a part is at most about 20 s) is cleared before more is queued.
+const STUCK_MS = 45_000
+let movedAt = 0 // when a part last started or ended, or was queued with nothing before it
+
+// Called when the browser refuses to speak without a tap on the page (some phone browsers)
+let onBlocked: (() => void) | undefined
+export const onSpeechBlocked = (f: (() => void) | undefined) => { onBlocked = f }
+
+function unstick(s: SpeechSynthesis) {
+  if (s.paused) s.resume()
+  if ((s.speaking || s.pending) && Date.now() - movedAt > STUCK_MS) s.cancel()
+  if (!s.speaking && !s.pending) movedAt = Date.now()
+}
+
 // onEnd: called once the text has been read, or when it was stopped (cancel ends it with an error)
 export function speak(text: string, prefs: Prefs, voices: SpeechSynthesisVoice[], onEnd?: () => void, lang: Lang = 'pl') {
   if (!speechSupported()) return
+  const s = window.speechSynthesis
+  unstick(s)
   const voice = pickVoice(voices, lang === 'en' ? prefs.voiceURIEn : prefs.voiceURI, lang)
   const parts = chunks(text)
   parts.forEach((part, i) => {
@@ -84,8 +102,15 @@ export function speak(text: string, prefs: Prefs, voices: SpeechSynthesisVoice[]
     if (voice) u.voice = voice
     u.lang = voice?.lang ?? LANG_TAG[lang]
     u.rate = prefs.rate
-    if (onEnd && i === parts.length - 1) { u.onend = onEnd; u.onerror = onEnd }
-    window.speechSynthesis.speak(u) // the browser queues utterances itself
+    const last = onEnd && i === parts.length - 1
+    u.onstart = () => { movedAt = Date.now() }
+    u.onend = () => { movedAt = Date.now(); if (last) onEnd() }
+    u.onerror = (e) => {
+      movedAt = Date.now()
+      if (e.error === 'not-allowed') onBlocked?.()
+      if (last) onEnd()
+    }
+    s.speak(u) // the browser queues utterances itself
   })
 }
 
