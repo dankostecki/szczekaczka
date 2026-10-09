@@ -1,5 +1,5 @@
 // User settings, kept in this browser (localStorage).
-import { FEEDS, FEED_KEYS, feedKey } from './sources'
+import { FEED_KEYS, renamedKey } from './sources'
 
 export type Theme = 'system' | 'light' | 'dark'
 
@@ -38,8 +38,9 @@ export const DEFAULT_PREFS: Prefs = {
   watchlist: '',
 }
 
-// Settings saved before `knownFeeds` was added knew the Polish channels only (English news came later)
-const KNOWN_BEFORE = FEEDS.filter((f) => (f.lang ?? 'pl') === 'pl').map((f) => feedKey(f.source, f.label))
+// The channels there were before settings remembered them (9 October 2026)
+const KNOWN_BEFORE = ['ESPI:ESPI/EBI', 'GPW:KOMUNIKATY', 'GPW:PRASA', 'GPW:AKTUALNOŚCI', 'STOOQ:BIZNES', 'STOOQ:KRAJ',
+  'STOOQ:ŚWIAT', 'PAP:BIZNES', 'PAP:NAUKA', 'PAP:POLITYKA']
 
 export const PREFS_KEY = 'szczekaczka:prefs'
 
@@ -48,12 +49,16 @@ export function loadPrefs(): Prefs {
     const raw = localStorage.getItem(PREFS_KEY)
     if (!raw) return DEFAULT_PREFS
     const saved = JSON.parse(raw) as Partial<Prefs>
+    // A renamed channel keeps its settings ("ESPI:ESPI/EBI" is now "ESPI:BANKIER")
+    const LISTS = ['hiddenFeeds', 'speakFeeds', 'notifyFeeds', 'knownFeeds'] as const
+    const renamed = LISTS.some((k) => saved[k]?.some((key) => renamedKey(key) !== key))
+    for (const k of LISTS) if (saved[k]) saved[k] = saved[k].map(renamedKey)
     const p = { ...DEFAULT_PREFS, ...saved } as Prefs
     // Channels that no longer exist (GPW calendar, GPW indices) are dropped, and the
     // cleaned settings are written back so nothing about them stays in the browser
     const existing = (list: string[]) => list.filter((k) => FEED_KEYS.includes(k))
     // A channel added since the settings were saved starts like for a new visitor: read aloud and notified
-    const known = saved.knownFeeds ?? KNOWN_BEFORE
+    const known = saved.knownFeeds ?? KNOWN_BEFORE.map(renamedKey)
     const added = FEED_KEYS.filter((k) => !known.includes(k))
     const cleaned: Prefs = {
       ...p, hiddenFeeds: existing(p.hiddenFeeds), knownFeeds: FEED_KEYS,
@@ -61,7 +66,7 @@ export function loadPrefs(): Prefs {
       notifyFeeds: [...existing(p.notifyFeeds), ...added.filter((k) => !p.notifyFeeds.includes(k))],
     }
     const changed = (['hiddenFeeds', 'speakFeeds', 'notifyFeeds'] as const).some((k) => cleaned[k].length !== p[k].length)
-      || known.length !== FEED_KEYS.length || added.length > 0
+      || known.length !== FEED_KEYS.length || added.length > 0 || renamed
     if (changed) savePrefs(cleaned)
     return cleaned
   } catch {

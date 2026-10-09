@@ -1,7 +1,8 @@
 // One object for the whole site: checks the feeds one at a time and sends changes to the hubs.
 // Checking one feed per call keeps each call far below the 10 ms of CPU of the free plan.
 import { DurableObject } from 'cloudflare:workers'
-import { FEEDS, feedKey, CHECK_SECONDS, QUIET_CHECK_SECONDS, HUBS, HEARTBEAT_SECONDS, type FeedConfig } from '../src/lib/sources'
+import { FEEDS, feedKey, renamedKey, renamedId, renamedItem, CHECK_SECONDS, QUIET_CHECK_SECONDS, HUBS, HEARTBEAT_SECONDS, type FeedConfig } from '../src/lib/sources'
+import { knownReport } from '../src/lib/reports'
 import { marketHours } from '../src/lib/schedule'
 import type { Delta, FeedSnapshot, Heartbeat } from '../src/lib/protocol'
 import { checkFeed, type FeedState } from './feeds'
@@ -32,9 +33,23 @@ export class Poller extends DurableObject<Env> {
       sql.exec('CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v INTEGER NOT NULL)')
       const known = new Set(FEEDS.map((f) => feedKey(f.source, f.label)))
       const removed: string[] = []
-      for (const row of sql.exec<{ key: string; state: string }>('SELECT key, state FROM feeds')) {
-        if (known.has(row.key)) this.feeds.set(row.key, JSON.parse(row.state))
-        else removed.push(row.key)
+      const renamed: [string, string][] = []
+      const rows = sql.exec<{ key: string; state: string }>('SELECT key, state FROM feeds').toArray()
+      const stored = new Set(rows.map((r) => r.key))
+      for (const row of rows) {
+        const key = renamedKey(row.key)
+        if (!known.has(key)) { removed.push(row.key); continue }
+        if (key === row.key) { this.feeds.set(key, JSON.parse(row.state)); continue }
+        if (stored.has(key)) { removed.push(row.key); continue } // already moved
+        // A renamed channel ("ESPI:ESPI/EBI" -> "ESPI:BANKIER"): its news and ids move along, so
+        // nothing comes back as new
+        const s = JSON.parse(row.state) as FeedState
+        this.feeds.set(key, { ...s, items: s.items.map(renamedItem), current: s.current?.map(renamedId) })
+        renamed.push([row.key, key])
+      }
+      for (const [from, to] of renamed) {
+        sql.exec('INSERT OR REPLACE INTO feeds (key, state) VALUES (?, ?)', to, JSON.stringify(this.feeds.get(to)))
+        removed.push(from)
       }
       this.v = sql.exec<{ v: number }>("SELECT v FROM meta WHERE k = 'v'").toArray()[0]?.v ?? 0
       for (const row of sql.exec<{ k: string; v: number }>("SELECT k, v FROM meta WHERE k LIKE 'online:%'")) {
@@ -47,7 +62,7 @@ export class Poller extends DurableObject<Env> {
         for (const key of removed) sql.exec('DELETE FROM feeds WHERE key = ?', key)
         this.v++
         sql.exec("INSERT OR REPLACE INTO meta (k, v) VALUES ('v', ?)", this.v)
-        console.log(`removed channels: ${removed.join(', ')} (v${this.v})`)
+        console.log(`removed channels: ${removed.join(', ')}${renamed.length ? ` (renamed: ${renamed.map(([a, b]) => `${a} -> ${b}`).join(', ')})` : ''} (v${this.v})`)
       }
     })
   }
@@ -126,13 +141,23 @@ export class Poller extends DurableObject<Env> {
     return Math.max(next, now + MIN_GAP_MS)
   }
 
+  // Channels of one group carry the same reports (ESPI from Bankier and from PAP): a report one
+  // of them already has is left out of the others, so it shows and is read aloud once
+  private inOtherChannels(feed: FeedConfig) {
+    if (!feed.group) return undefined
+    const others = FEEDS.filter((f) => f.group === feed.group && f !== feed)
+      .flatMap((f) => this.feeds.get(feedKey(f.source, f.label))?.items ?? [])
+    return others.length ? knownReport(others) : undefined
+  }
+
   private async check(feed: FeedConfig) {
     const key = feedKey(feed.source, feed.label)
     const url = this.env.FEED_ORIGIN ? `${this.env.FEED_ORIGIN}/${feed.url.replace(/^https?:\/\//, '')}` : feed.url
     const prev = this.feeds.get(key)
-    const r = await checkFeed(feed, prev, url)
+    const r = await checkFeed(feed, prev, url, Date.now(), this.inOtherChannels(feed))
     this.feeds.set(key, r.state)
     if (r.problem) console.log(`feed ${key}: failed check ${r.state.failures} in a row: ${r.problem}`)
+    if (r.gap) console.log(`feed ${key}: all ${r.state.current?.length} entries are new, some may have been missed`)
     // The count of failures must survive the object being evicted from memory, or the
     // error would never be shown; it changes only around failures, so this is rare
     const sql = this.ctx.storage.sql

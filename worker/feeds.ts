@@ -1,5 +1,5 @@
 // Checking one feed: download it if it changed, parse it, and say what is new.
-import { decodeBody, parseFeedXml, type NewsItem } from '../src/lib/parse'
+import { decodeBody, parseFeedXml, papListSection, parsePapList, type NewsItem } from '../src/lib/parse'
 import type { FeedConfig } from '../src/lib/sources'
 
 export interface FeedState {
@@ -20,6 +20,7 @@ export interface CheckResult {
   add: NewsItem[]
   remove: string[]
   problem?: string // why this check failed (for the logs)
+  gap?: boolean    // none of the entries was there last time: some may have come and gone unseen
 }
 
 // Feeds hold only their latest few entries (ESPI 10, PAP 10, Stooq 30, GPW 50): when a new
@@ -53,7 +54,7 @@ const TIMEOUT_S = 15
 // shows it at once: there is nothing to see anyway, and the page should say why.
 export const SHOW_ERROR_AFTER = 3
 
-async function sha1(buf: ArrayBuffer): Promise<string> {
+async function sha1(buf: BufferSource): Promise<string> {
   const d = new Uint8Array(await crypto.subtle.digest('SHA-1', buf))
   return Array.from(d, (b) => b.toString(16).padStart(2, '0')).join('')
 }
@@ -69,7 +70,10 @@ function retain(items: NewsItem[], current: Set<string>, now: number): NewsItem[
     .slice(0, MAX_KEEP)
 }
 
-export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, url = feed.url, now = Date.now()): Promise<CheckResult> {
+// `skip`: entries another channel already has (the same ESPI report from Bankier and PAP); they
+// are treated as not in this feed. An entry this channel already shows stays.
+export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, url = feed.url, now = Date.now(),
+  skip?: (item: NewsItem) => boolean): Promise<CheckResult> {
   const old: FeedState = prev ?? { items: [], error: null, checkedAt: 0 }
   // Before 24-hour keeping, everything stored was in the feed
   const current = new Set(old.current ?? old.items.map((i) => i.id))
@@ -106,17 +110,26 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
   if (!res.ok) return failed(`źródło zwróciło błąd HTTP ${res.status}`)
 
   const buf = await res.arrayBuffer()
-  const hash = await sha1(buf)
+  // PAP's report list is a web page: only its table counts (the rest changes on every visit)
+  const section = feed.format === 'pap-list' ? papListSection(decodeBody(buf, res.headers.get('content-type'))) : null
+  if (feed.format === 'pap-list' && section === null) return failed('strona bez listy raportów')
+  const hash = await sha1(section === null ? buf : new TextEncoder().encode(section))
   const meta = { etag: res.headers.get('etag') ?? undefined, lastModified: res.headers.get('last-modified') ?? undefined }
   if (prev && hash === old.hash && old.parser === PARSER_VERSION) return aged({ ...meta, error: null, failures: 0 })
 
-  const full = decodeBody(buf, res.headers.get('content-type'))
-  const xml = full.length > MAX_XML_CHARS ? full.slice(0, MAX_XML_CHARS) : full
-  const parsed = parseFeedXml(xml, feed, MAX_PER_FEED)
-  if (parsed.length === 0 && !/<(item|entry)[\s>]/i.test(xml)) return failed('odpowiedź bez wpisów RSS')
-  const fresh = parsed.map((it) => ({ ...it, description: shorten(it.description) }))
-
+  let parsed: NewsItem[]
+  if (section !== null) parsed = parsePapList(section, feed, MAX_PER_FEED, now) // an empty list (no reports yet today) is fine
+  else {
+    const full = decodeBody(buf, res.headers.get('content-type'))
+    const xml = full.length > MAX_XML_CHARS ? full.slice(0, MAX_XML_CHARS) : full
+    parsed = parseFeedXml(xml, feed, MAX_PER_FEED)
+    if (parsed.length === 0 && !/<(item|entry)[\s>]/i.test(xml)) return failed('odpowiedź bez wpisów RSS')
+  }
   const before = new Map(old.items.map((i) => [i.id, i]))
+  const fresh = parsed
+    .filter((it) => before.has(it.id) || !skip?.(it))
+    .map((it) => ({ ...it, description: shorten(it.description) }))
+
   // New ids, and items whose title or lead was corrected
   const add = fresh.filter((i) => {
     const b = before.get(i.id)
@@ -131,5 +144,6 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
   const state: FeedState = { items, current: [...inFeed], error: null, failures: 0, hash, ...meta, checkedAt: now, parser: PARSER_VERSION }
   // An added entry that is already too old to keep (a feed item without a date is always kept)
   const added = add.filter((i) => kept.has(i.id))
-  return { state, changed: added.length > 0 || remove.length > 0 || old.error !== null, add: added, remove }
+  const gap = current.size > 0 && fresh.length > 0 && !fresh.some((i) => current.has(i.id))
+  return { state, changed: added.length > 0 || remove.length > 0 || old.error !== null, add: added, remove, gap }
 }

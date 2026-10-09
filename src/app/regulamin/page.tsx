@@ -29,8 +29,9 @@ export default function Terms() {
       <h2>§ 2. Rodzaj i zakres usług</h2>
       <ol>
         <li>
-          Serwis zbiera w jednej liście nagłówki i zajawki udostępniane publicznie w kanałach RSS przez:
-          Bankier.pl (komunikaty spółek ESPI/EBI), Giełdę Papierów Wartościowych w Warszawie (komunikaty, komunikaty
+          Serwis zbiera w jednej liście nagłówki i zajawki udostępniane publicznie w kanałach RSS (a przez PAP Biznes na
+          publicznej liście raportów ESPI/EBI) przez:
+          Bankier.pl i serwis PAP Biznes Polskiej Agencji Prasowej (komunikaty spółek ESPI/EBI), Giełdę Papierów Wartościowych w Warszawie (komunikaty, komunikaty
           prasowe, aktualności), Stooq (biznes, kraj, świat) oraz PAP MediaRoom Polskiej Agencji
           Prasowej (komunikaty prasowe: biznes i finanse, nauka i technologie, polityka i społeczeństwo), a po angielsku
           CNBC (CNBC LLC; wyniki spółek, gospodarka, finanse). Pełna lista
@@ -91,7 +92,7 @@ export default function Terms() {
           podatkowym. Decyzje inwestycyjne Użytkownik podejmuje na własną odpowiedzialność.
         </li>
         <li>
-          Treści pochodzą od podmiotów trzecich (Bankier.pl, GPW, Stooq, PAP MediaRoom, CNBC oraz spółek i instytucji publikujących raporty i komunikaty) i są
+          Treści pochodzą od podmiotów trzecich (Bankier.pl, PAP Biznes, GPW, Stooq, PAP MediaRoom, CNBC oraz spółek i instytucji publikujących raporty i komunikaty) i są
           pokazywane w takiej postaci, w jakiej udostępniły je w kanałach RSS. Usługodawca nie odpowiada za ich
           treść, kompletność ani aktualność. Wiążące są wyłącznie raporty i komunikaty opublikowane w oficjalnych
           kanałach (system ESPI/EBI, strony spółek, strona GPW).

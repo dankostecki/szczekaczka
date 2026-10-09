@@ -6,7 +6,9 @@ Prosty czytnik newsów z polskiego rynku: komunikaty spółek (ESPI/EBI), komuni
 
 | W aplikacji | Kanał | RSS |
 |---|---|---|
-| ESPI | ESPI/EBI | `https://www.bankier.pl/rss/espi.xml` |
+| ESPI | BANKIER | `https://www.bankier.pl/rss/espi.xml` |
+| ESPI | PAP ESPI | `https://biznes.pap.pl/espi` (strona z listą raportów, nie RSS) |
+| ESPI | PAP EBI | `https://biznes.pap.pl/espi/ebi` (jw.) |
 | GPW | KOMUNIKATY | `https://www.gpw.pl/rss_komunikaty` |
 | GPW | PRASA | `https://www.gpw.pl/rss_komunikaty_prasowe` |
 | GPW | AKTUALNOŚCI | `https://www.gpw.pl/rss_aktualnosci` |
@@ -23,6 +25,7 @@ Lista jest w `src/lib/sources.ts`.
 ## Jak to działa
 
 - Przeglądarka nie może czytać tych kanałów bezpośrednio (CORS), więc pobiera je serwer na **Cloudflare Workers**: jeden proces (Durable Object `Poller`) sprawdza kanały dla wszystkich użytkowników, co 60 s (rzadziej zmieniające się kanały GPW oraz noc i weekend rzadziej), parsuje je (także kodowania ISO-8859-2 / windows-1250) i zapamiętuje.
+- **ESPI z dwóch źródeł.** Kanał RSS Bankiera ma tylko część raportów (10 naraz, wiele nigdy się w nim nie pojawia), więc serwer czyta też listy raportów ESPI i EBI z PAP Biznes (strona HTML: tabela z godziną, numerem, spółką i tytułem; przy braku zmian odpowiedź 304). Ten sam raport z obu źródeł (ta sama spółka, początek tytułu i czas ±10 min) pokazuje się i jest czytany raz, z tego źródła, które podało go pierwsze. Raporty z PAP mają sam tytuł, bez zajawki.
 - **Lista pokazuje ostatnie 24 godziny.** Kanały RSS trzymają tylko kilka–kilkadziesiąt ostatnich wpisów (ESPI 10, PAP 10, Stooq 30, GPW 50), więc serwer zachowuje wpisy, które z nich wypadły, przez 24 h od publikacji (najwyżej 500 na kanał). Wpisy wciąż obecne w kanale zostają, nawet jeśli są starsze.
 - **Nowe newsy przychodzą same przez WebSocket**, bez odświeżania strony: przy wejściu strona pobiera całą listę (`/api/news`), a potem serwer wysyła tylko zmiany. Nowe newsy dostają znacznik NOWE. Gdy WebSocket nie działa (np. sieć firmowa), lista odświeża się co 3 min.
 - **Koszt sprawdzania źródeł nie rośnie z liczbą użytkowników.** Darmowy plan Cloudflare wystarcza z zapasem na około 1000 użytkowników. Architektura, limity, wyliczenia i ryzyka: [`docs/cloudflare.md`](docs/cloudflare.md).

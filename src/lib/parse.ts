@@ -186,6 +186,57 @@ export function parseFeedXml(xml: string, feed: FeedConfig, limit = Infinity): N
   return items
 }
 
+// ── The ESPI / EBI report lists of PAP Biznes (biznes.pap.pl/espi, /espi/ebi) ──
+// An HTML page, no RSS: a table with one row per report (time, number, company, title):
+//   <tr><td class="text-right">07:36</td><td class="text-left">23/2026</td>
+//       <td class="text-left"><a href="?company=1393&selectCompany=1393">GreenX Metals Ltd.</a></td>
+//       <td><a href="/wiadomosci/firmy/greenx-…">GREENX METALS LTD. (23/2026) Zawiadomienie o…</a></td></tr>
+// The list is of one day, named in the links under the table ("/articles/espi/2026/10/9?limit=25").
+
+// Just the table and the links under it: the rest of the page differs on every visit, and is
+// not worth the CPU. null when the page has no such table (changed or an error page).
+export function papListSection(html: string): string | null {
+  const head = html.indexOf('>GODZINA<')
+  if (head < 0) return null
+  const start = html.lastIndexOf('<table', head)
+  const day = html.indexOf('/articles/', head)
+  return html.slice(start < 0 ? head : start, day < 0 ? head + 300_000 : day + 40)
+}
+
+// "YYYY-MM-DD" in Warsaw
+function warsawDay(ms: number): string {
+  const d = new Date(ms + warsawOffset(ms))
+  return d.toISOString().slice(0, 10)
+}
+
+const pad2 = (n: string) => n.padStart(2, '0')
+
+// Newest first, as on the page. Title: "GreenX Metals Ltd.: Zawiadomienie o…" (company, then the
+// title without the repeated name and number), like Bankier's "KOOL2PLAY S.A.: …".
+export function parsePapList(section: string, feed: FeedConfig, limit = Infinity, now = Date.now()): NewsItem[] {
+  const listDay = section.match(/\/articles\/(?:espi|ebi)\/(\d{4})\/(\d{1,2})\/(\d{1,2})/)
+  let day = listDay ? `${listDay[1]}-${pad2(listDay[2])}-${pad2(listDay[3])}` : warsawDay(now)
+  const items: NewsItem[] = []
+  for (const [, row] of section.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
+    const time = row.match(/<td[^>]*>\s*(\d{1,2}):(\d{2})\s*<\/td>/)
+    if (!time) {
+      // A day heading inside the table: "2026.10.09 – Piątek"
+      const d = row.match(/(\d{4})\.(\d{2})\.(\d{2})/)
+      if (d) day = `${d[1]}-${d[2]}-${d[3]}`
+      continue
+    }
+    const report = row.match(/<a\b[^>]*href="(\/wiadomosci\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/i)
+    if (!report) continue
+    const company = cleanText(row.match(/<a\b[^>]*href="\?company=[^"]*"[^>]*>([\s\S]*?)<\/a>/i)?.[1] ?? '')
+    const full = cleanText(report[2])
+    const text = full.replace(/^.*?\(\d+\/\d{4}\)\s*/, '') || full
+    items.push(makeItem(feed, company ? `${company}: ${text}` : full, absolute(decodeEntities(report[1]), feed.url), '',
+      `${day} ${pad2(time[1])}:${time[2]}`))
+    if (items.length >= limit) break
+  }
+  return items
+}
+
 // The response body in the charset the feed declares (header, then <?xml encoding?>).
 // Polish feeds are sometimes ISO-8859-2 / windows-1250, which fetch's .text() would garble.
 export function decodeBody(buf: ArrayBuffer, contentType: string | null): string {
