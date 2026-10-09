@@ -96,17 +96,19 @@ export async function checkMacro(feed: FeedConfig, prev: FeedState | undefined, 
   }
 
   // Announcements due now. One found late (the reading failed until then, or a release was
-  // added) is still made, read aloud with the minutes left; with under a minute left it is not made.
+  // added) says how many minutes are left; with under a minute left it is not made.
   const add: NewsItem[] = []
   for (const g of state.calendar!) {
     if (g.done || now < announceAt(g)) continue
     g.done = true
     dirty = true
     if (now > lastAt(g)) continue
-    // The day's page; the time makes each link different, or the page would show one announcement a day.
-    // The title has the release time; the page says how many minutes are left when it reads it aloud.
-    // The lead is the data; speeches are named in the title.
-    add.push({ id: g.id, title: groupTitle(g), description: g.lines.join(' '), link: `${feed.url}${g.day}${g.allDay ? '' : `#${clock(g.at)}`}`,
+    const minutes = Math.min(LEAD_MINUTES, Math.ceil((g.at - now) / 60_000))
+    // MacroNext's calendar, which opens on the current day. The day and time after "#" make each
+    // link different, or the list would keep one announcement only. The lead is the data;
+    // speeches are named in the title.
+    add.push({ id: g.id, title: groupTitle(g, minutes), description: g.lines.join(' '),
+      link: `${feed.url.replace(/\/d\/?$/, '')}#${g.day}${g.allDay ? '' : `-${clock(g.at)}`}`,
       pubDate: new Date(now).toISOString(), source: feed.source, label: feed.label })
   }
   // Releases more than a day old are forgotten
