@@ -1,6 +1,6 @@
 // How text is said aloud, as a newsreader would: sayAloud. Speech voices read what is written,
 // so the text is first put the way it is said: names in capitals as words, abbreviations, numbers
-// with their units, quarters and years in words, a pause after a colon.
+// with their units, quarters, years and Roman numerals in words, a pause after a colon.
 //
 // Names: voices spell out words in capitals that they do not know ("ARCHICOM" as A-R-C-H-…,
 // "DI VOLIO" as "di V olio"), so company names in capitals are given to the voice as ordinary
@@ -152,19 +152,26 @@ const caseAfter = (before: string): Kase => CASE_AFTER[before.match(/(\p{L}+)\s*
 const ORD_UNITS = ['', 'pierwsz', 'drug', 'trzec', 'czwart', 'piąt', 'szóst', 'siódm', 'ósm', 'dziewiąt']
 const ORD_TEENS = ['dziesiąt', 'jedenast', 'dwunast', 'trzynast', 'czternast', 'piętnast', 'szesnast', 'siedemnast', 'osiemnast', 'dziewiętnast']
 const ORD_TENS = ['', '', 'dwudziest', 'trzydziest', 'czterdziest', 'pięćdziesiąt', 'sześćdziesiąt', 'siedemdziesiąt', 'osiemdziesiąt', 'dziewięćdziesiąt']
-// Masculine endings, after a hard and a soft stem ("pierwszy", "drugi"); the neuter ones differ only in the nominative
-const ENDS: Record<Kase, [string, string]> = { nom: ['y', 'i'], gen: ['ego', 'iego'], loc: ['ym', 'im'], inst: ['ym', 'im'] }
-const ord = (stem: string, k: Kase, neuter = false) => {
-  const soft = stem === 'drug' || stem === 'trzec' ? 1 : 0
-  return stem + (neuter && k === 'nom' ? ['e', 'ie'][soft] : ENDS[k][soft])
+// An ordinal with an ending as written after a hard stem ("pierwsz" + "ej"); "drug" and "trzec" are
+// soft: "drugiej", "trzecia"
+function ordAs(stem: string, end: string): string {
+  if (stem === 'drug' || stem === 'trzec') {
+    end = end.replace(/^y/, 'i').replace(/^e/, 'ie')
+    if (stem === 'trzec') end = end.replace(/^([aą])/, 'i$1')
+  }
+  return stem + end
 }
-// 26 -> "dwudziestego szóstego"
-function ordinal(n: number, k: Kase, neuter = false): string {
-  if (n < 10) return ord(ORD_UNITS[n], k, neuter)
-  if (n < 20) return ord(ORD_TEENS[n - 10], k, neuter)
-  const tens = ord(ORD_TENS[Math.floor(n / 10)], k, neuter)
-  return n % 10 ? `${tens} ${ord(ORD_UNITS[n % 10], k, neuter)}` : tens
+// The masculine endings in each case; the neuter ones differ only in the nominative ("pierwsze")
+const ENDS: Record<Kase, string> = { nom: 'y', gen: 'ego', loc: 'ym', inst: 'ym' }
+const ord = (stem: string, k: Kase) => ordAs(stem, ENDS[k])
+// 26 with "ego" -> "dwudziestego szóstego"
+function ordinalAs(n: number, end: string): string {
+  if (n < 10) return ordAs(ORD_UNITS[n], end)
+  if (n < 20) return ordAs(ORD_TEENS[n - 10], end)
+  const tens = ordAs(ORD_TENS[Math.floor(n / 10)], end)
+  return n % 10 ? `${tens} ${ordAs(ORD_UNITS[n % 10], end)}` : tens
 }
+const ordinal = (n: number, k: Kase, neuter = false) => ordinalAs(n, neuter && k === 'nom' ? 'e' : ENDS[k])
 const ROK: Record<Kase, string> = { nom: 'rok', gen: 'roku', loc: 'roku', inst: 'rokiem' }
 // 2026 -> "dwa tysiące dwudziestego szóstego roku"
 function yearWords(y: number, k: Kase): string {
@@ -188,7 +195,12 @@ export function sayArticles(text: string): string {
   })
 }
 
-const ROMAN: Record<string, number> = { I: 1, II: 2, III: 3, IV: 4 }
+// "XXI" -> 21, up to 39; anything else NaN
+const ROMAN_DIGIT: Record<string, number> = { I: 1, V: 5, X: 10 }
+function roman(s: string): number {
+  if (!s || !/^X{0,3}(?:IX|IV|V?I{0,3})$/.test(s)) return NaN
+  return [...s].reduce((n, c, i) => n + (ROMAN_DIGIT[c] < (ROMAN_DIGIT[s[i + 1]] ?? 0) ? -ROMAN_DIGIT[c] : ROMAN_DIGIT[c]), 0)
+}
 const KWARTAL: Record<Kase, string> = { nom: 'kwartał', gen: 'kwartału', loc: 'kwartale', inst: 'kwartałem' }
 const POLROCZE: Record<Kase, string> = { nom: 'półrocze', gen: 'półrocza', loc: 'półroczu', inst: 'półroczem' }
 // The case a written-out noun is in
@@ -209,7 +221,7 @@ export function sayQuarters(text: string): string {
     `${ordinal(n, k, half)} ${(half ? POLROCZE : KWARTAL)[k]}${yy ? ` ${yearWords(fullYear(yy), 'gen')}` : ''}`
   return text
     .replace(QUARTER, (m, num: string, noun: string, short?: string, long?: string, at?: number, all?: string) => {
-      const n = ROMAN[num] ?? +num
+      const n = /\d/.test(num) ? +num : roman(num)
       const half = noun.startsWith('pół')
       if (half && n > 2) return m
       const k = NOUN_CASE[noun] ?? caseAfter(all!.slice(0, at))
@@ -224,6 +236,89 @@ export function sayQuarters(text: string): string {
       if (!(short ?? long) && !(word in CASE_AFTER) && !['z', 'ze', 'od', 'do', 'dla'].includes(word)) return m
       return say(+(a ?? b)!, false, caseAfter(before), short ?? long)
     })
+}
+
+// ── Roman numerals: "przed niedzielną II turą" -> "przed niedzielną drugą turą" ──
+
+// The ordinal takes the form of the word it goes with: from that word's ending, and the preposition
+// before when the ending alone does not tell ("w II turze" -> "w drugiej turze", "XX wieku" ->
+// "dwudziestego wieku", "w XX w." -> "w dwudziestym wieku", "Jana Pawła II" -> "Jana Pawła drugiego").
+const LOC_PREP = new Set(['w', 'we', 'o', 'przy', 'po', 'na'])
+const GEN_PREP = new Set(['do', 'od', 'z', 'ze', 'dla', 'bez', 'u', 'według', 'wg', 'podczas', 'spod', 'sprzed', 'około', 'wokół', 'obok', 'oprócz', 'zamiast', 'wśród', 'spośród', 'koło', 'blisko'])
+const INST_PREP = new Set(['przed', 'nad', 'pod', 'między', 'za', 'z', 'ze'])
+const DAT_PREP = new Set(['dzięki', 'ku', 'wbrew', 'przeciw', 'przeciwko'])
+// Masculine and neuter words that look feminine: genitives in "-a", locatives in "-e"
+const MASC_GEN_A = new Set(['stopnia', 'miejsca', 'piętra', 'dnia', 'tygodnia', 'miesiąca', 'szczebla', 'świata'])
+const MASC_LOC_E = new Set(['etapie', 'filarze', 'sezonie', 'programie', 'okresie', 'rozdziale', 'tomie', 'akcie', 'pakiecie', 'planie',
+  'wariancie', 'sektorze', 'rzędzie', 'rządzie', 'kongresie', 'zjeździe', 'terminie', 'poziomie', 'piętrze', 'składzie', 'świecie',
+  'semestrze', 'rozbiorze', 'oddziale', 'secie', 'obwodzie', 'zespole', 'konkursie', 'finale', 'półfinale', 'ćwierćfinale', 'kanale', 'dziale'])
+// Words numbered this way; a numeral before one of them goes with it
+const NUMBERED = /^(?:lig|tur|wojn|miejsc|etap|faz|rund|instancj|stop[ni]|kadencj|sesj|edycj|transz|emisj|seri|częś|czytani|rat[aąęy]|klas|kategori|grup|filar|sektor|sezon|kongres|zjazd|zjeźdz|wiek|połow|generacj|wersj|poziom|rozdział|tom|dywizj|pułk|piętr|rzęd|rząd|rok|dzie[ńn]|dni|tydzie|tygod|lice|kwart|mecz|set|odsłon|akt|rozbi|pokoleni|świat|rzeczpospolit|rzeczypospolit)/u
+// Words a numeral may follow: "etap II", "w części III"
+const AFTER = /^(?:etap|faz|częś|seri|tom|rozdział|edycj|transz|emisj|klas|kategori|grup|wersj|kadencj|sesj|rund|sekcj|sektor|poziom|wariant|generacj|pakiet|filar|zjazd|kongres|dywizj)/iu
+// Kings, queens and popes: "Leon XIV", "Karola III", "Elżbiety II"
+const RULER = /^(?:Leon|Karol|Pawe?ł|Pawl|Jan|Benedykt|Benedykc|Pius|Henryk|Ludwik|Filip|Wilhelm|Fryderyk|Aleksander|Aleksandr|Mikołaj|Piotr|Zygmunt|Zygmunc|Kazimierz|Władysław|Bolesław|Grzegorz|Klemens|Gustaw|Harald)(?:a|u|e|ie|ze|em|owi)?$/u
+const QUEEN = /^(?:Elżbiet|Elżbiec|Katarzyn|Małgorzat|Małgorzac|Wiktori|Izabel|Krystyn|Jadwig|Jadwidz)(?:a|y|i|ie|ą|ę)$/u
+
+// The preposition just before, or the word before that when an adjective stands between ("przed niedzielną II turą")
+const prepOf = (before: string) => {
+  const [, a, b] = before.match(/(?:(\p{L}+)\s+)?(\p{L}+)\s+$/u) ?? []
+  const isPrep = (w?: string) => !!w && [LOC_PREP, GEN_PREP, INST_PREP, DAT_PREP].some((set) => set.has(w.toLocaleLowerCase('pl')))
+  const adjective = !!b && /^\p{Ll}+(?:ą|ej|[yi]m|i?ego|[yi]ch|[yi]mi|i?emu)$/u.test(b)
+  return (isPrep(b) ? b : adjective && isPrep(a) ? a : '')!.toLocaleLowerCase('pl')
+}
+// The ending, written after a hard stem, the ordinal takes next to this word
+function endingFor(word: string, prep: string): string {
+  const w = word.toLocaleLowerCase('pl')
+  if (/ego$/.test(w)) return 'ego'
+  if (/emu$|owi$/.test(w)) return 'emu'
+  if (/[yi]ch$|ach$|ów$/.test(w)) return 'ych'
+  if (/[yi]mi$|ami$/.test(w)) return 'ymi'
+  if (/ej$/.test(w)) return 'ej'
+  if (/[ąę]$/.test(w)) return 'ą'
+  if (/om$|[yi]m$/.test(w)) return 'ym'
+  // "liceum", "Forum": neuter, the same in every case
+  if (/um$/.test(w)) return LOC_PREP.has(prep) ? 'ym' : GEN_PREP.has(prep) ? 'ego' : INST_PREP.has(prep) ? 'ym' : 'e'
+  if (/em$/.test(w)) return INST_PREP.has(prep) ? 'ym' : 'y'
+  if (/u$/.test(w)) return LOC_PREP.has(prep) ? 'ym' : DAT_PREP.has(prep) ? 'emu' : 'ego'
+  if (/[yi]$/.test(w)) return 'ej'
+  if (/a$/.test(w)) return GEN_PREP.has(prep) || MASC_GEN_A.has(w) || /(?:[ae]nia|[eęy]cia)$/.test(w) ? 'ego' : 'a'
+  // "na II miejsce", "I czytanie": neuter; else after "w", "na"… a locative, mostly feminine ("w II turze")
+  if (w === 'miejsce' || /anie$/.test(w)) return 'e'
+  if (/e$/.test(w)) return LOC_PREP.has(prep) ? (MASC_LOC_E.has(w) ? 'ym' : 'ej') : DAT_PREP.has(prep) ? 'ej' : 'e'
+  if (/o$/.test(w)) return 'e'
+  return 'y'
+}
+// After a ruler's name, in its case
+function endingAfterName(name: string): string {
+  if (QUEEN.test(name)) return /a$/.test(name) ? 'a' : /[ąę]$/.test(name) ? 'ą' : 'ej'
+  return /a$/.test(name) ? 'ego' : /em$/.test(name) ? 'ym' : /owi$/.test(name) ? 'emu' : /[eu]$/.test(name) ? 'ym' : 'y'
+}
+
+const NUM = String.raw`(?=[IVX])X{0,3}(?:IX|IV|V?I{0,3})(?![\p{L}\d])`
+const BETWEEN = String.raw`\s*[,–-]\s*|\s+(?:i|oraz|lub|albo)\s+`
+const ROMAN_RUN = new RegExp(String.raw`(?<![\p{L}\d.,-])(${NUM}(?:(?:${BETWEEN})${NUM})*)(?:(\s+)(w\.(?!\p{L})|RP(?!\p{L})|\p{Lu}?\p{Ll}+(?!\p{L})))?`, 'gu')
+
+export function sayRoman(text: string): string {
+  return text.replace(ROMAN_RUN, (m: string, run: string, space: string | undefined, next: string | undefined, at: number, all: string) => {
+    const nums = run.split(new RegExp(BETWEEN, 'u'))
+    const between = run.match(new RegExp(BETWEEN, 'gu')) ?? []
+    const before = all.slice(0, at)
+    const prev = before.match(/(\p{L}+)\s+$/u)?.[1]
+    const prep = prepOf(before)
+    const numbered = !!next && NUMBERED.test(next.toLocaleLowerCase('pl'))
+    let end = '', word = next ?? ''
+    if (prev && (RULER.test(prev) || QUEEN.test(prev))) end = endingAfterName(prev)
+    else if (prev && AFTER.test(prev) && !numbered) end = endingFor(prev, prepOf(before.replace(/\p{L}+\s+$/u, '')))
+    else if (next === 'w.') {
+      end = LOC_PREP.has(prep) ? 'ym' : 'ego'
+      word = sentenceGoesOn(all.slice(at + m.length)) ? 'wieku' : 'wieku.'
+    } else if (next === 'RP') end = ['przed', 'nad', 'pod', 'między'].includes(prep) ? 'ą' : prep || prev ? 'ej' : 'a'
+    // "I" at the start of a sentence may be "and", "X" the website: on their own only before a numbered word
+    else if (next && (numbered || run.length > 1)) end = endingFor(next, prep)
+    if (!end) return m
+    return nums.map((n, i) => (i ? between[i - 1] : '') + ordinalAs(roman(n), end)).join('') + (space ?? '') + word
+  })
 }
 
 // "w 2026 r." -> "w dwa tysiące dwudziestym szóstym roku", "9 października 2026 r." -> "… dwa tysiące
@@ -334,7 +429,7 @@ export const sayPauses = (text: string) =>
 // ── All of it ──
 
 export function sayAloud(text: string): string {
-  let t = sayArticles(sayYears(sayQuarters(sayCompounds(text))))
+  let t = sayArticles(sayRoman(sayYears(sayQuarters(sayCompounds(text)))))
   for (const [re, said] of WORDS) t = t.replace(re, said)
   t = sayAsWords(sayEnglish(sayMarkets(sayBrokers(t))))
   return sayPauses(sayNumbers(sayNames(t)))
