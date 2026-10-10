@@ -433,9 +433,19 @@ export function sayMarkets(text: string): string {
 // ── Pauses ──
 
 // A colon after a word is said as the end of a sentence, a short pause: "Błaszczak: PiS składa" ->
-// "Błaszczak. PiS składa", "Nowe ESPI: BUMECH SA: Umowa" -> "Nowe ESPI. Bumech spółka akcyjna. Umowa"
+// "Błaszczak. PiS składa", "Nowe ESPI: BUMECH SA: Umowa" -> "Nowe ESPI. Bumech spółka akcyjna. Umowa".
+// A dash with spaces on both sides does the same: "Arabia Saudyjska - 12 osób zginęło" -> "Arabia Saudyjska. 12 osób
+// zginęło". Not a range ("10 - 15 proc.", "2020 - 2022", "9 października - 11 października", "9:00 - 17:00"),
+// not a hyphen in a word ("biało-czerwony") and not one with no space ("5-10").
+const DASH = /(?<=(\S))\s+[-–—]\s+(\S)/gu
+const RANGE_BEFORE = /\d\S*(?:\s+\p{L}+\.?){0,2}$/u
 export const sayPauses = (text: string) =>
-  text.replace(/(\S):(\s+|$)(\p{Ll})?/gu, (m, before: string, space: string, next?: string) => `${before}.${space}${next ? next.toLocaleUpperCase('pl') : ''}`)
+  text
+    .replace(/(\S):(\s+|$)(\p{Ll})?/gu, (m, before: string, space: string, next?: string) => `${before}.${space}${next ? next.toLocaleUpperCase('pl') : ''}`)
+    .replace(DASH, (m: string, before: string, next: string, at: number, all: string) => {
+      if (/\d/.test(next) && RANGE_BEFORE.test(all.slice(0, at))) return m
+      return `${/[.!?…:;,]/.test(before) ? '' : '.'} ${next.toLocaleUpperCase('pl')}`
+    })
 
 // ── All of it ──
 
