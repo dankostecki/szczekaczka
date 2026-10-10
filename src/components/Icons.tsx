@@ -1,3 +1,5 @@
+import { BASE_PATH } from '@/lib/site'
+
 // Inline SVG icons (stroke = currentColor), 24x24 grid
 type P = { size?: number; className?: string }
 
@@ -10,9 +12,8 @@ function Svg({ size = 18, className, children }: P & { children: React.ReactNode
   )
 }
 
-export const Megaphone = (p: P) => (
-  <Svg {...p}><path d="M3 11v2a1 1 0 001 1h2l5 4V6L6 10H4a1 1 0 00-1 1z" /><path d="M15 8.5a4.5 4.5 0 010 7" /><path d="M18 5.5a8.5 8.5 0 010 13" /></Svg>
-)
+// The logo, a barking duck (drawn in src/lib/duck.ts)
+export const Logo = () => <img src={`${BASE_PATH}/logo.png`} alt="" width={34} height={34} />
 // on: with sound waves; off: crossed out, or just the speaker when `quiet`
 export const Speaker = ({ on, quiet = false, ...p }: P & { on: boolean; quiet?: boolean }) => (
   <Svg {...p}>

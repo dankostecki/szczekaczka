@@ -15,7 +15,7 @@ import Settings from './Settings'
 import PrivacyNotice from './PrivacyNotice'
 import ScrollRow from './ScrollRow'
 import { SiteFooter } from './LegalPage'
-import { Megaphone, Speaker, Bell, Refresh, Sun, Moon, Gear, Search, Close, Star } from './Icons'
+import { Logo, Speaker, Bell, Refresh, Sun, Moon, Gear, Search, Close, Star } from './Icons'
 
 const READ_KEY  = 'szczekaczka:read'
 const SAVED_KEY = 'szczekaczka:saved'
@@ -289,7 +289,7 @@ export default function App() {
         <div className="bar wrap">
           <div className="brand">
             <button className="logo" onClick={() => choose('ALL')} title="Wszystkie newsy" aria-label="Wszystkie newsy">
-              <Megaphone size={18} />
+              <Logo />
             </button>
             <span className="brand-text">
               <button className="brand-name" onClick={() => choose('ALL')}>Szczekaczka</button>

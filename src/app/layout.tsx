@@ -6,7 +6,10 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'Szczekaczka',
   description: 'Komunikaty ESPI, GPW, newsy Stooq, komunikaty PAP MediaRoom oraz zapowiedzi danych makro i wydarzeń giełdowych w jednym miejscu, czytane na głos.',
-  icons: { icon: `${BASE_PATH}/icon.svg` },
+  icons: {
+    icon: [{ url: `${BASE_PATH}/icon.png`, sizes: '64x64', type: 'image/png' }, { url: `${BASE_PATH}/icon-192.png`, sizes: '192x192', type: 'image/png' }],
+    apple: `${BASE_PATH}/apple-touch-icon.png`,
+  },
 }
 
 export const viewport: Viewport = {
