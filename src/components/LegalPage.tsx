@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { AUTHOR, LEGAL_DATE, OPERATOR } from '@/lib/site'
-import { Megaphone } from './Icons'
+import { Logo } from './Icons'
 
 // Shared frame for the terms, the privacy policy and the about page
 export default function LegalPage({ title, dated = true, children }: { title: string; dated?: boolean; children: React.ReactNode }) {
@@ -9,7 +9,7 @@ export default function LegalPage({ title, dated = true, children }: { title: st
       <header className="top">
         <div className="bar wrap">
           <Link href="/" className="brand back" title="Wróć do newsów">
-            <span className="logo"><Megaphone size={18} /></span>
+            <span className="logo"><Logo /></span>
             <span className="brand-name">Szczekaczka</span>
             <span className="beta" title="Wersja testowa: mogą pojawiać się błędy">BETA</span>
           </Link>

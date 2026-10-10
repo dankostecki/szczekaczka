@@ -19,7 +19,7 @@ export async function requestNotifyPermission(): Promise<NotificationPermission 
 
 function show(title: string, body: string, tag: string, url?: string) {
   try {
-    const n = new Notification(title, { body, tag, icon: `${BASE_PATH}/icon.svg` })
+    const n = new Notification(title, { body, tag, icon: `${BASE_PATH}/icon-192.png` })
     n.onclick = () => {
       window.focus()
       if (url && /^https?:\/\//.test(url)) window.open(url, '_blank', 'noopener,noreferrer')

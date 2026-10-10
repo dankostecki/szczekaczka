@@ -21,5 +21,5 @@ export const LEGAL_DATE = '9 października 2026 r.'
 // Everything the site keeps in the browser (localStorage); see the privacy policy
 export const STORAGE_PREFIX = 'szczekaczka:'
 export const NOTICE_KEY = 'szczekaczka:notice'
-// Raised when the first-visit window changes, so everybody sees it once more (2: the BETA note)
-export const NOTICE_VERSION = '2'
+// Raised when the first-visit window changes, so everybody sees it once more (2: the BETA note, 3: the duck)
+export const NOTICE_VERSION = '3'
