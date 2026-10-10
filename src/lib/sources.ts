@@ -2,7 +2,8 @@
 
 export type Source = 'ESPI' | 'GPW' | 'STOOQ' | 'PAP' | 'MACRONEXT'
 
-export const SOURCES: Source[] = ['ESPI', 'GPW', 'STOOQ', 'PAP', 'MACRONEXT']
+// In this order: the tabs, the channels in settings and the sources on the about page
+export const SOURCES: Source[] = ['ESPI', 'STOOQ', 'MACRONEXT', 'PAP', 'GPW']
 
 // Language of a feed: read aloud with a voice for it
 export type Lang = 'pl' | 'en'
