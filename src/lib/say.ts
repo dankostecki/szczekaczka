@@ -28,6 +28,14 @@ const VOWEL = /[AEIOUYĄĘÓ]/
 // A short word that sounds like a syllable: "DI", "DOM", "BIT" (not PKO, PZU, ING, PGE, LPP)
 const SYLLABLE = /^[^AEIOUYĄĘÓ][AEIOUYĄĘÓ][^AEIOUYĄĘÓ]?$/
 const asWord = (w: string) => w[0] + w.slice(1).toLocaleLowerCase('pl')
+// Letters as they are named in Polish
+const PL_LETTERS: Record<string, string> = {
+  A: 'a', B: 'be', C: 'ce', D: 'de', E: 'e', F: 'ef', G: 'gie', H: 'ha', I: 'i', J: 'jot', K: 'ka', L: 'el', M: 'em', N: 'en', O: 'o',
+  P: 'pe', Q: 'ku', R: 'er', S: 'es', T: 'te', U: 'u', V: 'fał', W: 'wu', X: 'iks', Y: 'igrek', Z: 'zet',
+}
+const spell = (w: string) => [...w].map((c) => PL_LETTERS[c] ?? c).join(' ')
+// Two letters, a consonant and a vowel (KO, PO): a voice says them as a word, but on their own they are an abbreviation
+const SHORT_SYLLABLE = /^[^AEIOUYĄĘÓ][AEIOUYĄĘÓ]$/
 
 // A word in capitals is said as a word when it is long enough to be one (4 letters and more, with
 // a vowel). A short one goes with it when it is part of the same name and sounds like a syllable
@@ -44,6 +52,8 @@ function sayCapitals(text: string): string {
   }
   const said = new Map<number, string>()
   for (const run of runs) {
+    // On its own, not in a name: "klubu KO" is "klubu ka o"
+    if (run.length === 1 && SHORT_SYLLABLE.test(run[0][0]) && PL_LETTERS[run[0][0][0]] && PL_LETTERS[run[0][0][1]]) { said.set(run[0].index!, spell(run[0][0])); continue }
     const long = (w: string) => w.length >= 4 && VOWEL.test(w) && !SPELLED.has(w)
     const named = run.some((m) => long(m[0]))
     for (const m of run) {
@@ -383,6 +393,9 @@ const NAMES_EN: [RegExp, string][] = [
   [/(?<![\p{L}\d])ISB[Nn]ews(?![\p{L}\d])/gu, 'i es be niuz'],
   [/(?<![\p{L}\d])Play2Chill(?![\p{L}\d])/gu, 'Plej tu czil'],
   [/(?<![\p{L}\d])PlayWay(?![\p{L}\d])/gu, 'Plej łej'],
+  // English words in company names: "CREEPY JAR S.A." -> "Kripi Dżar spółka akcyjna"
+  [/(?<![\p{L}\d])(?:CREEPY|Creepy)(?![\p{L}\d])/gu, 'Kripi'],
+  [/(?<![\p{L}\d])(?:JAR|Jar)(?![\p{L}\d])/gu, 'Dżar'],
   // "Play" and "One" in names: "Play" -> "plej", "FaktorOne" -> "Faktor łan"
   [/(?<=\p{L})Play(?!\p{Ll})/gu, ' plej'],
   [/(?<!\p{L})Play(?!\p{Ll})/gu, 'Plej'],
@@ -402,10 +415,6 @@ export function sayEnglish(text: string): string {
 
 // Currency codes in a pair: "EUR/PLN" is "euro pe el en", "USD/PLN" "u es de pe el en"
 const CURRENCIES = new Set(['PLN', 'EUR', 'USD', 'CHF', 'GBP', 'JPY', 'CZK', 'HUF', 'NOK', 'SEK', 'DKK', 'CAD', 'AUD', 'NZD', 'CNY', 'TRY', 'RON', 'RUB', 'UAH'])
-const PL_LETTERS: Record<string, string> = {
-  A: 'a', B: 'be', C: 'ce', D: 'de', E: 'e', F: 'ef', G: 'gie', H: 'ha', I: 'i', J: 'jot', K: 'ka', L: 'el', M: 'em', N: 'en', O: 'o',
-  P: 'pe', Q: 'ku', R: 'er', S: 'es', T: 'te', U: 'u', V: 'fał', W: 'wu', X: 'iks', Y: 'igrek', Z: 'zet',
-}
 const sayCurrency = (code: string) => (code === 'EUR' ? 'euro' : [...code].map((c) => PL_LETTERS[c]).join(' '))
 // "WIG20" -> "wig 20", "mWIG40" -> "mwig 40" (a word, not spelled); "S&P 500" -> "es and pi 500";
 // "na FX/FI" -> "na rynku walutowym i obligacji"
