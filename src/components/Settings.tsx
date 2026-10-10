@@ -4,7 +4,7 @@ import { Fragment, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { FEEDS, SOURCES, HAS_ENGLISH, feedKey, type Source } from '@/lib/sources'
 import type { Prefs, Theme } from '@/lib/prefs'
-import { polishVoices, voicesFor, pickVoice, speak, stopSpeaking, voiceLabel } from '@/lib/speech'
+import { polishVoices, voicesFor, pickVoice, speak, stopSpeaking, voiceLabel, isAppleMobile } from '@/lib/speech'
 import { AUTHOR, STORAGE_PREFIX } from '@/lib/site'
 import type { AwakeState } from '@/lib/wakeLock'
 import type { LiveStatus } from '@/lib/live'
@@ -208,6 +208,12 @@ export default function Settings(p: Props) {
                 Po otwarciu strony włącz głos przyciskiem. Na telefonie strona czyta, gdy jest na ekranie, więc warto
                 włączyć „Nie wygaszaj ekranu” w części „Inne”.
               </p>
+              {isAppleMobile() && (
+                <p className="hint">
+                  Nie słychać głosu na iPhonie lub iPadzie? Sprawdź, czy nie jest włączony tryb cichy (przełącznik
+                  z boku lub dzwonek w centrum sterowania) i czy głośność nie jest ściszona.
+                </p>
+              )}
               <div className="voices" role="radiogroup" aria-label="Głos">
                 <label className="voice">
                   <input type="radio" name="voice" checked={!chosen} onChange={() => onChange({ voiceURI: '' })} />

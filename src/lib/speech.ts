@@ -9,6 +9,10 @@ import { sayAloud } from './say'
 export const speechSupported = () =>
   typeof window !== 'undefined' && 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window
 
+// iPhone and iPad (an iPad says it is a Mac, but has a touch screen)
+export const isAppleMobile = () =>
+  typeof navigator !== 'undefined' && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1))
+
 const LANG_TAG: Record<Lang, string> = { pl: 'pl-PL', en: 'en-US' }
 const tag = (v: SpeechSynthesisVoice) => v.lang.toLowerCase().replace('_', '-')
 const NATURAL = /natural|online|neural|enhanced|premium/i
@@ -80,22 +84,58 @@ export function chunks(text: string, max = 180): string[] {
 const STUCK_MS = 45_000
 let movedAt = 0 // when a part last started or ended, or was queued with nothing before it
 
+// What was given to the browser and has not ended yet, with what to do when it ends. Kept here also
+// so the browser does not drop an utterance, and its end, before it is read.
+const pending = new Map<SpeechSynthesisUtterance, () => void>()
+// Safari on the iPhone drops what is queued in the same moment as a cancel: right after one, new
+// speech waits a moment, all of it in order
+const AFTER_CANCEL_MS = 150
+let canceledAt = 0
+let held: SpeechSynthesisUtterance[] = []
+let heldTimer: ReturnType<typeof setTimeout> | undefined
+
 // Called when the browser refuses to speak without a tap on the page (some phone browsers)
 let onBlocked: (() => void) | undefined
 export const onSpeechBlocked = (f: (() => void) | undefined) => { onBlocked = f }
 
-function unstick(s: SpeechSynthesis) {
-  if (s.paused) s.resume()
-  if ((s.speaking || s.pending) && Date.now() - movedAt > STUCK_MS) s.cancel()
-  if (!s.speaking && !s.pending) movedAt = Date.now()
+const busy = (s: SpeechSynthesis) => s.speaking || s.pending || pending.size > 0
+
+function queue(s: SpeechSynthesis, u: SpeechSynthesisUtterance) {
+  const wait = canceledAt + AFTER_CANCEL_MS - Date.now()
+  if (wait <= 0 && !held.length) { s.speak(u); return } // at once, so a first tap unlocks speech
+  held.push(u)
+  heldTimer ??= setTimeout(() => {
+    heldTimer = undefined
+    const now = held
+    held = []
+    now.forEach((x) => s.speak(x))
+  }, Math.max(0, wait))
 }
 
-// onEnd: called once the text has been read, or when it was stopped (cancel ends it with an error)
+// Stops and clears everything; what was queued ends (Safari does not end what it cancels)
+function cancelAll(s: SpeechSynthesis) {
+  clearTimeout(heldTimer)
+  heldTimer = undefined
+  held = []
+  if (!busy(s)) return
+  s.cancel()
+  canceledAt = Date.now()
+  for (const end of [...pending.values()]) end()
+}
+
+function unstick(s: SpeechSynthesis) {
+  if (s.paused) s.resume()
+  if (busy(s) && Date.now() - movedAt > STUCK_MS) cancelAll(s)
+  if (!busy(s)) movedAt = Date.now()
+}
+
+// onEnd: called once the text has been read, or when it was stopped
 export function speak(text: string, prefs: Prefs, voices: SpeechSynthesisVoice[], onEnd?: () => void, lang: Lang = 'pl') {
   if (!speechSupported()) return
   const s = window.speechSynthesis
   unstick(s)
-  const voice = pickVoice(voices, lang === 'en' ? prefs.voiceURIEn : prefs.voiceURI, lang)
+  // Voices may come after the page asked for them (Safari): then asked for again
+  const voice = pickVoice(voices.length ? voices : s.getVoices(), lang === 'en' ? prefs.voiceURIEn : prefs.voiceURI, lang)
   const parts = chunks(text)
   parts.forEach((part, i) => {
     const u = new SpeechSynthesisUtterance(part)
@@ -103,19 +143,24 @@ export function speak(text: string, prefs: Prefs, voices: SpeechSynthesisVoice[]
     u.lang = voice?.lang ?? LANG_TAG[lang]
     u.rate = prefs.rate
     const last = onEnd && i === parts.length - 1
-    u.onstart = () => { movedAt = Date.now() }
-    u.onend = () => { movedAt = Date.now(); if (last) onEnd() }
-    u.onerror = (e) => {
+    const end = () => {
+      if (!pending.delete(u)) return // once: a cancel already ended it
       movedAt = Date.now()
-      if (e.error === 'not-allowed') onBlocked?.()
       if (last) onEnd()
     }
-    s.speak(u) // the browser queues utterances itself
+    pending.set(u, end)
+    u.onstart = () => { movedAt = Date.now() }
+    u.onend = end
+    u.onerror = (e) => {
+      if (e.error === 'not-allowed') onBlocked?.()
+      end()
+    }
+    queue(s, u) // the browser queues utterances itself
   })
 }
 
 export function stopSpeaking() {
-  if (speechSupported()) window.speechSynthesis.cancel()
+  if (speechSupported()) cancelAll(window.speechSynthesis)
 }
 
 // The lead as it should sound: without a "8.10.2026, Warszawa (PAP) -" dateline and without
