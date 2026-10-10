@@ -344,11 +344,6 @@ export function sayYears(text: string): string {
 // ── Abbreviations ──
 
 const WORDS: [RegExp, string][] = [
-  [/(?<!\p{L})NWZA(?!\p{L})/gu, 'Nadzwyczajne walne zgromadzenie akcjonariuszy'],
-  [/(?<!\p{L})ZWZA(?!\p{L})/gu, 'Zwyczajne walne zgromadzenie akcjonariuszy'],
-  [/(?<!\p{L})WZA(?!\p{L})/gu, 'Walne zgromadzenie akcjonariuszy'],
-  [/(?<!\p{L})NWZ(?!\p{L})/gu, 'Nadzwyczajne walne zgromadzenie'],
-  [/(?<!\p{L})ZWZ(?!\p{L})/gu, 'Zwyczajne walne zgromadzenie'],
   [/(?<!\p{L})ws\.(?=\s)/gu, 'w sprawie'],
   [/(?<!\p{L})m\.in\.(?=\s)/gu, 'między innymi'],
   [/(?<!\p{L})tj\.(?=\s)/gu, 'to jest'],
@@ -359,6 +354,49 @@ const WORDS: [RegExp, string][] = [
   [/(?<!\p{L})ust\.(?=\s*\d)/gu, 'ustęp'],
   [/(?<!\p{L})pkt\.?(?=\s*\d)/gu, 'punkt'],
 ]
+
+// "WZ" is the general meeting of shareholders (walne zgromadzenie), "NWZ" an extraordinary one, "ZWZ" an ordinary one,
+// with an "A" for akcjonariuszy. Said in full in the case the words before ask for: "zwołanie WZ" -> "zwołanie Walnego
+// zgromadzenia", "zmiany w porządku obrad WZ" -> "… obrad Walnego zgromadzenia", "na NWZ" -> "na Nadzwyczajnym walnym
+// zgromadzeniu", "Zarząd zwołuje WZ" -> "… Walne zgromadzenie".
+type MeetingCase = 'nom' | 'gen' | 'dat' | 'inst' | 'loc'
+const MEETING: Record<MeetingCase, string> = { nom: 'walne zgromadzenie', gen: 'walnego zgromadzenia', dat: 'walnemu zgromadzeniu', inst: 'walnym zgromadzeniem', loc: 'walnym zgromadzeniu' }
+const MEETING_ENDING: Record<MeetingCase, string> = { nom: 'e', gen: 'ego', dat: 'emu', inst: 'ym', loc: 'ym' }
+const MEETING_PREP: Record<string, MeetingCase> = {
+  na: 'loc', w: 'loc', we: 'loc', o: 'loc', po: 'loc', przy: 'loc',
+  przed: 'inst', nad: 'inst', pod: 'inst', między: 'inst', poza: 'inst',
+  przez: 'nom', // the accusative of a neuter noun is its nominative
+  dla: 'gen', do: 'gen', od: 'gen', bez: 'gen', u: 'gen', podczas: 'gen', wokół: 'gen', obok: 'gen', według: 'gen', wg: 'gen',
+  z: 'gen', ze: 'gen', spod: 'gen', sprzed: 'gen', około: 'gen', oprócz: 'gen', zamiast: 'gen', wśród: 'gen', spośród: 'gen', koło: 'gen',
+  dzięki: 'dat', ku: 'dat', wbrew: 'dat', przeciw: 'dat', przeciwko: 'dat',
+}
+// Verbs and adjectives that stand right before the meeting itself (it is the subject or the object): "odbędzie się WZ"
+const MEETING_NOM_BEFORE = /^(?:zwołuje|zwołują|zwołał[aoy]?|zwołać|zwołano|zwoła|zwołane|odwołuje|odwołują|odwołał[aoy]?|odwołać|odwołano|odwołane|odbędzie|odbyło|odbyły|odbywa|ogłasza|ogłosił[aoy]?|ogłoszono|się|jest|zostało|zostanie|będzie|było|planuje|zapowiada|przesuwa|przekłada|przenosi|zakończyło|rozpoczęło|zgłasza|kolejne|następne|najbliższe|coroczne|doroczne|przyszłe|ostatnie|pierwsze|drugie|trzecie|to|owe|takie|wspomniane|zaplanowane|planowane|przerwane|odroczone|a|ale|że|gdy|jeśli|ponieważ|bo|aby|żeby|gdyż|natomiast)$/u
+function meetingCase(before: string): MeetingCase {
+  const tail = before.trimEnd()
+  if (!tail || /[.!?:;]$/.test(tail)) return 'nom'
+  const last = tail.match(/(?:(\p{L}+)\s+)?(\p{L}+)$/u)
+  const word = last?.[2]?.toLocaleLowerCase('pl') ?? ''
+  const prev = last?.[1]?.toLocaleLowerCase('pl')
+  if (word in MEETING_PREP) return MEETING_PREP[word]
+  if (MEETING_NOM_BEFORE.test(word)) return 'nom'
+  if (/ego$/.test(word)) return 'gen'
+  if (/emu$/.test(word)) return 'dat'
+  if (/(?:ym|im)$/.test(word)) return prev && (MEETING_PREP[prev] === 'inst' || prev === 'z' || prev === 'ze') ? 'inst' : 'loc'
+  return 'gen'
+}
+// Several in a row ("zwołanie WZ i NWZ") are in the same case
+const MEETING_LIST = /^\s*(?:,|\s(?:i|oraz|lub|albo))\s*$/u
+export function sayMeetings(text: string): string {
+  let last: { end: number; kase: MeetingCase } | null = null
+  return text.replace(/(?<![\p{L}\d])([NZ]?)WZ(A?)(?![\p{L}\d])/gu, (m, kind: string, shareholders: string, at: number, all: string) => {
+    const kase = last && MEETING_LIST.test(all.slice(last.end, at)) ? last.kase : meetingCase(all.slice(0, at))
+    last = { end: at + m.length, kase }
+    const stem = kind === 'N' ? 'nadzwyczajn' : kind === 'Z' ? 'zwyczajn' : ''
+    const said = `${stem ? `${stem}${MEETING_ENDING[kase]} ` : ''}${MEETING[kase]}${shareholders ? ' akcjonariuszy' : ''}`
+    return said[0].toLocaleUpperCase('pl') + said.slice(1)
+  })
+}
 
 // "DM" is a brokerage: "Trigon DM przedstawia" -> "Trigon dom maklerski przedstawia", "według DM BOŚ" ->
 // "według domu maklerskiego BOŚ", "w DM" -> "w domu maklerskim"
@@ -434,7 +472,7 @@ export function sayMarkets(text: string): string {
 
 // A colon after a word is said as the end of a sentence, a short pause: "Błaszczak: PiS składa" ->
 // "Błaszczak. PiS składa", "Nowe ESPI: BUMECH SA: Umowa" -> "Nowe ESPI. Bumech spółka akcyjna. Umowa".
-// A dash with spaces on both sides does the same: "Arabia Saudyjska - 12 osób zginęło" -> "Arabia Saudyjska. 12 osób
+// A semicolon is a pause too (the text keeps it). A dash with spaces on both sides does the same: "Arabia Saudyjska - 12 osób zginęło" -> "Arabia Saudyjska. 12 osób
 // zginęło". Not a range ("10 - 15 proc.", "2020 - 2022", "9 października - 11 października", "9:00 - 17:00"),
 // not a hyphen in a word ("biało-czerwony") and not one with no space ("5-10").
 const DASH = /(?<=(\S))\s+[-–—]\s+(\S)/gu
@@ -450,12 +488,15 @@ const markPauses = (text: string) =>
       if (/\d/.test(next) && RANGE_BEFORE.test(all.slice(0, at))) return m
       return `${/[.!?…:;,]/.test(before) ? '' : '.'}${PAUSE_MARK} ${next.toLocaleUpperCase('pl')}`
     })
+    // a semicolon keeps its place in the text and gets the same pause
+    .replace(/;(\s+|$)/g, (m, space: string) => `;${PAUSE_MARK}${space}`)
 export const sayPauses = (text: string) => markPauses(text).split(PAUSE_MARK).join('')
 
 // ── All of it ──
 
 function sayMarked(text: string): string {
   let t = sayArticles(sayRoman(sayYears(sayQuarters(sayCompounds(text)))))
+  t = sayMeetings(t)
   for (const [re, said] of WORDS) t = t.replace(re, said)
   t = sayAsWords(sayEnglish(sayMarkets(sayBrokers(t))))
   return markPauses(sayNumbers(sayNames(t)))
