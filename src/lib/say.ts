@@ -369,8 +369,10 @@ export const sayBrokers = (text: string) =>
     return AFTER_GENITIVE.test(before) ? 'domu maklerskiego' : /(?:^|\s)(?:w|we|o|przy)\s*$/iu.test(before) ? 'domu maklerskim' : 'dom maklerski'
   })
 
-// Abbreviations said as words, not spelled ("rozporządzenia MAR" -> "mar", "dla PAP" -> "pap")
-const AS_WORDS: Record<string, string> = { MAR: 'Mar', PAP: 'Pap', ZUS: 'Zus', GUS: 'Gus', NIK: 'Nik', MON: 'Mon', PIT: 'Pit', CIT: 'Cit', VAT: 'Wat' }
+// Abbreviations said as words, not spelled ("rozporządzenia MAR" -> "mar", "dla PAP" -> "pap").
+// ASI (alternatywna spółka inwestycyjna) is "as" and "i" run together: written "Asi" a voice makes it a name
+// with a soft "ś" (like the vocative of Asia)
+const AS_WORDS: Record<string, string> = { MAR: 'Mar', PAP: 'Pap', ZUS: 'Zus', GUS: 'Gus', NIK: 'Nik', MON: 'Mon', PIT: 'Pit', CIT: 'Cit', VAT: 'Wat', ASI: 'as i' }
 const AS_WORDS_RE = new RegExp(String.raw`(?<![\p{L}\d])(${Object.keys(AS_WORDS).join('|')})(?![\p{L}\d])`, 'gu')
 export const sayAsWords = (text: string) => text.replace(AS_WORDS_RE, (m) => AS_WORDS[m])
 
