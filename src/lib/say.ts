@@ -174,6 +174,20 @@ function yearWords(y: number, k: Kase): string {
 }
 const fullYear = (yy: string) => (yy.length === 4 ? +yy : +yy >= 80 ? 1900 + +yy : 2000 + +yy)
 
+// 160 -> "sto sześćdziesiątego"; bigger numbers stay as they are
+const ordinalUpTo199 = (n: number, k: Kase) => (n < 100 ? ordinal(n, k) : n === 100 ? ord('setn', k) : n < 200 ? `sto ${ordinal(n - 100, k)}` : String(n))
+const ARTYKUL: Record<Kase, string> = { nom: 'artykuł', gen: 'artykułu', loc: 'artykule', inst: 'artykułem' }
+// "w trybie art. 19 MAR" -> "w trybie artykułu dziewiętnastego MAR", "zgodnie z art. 17" -> "zgodnie z
+// artykułem siedemnastym", "w art. 69" -> "w artykule sześćdziesiątym dziewiątym"
+export function sayArticles(text: string): string {
+  return text.replace(/(?<!\p{L})art\.\s?(\d{1,3})(?!\d)/gu, (m, num: string, at: number, all: string) => {
+    const before = all.slice(0, at)
+    const k: Kase = /(?:^|\s)(?:zgodnie|w związku|wraz|stosownie)\s+z\s*$/u.test(before) ? 'inst' : caseAfter(before)
+    const n = +num
+    return n >= 1 && n < 200 ? `${ARTYKUL[k]} ${ordinalUpTo199(n, k)}` : `${ARTYKUL[k]} ${num}`
+  })
+}
+
 const ROMAN: Record<string, number> = { I: 1, II: 2, III: 3, IV: 4 }
 const KWARTAL: Record<Kase, string> = { nom: 'kwartał', gen: 'kwartału', loc: 'kwartale', inst: 'kwartałem' }
 const POLROCZE: Record<Kase, string> = { nom: 'półrocze', gen: 'półrocza', loc: 'półroczu', inst: 'półroczem' }
@@ -237,7 +251,23 @@ const WORDS: [RegExp, string][] = [
   [/(?<!\p{L})m\/m(?!\p{L})/gu, 'miesiąc do miesiąca'],
   [/(?<!\p{L})k\/k(?!\p{L})/gu, 'kwartał do kwartału'],
   [/(?<!\p{L})NewConnect(?!\p{L})/gu, 'New Connect'],
+  [/(?<!\p{L})ust\.(?=\s*\d)/gu, 'ustęp'],
+  [/(?<!\p{L})pkt\.?(?=\s*\d)/gu, 'punkt'],
 ]
+
+// "DM" is a brokerage: "Trigon DM przedstawia" -> "Trigon dom maklerski przedstawia", "według DM BOŚ" ->
+// "według domu maklerskiego BOŚ", "w DM" -> "w domu maklerskim"
+const AFTER_GENITIVE = /(?:^|[\s(])(?:według|wg|od|z|ze|dla|do|u|zdaniem|analitycy|analityk|analityczka|ekonomiści|ekonomista|eksperci|ekspert|raport|raporcie|rekomendacja|rekomendacji|prognoza|prognozy)\s*$/iu
+export const sayBrokers = (text: string) =>
+  text.replace(/(?<![\p{L}\d])DM(?![\p{L}\d])/gu, (m, at: number, all: string) => {
+    const before = all.slice(0, at)
+    return AFTER_GENITIVE.test(before) ? 'domu maklerskiego' : /(?:^|\s)(?:w|we|o|przy)\s*$/iu.test(before) ? 'domu maklerskim' : 'dom maklerski'
+  })
+
+// Abbreviations said as words, not spelled ("rozporządzenia MAR" -> "mar", "dla PAP" -> "pap")
+const AS_WORDS: Record<string, string> = { MAR: 'Mar', PAP: 'Pap', ZUS: 'Zus', GUS: 'Gus', NIK: 'Nik', MON: 'Mon', PIT: 'Pit', CIT: 'Cit', VAT: 'Wat' }
+const AS_WORDS_RE = new RegExp(String.raw`(?<![\p{L}\d])(${Object.keys(AS_WORDS).join('|')})(?![\p{L}\d])`, 'gu')
+export const sayAsWords = (text: string) => text.replace(AS_WORDS_RE, (m) => AS_WORDS[m])
 
 // ── English: said the English way ──
 
@@ -255,6 +285,13 @@ const NAMES_EN: [RegExp, string][] = [
   [/(?<![\p{L}\d])OpenAI(?![\p{L}\d])/gu, 'Open ej aj'],
   [/(?<![\p{L}\d])ChatGPT(?![\p{L}\d])/gu, 'Czat dżi pi ti'],
   [/(?<![\p{L}\d])PayU(?![\p{L}\d])/gu, 'Pej ju'],
+  [/(?<![\p{L}\d])ISB[Nn]ews(?![\p{L}\d])/gu, 'i es be niuz'],
+  [/(?<![\p{L}\d])Play2Chill(?![\p{L}\d])/gu, 'Plej tu czil'],
+  [/(?<![\p{L}\d])PlayWay(?![\p{L}\d])/gu, 'Plej łej'],
+  // "Play" and "One" in names: "Play" -> "plej", "FaktorOne" -> "Faktor łan"
+  [/(?<=\p{L})Play(?!\p{Ll})/gu, ' plej'],
+  [/(?<!\p{L})Play(?!\p{Ll})/gu, 'Plej'],
+  [/(?<=\p{Ll})One(?!\p{Ll})/gu, ' łan'],
   // "Pay" in names: "OPay" -> "O pej", "Google Pay" -> "Google pej", "PayPal" -> "PejPal"
   [/(?<=\p{L})Pay(?!\p{Ll})/gu, ' pej'],
   [/(?<!\p{L})Pay(?!\p{Ll})/gu, 'Pej'],
@@ -297,8 +334,8 @@ export const sayPauses = (text: string) =>
 // ── All of it ──
 
 export function sayAloud(text: string): string {
-  let t = sayQuarters(sayCompounds(text))
-  t = sayYears(t)
+  let t = sayArticles(sayYears(sayQuarters(sayCompounds(text))))
   for (const [re, said] of WORDS) t = t.replace(re, said)
-  return sayPauses(sayNumbers(sayNames(sayEnglish(sayMarkets(t)))))
+  t = sayAsWords(sayEnglish(sayMarkets(sayBrokers(t))))
+  return sayPauses(sayNumbers(sayNames(t)))
 }
