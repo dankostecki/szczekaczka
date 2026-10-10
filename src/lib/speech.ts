@@ -4,7 +4,7 @@ import type { Item } from './news'
 import type { Prefs } from './prefs'
 import { feedKey, langOf, type Lang } from './sources'
 import { sayMacroTitle } from './macronext'
-import { sayAloud } from './say'
+import { sayAloudParts } from './say'
 
 export const speechSupported = () =>
   typeof window !== 'undefined' && 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window
@@ -189,14 +189,15 @@ export function spokenLead(description: string, title: string): string {
 
 // What is read for one headline: the title (company reports with "Nowe ESPI:" in front, GPW with
 // its name), then the lead for the channels where it is switched on; all of it as a newsreader says
-// it (say.ts: names, abbreviations, numbers, a pause after a colon). MacroNext's announcements:
+// it (say.ts: names, abbreviations, numbers), cut at the pauses (after a colon, at a dash) into parts said one after
+// another, so each pause is the voice stopping and starting again. MacroNext's announcements:
 // their "lead" is the figures or the companies, read whole; the title with the minutes left ("Za 10 minut …").
 export function spokenParts(it: Item, prefs: Prefs, now = Date.now()): string[] {
   const withLead = prefs.leadFeeds.includes(feedKey(it.source, it.label))
-  if (it.source === 'MACRONEXT') return [`${sayMacroTitle(it.title, it.link, it.time, now)}.`, withLead ? it.description : ''].filter(Boolean).map(sayAloud)
+  if (it.source === 'MACRONEXT') return [`${sayMacroTitle(it.title, it.link, it.time, now)}.`, withLead ? it.description : ''].filter(Boolean).flatMap(sayAloudParts)
   const title = it.source === 'GPW' ? `GPW: ${it.title}` : it.source === 'ESPI' ? `Nowe ESPI: ${it.title}` : it.title
   const lead = withLead ? spokenLead(it.description, it.title) : ''
-  return (lead ? [title, lead] : [title]).map(sayAloud)
+  return (lead ? [title, lead] : [title]).flatMap(sayAloudParts)
 }
 
 // News in English is read with the English voice

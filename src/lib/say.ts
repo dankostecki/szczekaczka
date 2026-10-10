@@ -439,19 +439,30 @@ export function sayMarkets(text: string): string {
 // not a hyphen in a word ("biało-czerwony") and not one with no space ("5-10").
 const DASH = /(?<=(\S))\s+[-–—]\s+(\S)/gu
 const RANGE_BEFORE = /\d\S*(?:\s+\p{L}+\.?){0,2}$/u
-export const sayPauses = (text: string) =>
+// Each pause also leaves a mark after its full stop. The text as one string ignores it (sayAloud), but sayAloudParts
+// cuts there: the parts are said as separate utterances, so the voice stops and starts again, which is a longer
+// pause than a full stop inside one utterance.
+const PAUSE_MARK = '\u2063'
+const markPauses = (text: string) =>
   text
-    .replace(/(\S):(\s+|$)(\p{Ll})?/gu, (m, before: string, space: string, next?: string) => `${before}.${space}${next ? next.toLocaleUpperCase('pl') : ''}`)
+    .replace(/(\S):(\s+|$)(\p{Ll})?/gu, (m, before: string, space: string, next?: string) => `${before}.${PAUSE_MARK}${space}${next ? next.toLocaleUpperCase('pl') : ''}`)
     .replace(DASH, (m: string, before: string, next: string, at: number, all: string) => {
       if (/\d/.test(next) && RANGE_BEFORE.test(all.slice(0, at))) return m
-      return `${/[.!?…:;,]/.test(before) ? '' : '.'} ${next.toLocaleUpperCase('pl')}`
+      return `${/[.!?…:;,]/.test(before) ? '' : '.'}${PAUSE_MARK} ${next.toLocaleUpperCase('pl')}`
     })
+export const sayPauses = (text: string) => markPauses(text).split(PAUSE_MARK).join('')
 
 // ── All of it ──
 
-export function sayAloud(text: string): string {
+function sayMarked(text: string): string {
   let t = sayArticles(sayRoman(sayYears(sayQuarters(sayCompounds(text)))))
   for (const [re, said] of WORDS) t = t.replace(re, said)
   t = sayAsWords(sayEnglish(sayMarkets(sayBrokers(t))))
-  return sayPauses(sayNumbers(sayNames(t)))
+  return markPauses(sayNumbers(sayNames(t)))
 }
+
+// The text as one string, pauses as full stops
+export const sayAloud = (text: string): string => sayMarked(text).split(PAUSE_MARK).join('')
+
+// The same text cut at its pauses: "Arabia Saudyjska - 12 osób" is ["Arabia Saudyjska.", "12 osób"]
+export const sayAloudParts = (text: string): string[] => sayMarked(text).split(PAUSE_MARK).map((s) => s.trim()).filter(Boolean)
