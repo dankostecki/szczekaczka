@@ -1,9 +1,9 @@
 'use client'
 
-import { memo, useRef, useState } from 'react'
+import { memo } from 'react'
 import { type Item, tagOf, clock, ago, fullDate } from '@/lib/news'
 import { langOf } from '@/lib/sources'
-import { Star, Copy, Check, Speaker } from './Icons'
+import { Star, Speaker } from './Icons'
 
 interface Props {
   item: Item
@@ -19,21 +19,11 @@ interface Props {
 }
 
 function NewsRow({ item, now, read, saved, fresh, watched, onRead, onSave, onSpeak, speaking = false }: Props) {
-  const [copied, setCopied] = useState(false)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const since = ago(item.time, now)
-
-  function copy() {
-    navigator.clipboard?.writeText(item.link ? `${item.title}\n${item.link}` : item.title)
-    setCopied(true)
-    if (timer.current) clearTimeout(timer.current)
-    timer.current = setTimeout(() => setCopied(false), 1500)
-  }
-
   const lang = langOf(item.source, item.label)
 
   return (
-    <article className={`row${read ? ' read' : ''}${fresh ? ' fresh' : ''}${watched ? ' watched' : ''}`}
+    <article className={`row${read ? ' read' : ''}${fresh ? ' fresh' : ''}${watched ? ' watched' : ''}${speaking ? ' speaking' : ''}`}
       style={{ ['--c' as string]: `var(--src-${item.source.toLowerCase()})` }}>
       <div className="meta">
         <span className="tag"><i className="dot" /><span title={tagOf(item)}>{tagOf(item)}</span></span>
@@ -48,7 +38,6 @@ function NewsRow({ item, now, read, saved, fresh, watched, onRead, onSave, onSpe
               <Speaker on={speaking} quiet size={16} />
             </button>
           )}
-          <button onClick={copy} title={copied ? 'Skopiowano' : 'Kopiuj tytuł i link'}>{copied ? <Check size={16} /> : <Copy size={16} />}</button>
           <button className={`save${saved ? ' on' : ''}`} onClick={() => onSave(item)} title={saved ? 'Usuń z zapisanych' : 'Zapisz na później'}>
             <Star filled={saved} size={16} />
           </button>

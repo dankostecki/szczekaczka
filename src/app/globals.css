@@ -213,19 +213,32 @@ button:disabled { cursor: default; opacity: 0.5; }
 
 .row {
   position: relative;
-  padding: 14px 0 15px;
-  border-bottom: 1px solid var(--border);
+  /* A tile: the text lines up with the rest of the page, the background reaches a bit past it */
+  margin: 0 -12px; padding: 14px 12px 15px; border-radius: 14px;
+  transition: background-color 0.15s;
   /* A day of news is a long list: rows off screen are not laid out or painted */
   content-visibility: auto;
   contain-intrinsic-size: auto 96px;
 }
+.row::after { /* line between tiles, gone next to a highlighted one */
+  content: ""; position: absolute; left: 12px; right: 12px; bottom: 0;
+  height: 1px; background: var(--border); transition: opacity 0.15s;
+}
 .row::before { /* left marker for new and watched items */
-  content: ""; position: absolute; left: -12px; top: 16px; bottom: 16px;
+  content: ""; position: absolute; left: 4px; top: 16px; bottom: 16px;
   width: 3px; border-radius: 3px; background: transparent;
 }
-.row.fresh { background: linear-gradient(90deg, var(--fresh), transparent 70%); }
+.row.fresh { background-image: linear-gradient(90deg, var(--fresh), transparent 70%); }
 .row.fresh::before { background: var(--accent); }
 .row.watched::before { background: var(--c); }
+@media (hover: hover) {
+  .row:hover { background-color: var(--hover); }
+}
+.row:active:not(:has(.tools :active)) { background-color: var(--hover); }
+.row.speaking { background-color: var(--accent-soft); }
+.row:hover::after, .row:has(+ .row:hover)::after,
+.row.speaking::after, .row:has(+ .row.speaking)::after { opacity: 0; }
+.row:has(.title:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 .meta {
   display: flex; align-items: center; gap: 8px; min-height: 26px;
@@ -244,11 +257,11 @@ button:disabled { cursor: default; opacity: 0.5; }
 .badge.new { background: var(--accent); color: #fff; }
 .badge.watch { border: 1px solid var(--c); color: var(--c); font-weight: 600; letter-spacing: 0; }
 
-.tools { margin-left: auto; display: flex; gap: 2px; }
+.tools { position: relative; z-index: 1; margin-left: auto; display: flex; gap: 2px; }
 .tools button {
   display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; color: var(--text-3);
 }
-.tools button:hover { background: var(--hover); color: var(--text); }
+.tools button:hover { background: var(--border); color: var(--text); }
 .tools .save.on { color: #f5a524; }
 .tools .speak.on { color: var(--accent); background: var(--accent-soft); }
 @media (hover: hover) {
@@ -260,8 +273,11 @@ button:disabled { cursor: default; opacity: 0.5; }
   display: block; margin-top: 2px;
   font-size: 16px; line-height: 1.42; font-weight: 600; letter-spacing: -0.005em;
   color: var(--text); text-decoration: none; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
-.title:hover { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+/* The link covers the whole tile, so a click anywhere on it opens the news */
+a.title::after { content: ""; position: absolute; inset: 0; }
+a.title:focus-visible { outline: none; }
 .title:visited, .row.read .title { color: var(--text-3); font-weight: 500; }
 
 .desc {
@@ -503,7 +519,9 @@ button:disabled { cursor: default; opacity: 0.5; }
   .title { font-size: 15.5px; }
   .ago { display: none; }
   .tools button { width: 28px; }
-  .row::before { left: -10px; }
+  .row { margin: 0 -10px; padding-left: 10px; padding-right: 10px; border-radius: 12px; }
+  .row::after { left: 10px; right: 10px; }
+  .row::before { left: 3px; }
   .setting input[type="range"] { width: 130px; }
 }
 @media (max-width: 400px) {
