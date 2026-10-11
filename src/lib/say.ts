@@ -110,20 +110,33 @@ const UNITS: Record<string, [string, string, string, string]> = { // one, 2–4,
 }
 // After "mln", "tys."…: "5 mln zł" is "5 milionów złotych"
 const OF_CURRENCY: Record<string, string> = { 'zł': 'złotych', 'USD': 'dolarów', 'EUR': 'euro', 'CHF': 'franków', 'GBP': 'funtów' }
-const UNIT = /(\d+(?:,\d+)?)\s*(tys\.|godz\.|pkt\s?proc\.|p\.\s?p\.|proc\.|(?:mln|mld|bln|pkt|pb|zł|USD|EUR|CHF|GBP)(?!\p{L}))(\s+brk(?!\p{L}))?(?:\s+(zł|USD|EUR|CHF|GBP)(?!\p{L}))?/gu
+// "pkt proc.", "pkt. proc." (a dot after "pkt" too, and none at the end) and "p.p." are the percentage points; "pkt. procentowych"
+// has the dot of "pkt." to drop
+const UNIT = /(\d+(?:,\d+)?)\s*(tys\.|godz\.|pkt\.?\s?proc(?:\.|(?!\p{L}))|p\.\s?p\.|proc\.|pkt\.(?=\s+procentow)|(?:mln|mld|bln|pkt|pb|zł|USD|EUR|CHF|GBP)(?!\p{L}))(\s+brk(?!\p{L}))?(?:\s+(zł|USD|EUR|CHF|GBP)(?!\p{L}))?/gu
+// "punktów proc." (the word is written out, only the "proc." is short) is "punktów procentowych", in the case of the noun
+const POINT_PERCENT = /(?<!\p{L})(punkt(?:ów|y|u|em|ach|om|ami|owi)?|punkcie)\s+proc\./giu
+const PERCENT_ADJECTIVE: Record<string, string> = {
+  'punkt': 'procentowy', 'punkty': 'procentowe', 'punktów': 'procentowych', 'punktu': 'procentowego',
+  'punktem': 'procentowym', 'punktach': 'procentowych', 'punktom': 'procentowym', 'punktami': 'procentowymi', 'punktowi': 'procentowemu',
+  'punkcie': 'procentowym',
+}
+// Whether the dot of an abbreviation also ended the sentence: at the very end, or before a capital letter ("8 tys. Stopa…")
+const endsSentence = (rest: string) => /^\s*($|\p{Lu})/u.test(rest)
 
-// "-41,7 tys." -> "minus 41,7 tysiąca", "-2,1 mln brk" -> "minus 2,1 miliona baryłek", "5 mln zł" -> "5 milionów złotych"
+// "-41,7 tys." -> "minus 41,7 tysiąca", "-2,1 mln brk" -> "minus 2,1 miliona baryłek", "5 mln zł" -> "5 milionów złotych",
+// "13 pkt. proc." -> "13 punktów procentowych" (but "13 proc." -> "13 procent")
 export function sayNumbers(text: string): string {
   return text
     .replace(/(^|[\s(])-(?=\d)/g, '$1minus ')
     .replace(UNIT, (m: string, num: string, written: string, barrels: string | undefined, currency: string | undefined, at: number, all: string) => {
-      const unit = /^p\.\s?p\.$/.test(written) ? 'pkt proc.' : written.replace(/\s+/g, ' ')
+      const unit = /^p\.\s?p\.$|^pkt\.?\s?proc\.?$/.test(written) ? 'pkt proc.' : written === 'pkt.' ? 'pkt' : written.replace(/\s+/g, ' ')
       const forms = UNITS[unit]
       const word = num.includes(',') ? forms[3] : plural(+num, forms[0], forms[1], forms[2])
-      // "8 tys. Stopa…", or at the very end: the abbreviation's dot also ended the sentence
-      const end = !currency && !barrels && unit.endsWith('.') && /^\s*($|\p{Lu})/u.test(all.slice(at + m.length))
+      const end = !currency && !barrels && written.endsWith('.') && endsSentence(all.slice(at + m.length))
       return `${num} ${word}${barrels ? ' baryłek' : ''}${currency ? ` ${OF_CURRENCY[currency]}` : ''}${end ? '.' : ''}`
     })
+    .replace(POINT_PERCENT, (m: string, noun: string, at: number, all: string) =>
+      `${noun} ${PERCENT_ADJECTIVE[noun.toLowerCase()]}${endsSentence(all.slice(at + m.length)) ? '.' : ''}`)
 }
 
 // ── Addresses: "przy Puławskiej 48" is "przy Puławskiej czterdzieści osiem" ──
