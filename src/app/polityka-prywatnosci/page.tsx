@@ -35,8 +35,9 @@ export default function PrivacyPolicy() {
       <h2>2. Jakie dane przetwarzamy, w jakim celu i na jakiej podstawie</h2>
       <h3>a) Dane techniczne w logach serwera</h3>
       <p>
-        Otwarcie strony to kilka zapytań do serwera: pobranie plików strony i listy newsów oraz nawiązanie stałego
-        połączenia (WebSocket), przez które serwer przysyła nowe newsy, dopóki strona jest otwarta. Serwis jest
+        Otwarcie strony to kilka zapytań do serwera: pobranie plików strony, listy newsów i małego pliku z numerem
+        wersji strony (powtarzane co kilka minut, dopóki strona jest otwarta, żeby wiedzieć, że jest nowsza wersja) oraz
+        nawiązanie stałego połączenia (WebSocket), przez które serwer przysyła nowe newsy. Serwis jest
         dostępny pod dwoma adresami. W wersji na Cloudflare wszystko dostarcza Cloudflare. W wersji pod adresem
         dankostecki.github.io/szczekaczka pliki strony dostarcza GitHub (GitHub Pages), a listę newsów i stałe
         połączenie Cloudflare. Dostawcy hostingu przetwarzają przy tym dane techniczne: adres IP, datę i godzinę,

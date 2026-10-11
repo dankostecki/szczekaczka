@@ -9,6 +9,7 @@ import { type Prefs, DEFAULT_PREFS, loadPrefs, savePrefs, loadJson, saveJson, wa
 import { speechSupported, speak, speakItem, announce, stopSpeaking, onSpeechBlocked } from '@/lib/speech'
 import { notifyPermission, requestNotifyPermission, notifyHeadlines, testNotification } from '@/lib/notify'
 import { useWakeLock } from '@/lib/wakeLock'
+import { useNewVersion } from '@/lib/version'
 import { AUTHOR } from '@/lib/site'
 import NewsRow from './NewsRow'
 import Settings from './Settings'
@@ -79,6 +80,7 @@ export default function App() {
   const seen = useRef<Set<string> | null>(null) // null until the first fetch: nothing is announced on page load
   const knownFeeds = useRef(new Set<string>())   // channels that came back before (a channel that recovers from an error is not "all new")
   const liveConn = useRef<ReturnType<typeof connectLive> | null>(null)
+  const { newer, reload } = useNewVersion(voiceOn)
   const live = useRef({ prefs, voiceOn, voices })
   useEffect(() => { live.current = { prefs, voiceOn, voices } }, [prefs, voiceOn, voices])
   const searchRef = useRef<HTMLInputElement>(null)
@@ -411,6 +413,13 @@ export default function App() {
 
       {loaded && <SiteFooter />}
       <PrivacyNotice />
+
+      {newer && (
+        <div className="update" role="status">
+          <span>Jest nowa wersja Szczekaczki.</span>
+          <button className="btn" onClick={reload}>Odśwież</button>
+        </div>
+      )}
 
       {settingsOpen && (
         <Settings

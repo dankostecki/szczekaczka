@@ -291,6 +291,15 @@ a.title:focus-visible { outline: none; }
 }
 .errors.blocked { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .errors.blocked .btn { margin: 0; }
+
+/* A newer version of the page is out: a small bar at the bottom, over the list but under the settings and the dialogs */
+.update {
+  position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  z-index: 15; display: flex; align-items: center; gap: 12px; max-width: calc(100vw - 24px);
+  padding: 8px 8px 8px 16px; border: 1px solid var(--border); border-radius: 14px;
+  background: var(--surface); color: var(--text); box-shadow: var(--shadow); font-size: 14px;
+}
+.update .btn { margin: 0; flex: none; color: var(--accent); }
 .empty { margin: 80px 0; text-align: center; color: var(--text-3); }
 
 .skeleton {

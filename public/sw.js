@@ -5,7 +5,7 @@
 // - files of the page whose names carry a hash (/_next/static/): from the copy, fetched once
 // - every other page, picture or file of the site, and the list of news (/api/news): from the network, and the last
 //   copy when there is no network (or it is slow: 5 s)
-// - everything else (other sites, the WebSocket, POST) is not touched
+// - /version.json (is a newer version out?) and everything else (other sites, the WebSocket, POST) is not touched
 const CACHE = 'szczekaczka-v1'
 const BASE = new URL(self.registration.scope).pathname // "/" on Cloudflare, "/szczekaczka/" on GitHub Pages
 const SLOW_MS = 5000
@@ -40,7 +40,8 @@ async function cacheFirst(request) {
 
 async function networkFirst(request) {
   const cache = await caches.open(CACHE)
-  const network = fetch(request).then(async (response) => { await remember(cache, request, response); return response })
+  // "no-cache": the browser's own copy (GitHub Pages lets pages stay in it for 10 minutes) is asked about, not trusted
+  const network = fetch(request, { cache: 'no-cache' }).then(async (response) => { await remember(cache, request, response); return response })
   network.catch(() => {}) // when the copy is used instead, a late failure is of no interest
   try {
     return await Promise.race([network, new Promise((_, reject) => setTimeout(reject, SLOW_MS))])
@@ -55,6 +56,7 @@ self.addEventListener('fetch', (event) => {
   const { request } = event
   if (request.method !== 'GET') return
   const url = new URL(request.url)
+  if (url.pathname.endsWith('/version.json')) return
   if (isApi(url)) return event.respondWith(networkFirst(request))
   if (url.origin !== self.location.origin || !url.pathname.startsWith(BASE)) return
   if (url.pathname.startsWith(`${BASE}_next/static/`)) return event.respondWith(cacheFirst(request))
@@ -73,7 +75,8 @@ self.addEventListener('message', (event) => {
         const api = isApi(url)
         if (!api && (url.origin !== self.location.origin || !url.pathname.startsWith(BASE))) return
         if (!api && await cache.match(address, { ignoreVary: true })) return
-        await remember(cache, new Request(address), await fetch(address, { cache: api ? 'no-cache' : 'default' }))
+        const hashed = url.pathname.startsWith(`${BASE}_next/static/`)
+        await remember(cache, new Request(address), await fetch(address, { cache: hashed ? 'default' : 'no-cache' }))
       } catch { /* a copy that is missing is fetched the next time */ }
     }))
   })())
