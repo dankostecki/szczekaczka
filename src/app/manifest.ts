@@ -5,15 +5,6 @@ import { BASE_PATH } from '@/lib/site'
 // GitHub Pages copy lives under /szczekaczka and every address in it needs that prefix.
 export const dynamic = 'force-static'
 
-// What Android (and a desktop window) shows while the app starts: the one color of this file, whatever the theme. There
-// is no dark variant in the manifest yet, and white before a dark page (or dark before a white one) is a flash, so it
-// is the red of the logo, which is half way between the two and the color the launcher icon already has. An iPhone
-// takes its launch screen from src/app/layout.tsx instead, and can follow the system.
-const SPLASH = '#E54C58'
-// The color of the bars of the app (the status bar, the bar at the bottom of the phone): white, not the red of the
-// start screen, which looked wrong there. The page sets the status bar's color itself once it is up (src/lib/theme.ts).
-const BARS = '#ffffff'
-
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: `${BASE_PATH}/`,
@@ -24,8 +15,8 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: `${BASE_PATH}/`,
     scope: `${BASE_PATH}/`,
     display: 'standalone',
-    background_color: SPLASH,
-    theme_color: BARS,
+    background_color: '#ffffff',
+    theme_color: '#ffffff',
     categories: ['news', 'finance'],
     icons: [
       { src: `${BASE_PATH}/icon-192.png`, sizes: '192x192', type: 'image/png', purpose: 'any' },
