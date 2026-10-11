@@ -401,19 +401,22 @@ const WORDS: [RegExp, string][] = [
 // "WZ" is the general meeting of shareholders (walne zgromadzenie), "NWZ" an extraordinary one, "ZWZ" an ordinary
 // one, with an "A" for akcjonariuszy: "zwołanie WZ" -> "zwołanie Walnego zgromadzenia", "zmiany w porządku obrad WZ" ->
 // "… obrad Walnego zgromadzenia", "na NWZ" -> "na Nadzwyczajnym walnym zgromadzeniu", "Zarząd zwołuje WZ" -> "… Walne
-// zgromadzenie". "PIE" and "MFW" are the same: "według MFW" -> "według Międzynarodowego Funduszu Walutowego",
-// "Jak podaje PIE" -> "Jak podaje Polski Instytut Ekonomiczny".
-type Case5 = 'nom' | 'gen' | 'dat' | 'inst' | 'loc'
-const MEETING: Record<Case5, string> = { nom: 'walne zgromadzenie', gen: 'walnego zgromadzenia', dat: 'walnemu zgromadzeniu', inst: 'walnym zgromadzeniem', loc: 'walnym zgromadzeniu' }
-const MEETING_ENDING: Record<Case5, string> = { nom: 'e', gen: 'ego', dat: 'emu', inst: 'ym', loc: 'ym' }
-const INSTITUTIONS: Record<string, Record<Case5, string>> = {
-  PIE: { nom: 'Polski Instytut Ekonomiczny', gen: 'Polskiego Instytutu Ekonomicznego', dat: 'Polskiemu Instytutowi Ekonomicznemu', inst: 'Polskim Instytutem Ekonomicznym', loc: 'Polskim Instytucie Ekonomicznym' },
-  MFW: { nom: 'Międzynarodowy Fundusz Walutowy', gen: 'Międzynarodowego Funduszu Walutowego', dat: 'Międzynarodowemu Funduszowi Walutowemu', inst: 'Międzynarodowym Funduszem Walutowym', loc: 'Międzynarodowym Funduszu Walutowym' },
+// zgromadzenie". "PIE", "MFW" and "UE" are the same: "według MFW" -> "według Międzynarodowego Funduszu Walutowego",
+// "Jak podaje PIE" -> "Jak podaje Polski Instytut Ekonomiczny", "mieszkańcy UE" -> "mieszkańcy Unii Europejskiej",
+// "w UE" -> "w Unii Europejskiej", "z UE" -> "z Unią Europejską", "przez UE" -> "przez Unię Europejską". "UE-27",
+// "UE-owski" and "post-UE" stay as they are.
+type InstCase = 'nom' | 'gen' | 'dat' | 'acc' | 'inst' | 'loc'
+const MEETING: Record<InstCase, string> = { nom: 'walne zgromadzenie', gen: 'walnego zgromadzenia', dat: 'walnemu zgromadzeniu', acc: 'walne zgromadzenie', inst: 'walnym zgromadzeniem', loc: 'walnym zgromadzeniu' }
+const MEETING_ENDING: Record<InstCase, string> = { nom: 'e', gen: 'ego', dat: 'emu', acc: 'e', inst: 'ym', loc: 'ym' }
+const INSTITUTIONS: Record<string, Record<InstCase, string>> = {
+  PIE: { nom: 'Polski Instytut Ekonomiczny', gen: 'Polskiego Instytutu Ekonomicznego', dat: 'Polskiemu Instytutowi Ekonomicznemu', acc: 'Polski Instytut Ekonomiczny', inst: 'Polskim Instytutem Ekonomicznym', loc: 'Polskim Instytucie Ekonomicznym' },
+  MFW: { nom: 'Międzynarodowy Fundusz Walutowy', gen: 'Międzynarodowego Funduszu Walutowego', dat: 'Międzynarodowemu Funduszowi Walutowemu', acc: 'Międzynarodowy Fundusz Walutowy', inst: 'Międzynarodowym Funduszem Walutowym', loc: 'Międzynarodowym Funduszu Walutowym' },
+  UE: { nom: 'Unia Europejska', gen: 'Unii Europejskiej', dat: 'Unii Europejskiej', acc: 'Unię Europejską', inst: 'Unią Europejską', loc: 'Unii Europejskiej' },
 }
-const PREP_CASE: Record<string, Case5> = {
+const PREP_CASE: Record<string, InstCase> = {
   na: 'loc', w: 'loc', we: 'loc', o: 'loc', po: 'loc', przy: 'loc',
   przed: 'inst', nad: 'inst', pod: 'inst', między: 'inst', poza: 'inst',
-  przez: 'nom', // the accusative of a neuter or an inanimate masculine noun is its nominative
+  przez: 'acc',
   dla: 'gen', do: 'gen', od: 'gen', bez: 'gen', u: 'gen', podczas: 'gen', wokół: 'gen', obok: 'gen', według: 'gen', wg: 'gen',
   spod: 'gen', sprzed: 'gen', około: 'gen', oprócz: 'gen', zamiast: 'gen', wśród: 'gen', spośród: 'gen', koło: 'gen',
   dzięki: 'dat', ku: 'dat', wbrew: 'dat', przeciw: 'dat', przeciwko: 'dat',
@@ -424,9 +427,14 @@ const NOM_BEFORE = /^(?:zwołuje|zwołują|zwołał[aoy]?|zwołać|zwołano|zwo�
 // …and the endings of such verbs (not "ał": "udział", "kapitał" are nouns)
 const VERB_ENDING = /(?:uje|ują|ił|ył|iła|yła|iło|yło|ili|yli|ała|ało|ały)$/u
 // "z" is "from" before a meeting ("protokół z WZ") and "with" before an institution ("rozmowy z MFW")
-function caseBefore(before: string, withCase: Case5): Case5 {
+function caseBefore(before: string, withCase: InstCase): InstCase {
   const tail = before.trimEnd()
+  // "ws." is said "w sprawie", which asks for the genitive; it does not end a sentence
+  if (/(?:^|\s)(?:ws|wg)\.$/iu.test(tail)) return 'gen'
   if (!tail || /[.!?:;]$/.test(tail)) return 'nom'
+  // "USA i UE": the same case as "USA", which the words before it show
+  const joined = tail.match(/^([\s\S]*?)\S+\s+(?:i|oraz|lub|albo|czy)$/iu)
+  if (joined) return caseBefore(joined[1], withCase)
   const last = tail.match(/(?:(\p{L}+)\s+)?(\p{L}+)$/u)
   const word = last?.[2]?.toLocaleLowerCase('pl') ?? ''
   const prev = last?.[1]?.toLocaleLowerCase('pl')
@@ -441,8 +449,8 @@ function caseBefore(before: string, withCase: Case5): Case5 {
 // Several in a row ("zwołanie WZ i NWZ") are in the same case
 const LIST_BETWEEN = /^\s*(?:,|\s(?:i|oraz|lub|albo))\s*$/u
 export function sayInstitutions(text: string): string {
-  let last: { end: number; kase: Case5 } | null = null
-  return text.replace(/(?<![\p{L}\d])(?:([NZ]?)WZ(A?)|(PIE|MFW))(?![\p{L}\d])/gu, (m, kind: string | undefined, shareholders: string | undefined, institution: string | undefined, at: number, all: string) => {
+  let last: { end: number; kase: InstCase } | null = null
+  return text.replace(/(?<![\p{L}\d]|\p{Ll}-)(?:([NZ]?)WZ(A?)|(PIE|MFW|UE))(?![\p{L}\d]|-\d|-\p{Ll})/gu, (m, kind: string | undefined, shareholders: string | undefined, institution: string | undefined, at: number, all: string) => {
     const kase = last && LIST_BETWEEN.test(all.slice(last.end, at)) ? last.kase : caseBefore(all.slice(0, at), institution ? 'inst' : 'gen')
     last = { end: at + m.length, kase }
     if (institution) return INSTITUTIONS[institution][kase]
