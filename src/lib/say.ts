@@ -405,8 +405,9 @@ const WORDS: [RegExp, string][] = [
 // "Jak podaje PIE" -> "Jak podaje Polski Instytut Ekonomiczny", "mieszkańcy UE" -> "mieszkańcy Unii Europejskiej",
 // "w UE" -> "w Unii Europejskiej", "z UE" -> "z Unią Europejską", "przez UE" -> "przez Unię Europejską". "UE-27",
 // "UE-owski" and "post-UE" stay as they are. The ministries and offices too: "Rzeczniczka MSWiA" -> "Rzeczniczka
-// Ministerstwa Spraw Wewnętrznych i Administracji", "szefa MON" -> "szefa Ministerstwa Obrony Narodowej", "UKE" is
-// the Urząd Komunikacji Elektronicznej and "UOKiK" the Urząd Ochrony Konkurencji i Konsumentów.
+// Ministerstwa Spraw Wewnętrznych i Administracji", "szefa MON" -> "szefa Ministerstwa Obrony Narodowej", "MF" is the
+// Ministerstwo Finansów, "UKE" is the Urząd Komunikacji Elektronicznej and "UOKiK" the Urząd Ochrony Konkurencji i
+// Konsumentów.
 type InstCase = 'nom' | 'gen' | 'dat' | 'acc' | 'inst' | 'loc'
 const MEETING: Record<InstCase, string> = { nom: 'walne zgromadzenie', gen: 'walnego zgromadzenia', dat: 'walnemu zgromadzeniu', acc: 'walne zgromadzenie', inst: 'walnym zgromadzeniem', loc: 'walnym zgromadzeniu' }
 const MEETING_ENDING: Record<InstCase, string> = { nom: 'e', gen: 'ego', dat: 'emu', acc: 'e', inst: 'ym', loc: 'ym' }
@@ -422,6 +423,7 @@ const named = (head: Record<InstCase, string>, name: string) =>
   Object.fromEntries(Object.entries(head).map(([kase, word]) => [kase, `${word} ${name}`])) as Record<InstCase, string>
 INSTITUTIONS.MSWiA = named(MINISTRY, 'Spraw Wewnętrznych i Administracji')
 INSTITUTIONS.MON = named(MINISTRY, 'Obrony Narodowej')
+INSTITUTIONS.MF = named(MINISTRY, 'Finansów')
 INSTITUTIONS.UKE = named(OFFICE, 'Komunikacji Elektronicznej')
 INSTITUTIONS.UOKiK = INSTITUTIONS.UOKIK = named(OFFICE, 'Ochrony Konkurencji i Konsumentów')
 const INSTITUTION_RE = new RegExp(String.raw`(?<![\p{L}\d]|\p{Ll}-)(?:([NZ]?)WZ(A?)|(${Object.keys(INSTITUTIONS).join('|')}))(?![\p{L}\d]|-\d|-\p{Ll})`, 'gu')
