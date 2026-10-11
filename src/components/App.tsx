@@ -10,6 +10,7 @@ import { speechSupported, speak, speakItem, announce, stopSpeaking, onSpeechBloc
 import { notifyPermission, requestNotifyPermission, notifyHeadlines, testNotification } from '@/lib/notify'
 import { useWakeLock } from '@/lib/wakeLock'
 import { useNewVersion } from '@/lib/version'
+import { syncThemeColor } from '@/lib/theme'
 import { AUTHOR } from '@/lib/site'
 import NewsRow from './NewsRow'
 import Settings from './Settings'
@@ -118,6 +119,7 @@ export default function App() {
     const el = document.documentElement
     if (prefs.theme === 'system') delete el.dataset.theme
     else el.dataset.theme = prefs.theme
+    syncThemeColor(prefs.theme)
   }, [ready, prefs.theme])
   const dark = prefs.theme === 'dark' || (prefs.theme === 'system' && systemDark)
 
