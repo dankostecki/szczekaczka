@@ -397,48 +397,66 @@ const WORDS: [RegExp, string][] = [
   [/(?<!\p{L})pkt\.?(?=\s*\d)/gu, 'punkt'],
 ]
 
-// "WZ" is the general meeting of shareholders (walne zgromadzenie), "NWZ" an extraordinary one, "ZWZ" an ordinary one,
-// with an "A" for akcjonariuszy. Said in full in the case the words before ask for: "zwołanie WZ" -> "zwołanie Walnego
-// zgromadzenia", "zmiany w porządku obrad WZ" -> "… obrad Walnego zgromadzenia", "na NWZ" -> "na Nadzwyczajnym walnym
-// zgromadzeniu", "Zarząd zwołuje WZ" -> "… Walne zgromadzenie".
-type MeetingCase = 'nom' | 'gen' | 'dat' | 'inst' | 'loc'
-const MEETING: Record<MeetingCase, string> = { nom: 'walne zgromadzenie', gen: 'walnego zgromadzenia', dat: 'walnemu zgromadzeniu', inst: 'walnym zgromadzeniem', loc: 'walnym zgromadzeniu' }
-const MEETING_ENDING: Record<MeetingCase, string> = { nom: 'e', gen: 'ego', dat: 'emu', inst: 'ym', loc: 'ym' }
-const MEETING_PREP: Record<string, MeetingCase> = {
+// Abbreviations of a meeting and of institutions are said in full, in the case the words before ask for.
+// "WZ" is the general meeting of shareholders (walne zgromadzenie), "NWZ" an extraordinary one, "ZWZ" an ordinary
+// one, with an "A" for akcjonariuszy: "zwołanie WZ" -> "zwołanie Walnego zgromadzenia", "zmiany w porządku obrad WZ" ->
+// "… obrad Walnego zgromadzenia", "na NWZ" -> "na Nadzwyczajnym walnym zgromadzeniu", "Zarząd zwołuje WZ" -> "… Walne
+// zgromadzenie". "PIE" and "MFW" are the same: "według MFW" -> "według Międzynarodowego Funduszu Walutowego",
+// "Jak podaje PIE" -> "Jak podaje Polski Instytut Ekonomiczny".
+type Case5 = 'nom' | 'gen' | 'dat' | 'inst' | 'loc'
+const MEETING: Record<Case5, string> = { nom: 'walne zgromadzenie', gen: 'walnego zgromadzenia', dat: 'walnemu zgromadzeniu', inst: 'walnym zgromadzeniem', loc: 'walnym zgromadzeniu' }
+const MEETING_ENDING: Record<Case5, string> = { nom: 'e', gen: 'ego', dat: 'emu', inst: 'ym', loc: 'ym' }
+const INSTITUTIONS: Record<string, Record<Case5, string>> = {
+  PIE: { nom: 'Polski Instytut Ekonomiczny', gen: 'Polskiego Instytutu Ekonomicznego', dat: 'Polskiemu Instytutowi Ekonomicznemu', inst: 'Polskim Instytutem Ekonomicznym', loc: 'Polskim Instytucie Ekonomicznym' },
+  MFW: { nom: 'Międzynarodowy Fundusz Walutowy', gen: 'Międzynarodowego Funduszu Walutowego', dat: 'Międzynarodowemu Funduszowi Walutowemu', inst: 'Międzynarodowym Funduszem Walutowym', loc: 'Międzynarodowym Funduszu Walutowym' },
+}
+const PREP_CASE: Record<string, Case5> = {
   na: 'loc', w: 'loc', we: 'loc', o: 'loc', po: 'loc', przy: 'loc',
   przed: 'inst', nad: 'inst', pod: 'inst', między: 'inst', poza: 'inst',
-  przez: 'nom', // the accusative of a neuter noun is its nominative
+  przez: 'nom', // the accusative of a neuter or an inanimate masculine noun is its nominative
   dla: 'gen', do: 'gen', od: 'gen', bez: 'gen', u: 'gen', podczas: 'gen', wokół: 'gen', obok: 'gen', według: 'gen', wg: 'gen',
-  z: 'gen', ze: 'gen', spod: 'gen', sprzed: 'gen', około: 'gen', oprócz: 'gen', zamiast: 'gen', wśród: 'gen', spośród: 'gen', koło: 'gen',
+  spod: 'gen', sprzed: 'gen', około: 'gen', oprócz: 'gen', zamiast: 'gen', wśród: 'gen', spośród: 'gen', koło: 'gen',
   dzięki: 'dat', ku: 'dat', wbrew: 'dat', przeciw: 'dat', przeciwko: 'dat',
 }
-// Verbs and adjectives that stand right before the meeting itself (it is the subject or the object): "odbędzie się WZ"
-const MEETING_NOM_BEFORE = /^(?:zwołuje|zwołują|zwołał[aoy]?|zwołać|zwołano|zwoła|zwołane|odwołuje|odwołują|odwołał[aoy]?|odwołać|odwołano|odwołane|odbędzie|odbyło|odbyły|odbywa|ogłasza|ogłosił[aoy]?|ogłoszono|się|jest|zostało|zostanie|będzie|było|planuje|zapowiada|przesuwa|przekłada|przenosi|zakończyło|rozpoczęło|zgłasza|kolejne|następne|najbliższe|coroczne|doroczne|przyszłe|ostatnie|pierwsze|drugie|trzecie|to|owe|takie|wspomniane|zaplanowane|planowane|przerwane|odroczone|a|ale|że|gdy|jeśli|ponieważ|bo|aby|żeby|gdyż|natomiast)$/u
-function meetingCase(before: string): MeetingCase {
+// Verbs and adjectives that stand right before the abbreviation itself (it is the subject or the object): "odbędzie się
+// WZ", "jak podaje MFW"
+const NOM_BEFORE = /^(?:zwołuje|zwołują|zwołał[aoy]?|zwołać|zwołano|zwoła|zwołane|odwołuje|odwołują|odwołał[aoy]?|odwołać|odwołano|odwołane|odbędzie|odbyło|odbyły|odbywa|ogłasza|ogłosił[aoy]?|ogłoszono|się|jest|zostało|zostanie|będzie|było|planuje|zapowiada|przesuwa|przekłada|przenosi|zakończyło|rozpoczęło|zgłasza|kolejne|następne|najbliższe|coroczne|doroczne|przyszłe|ostatnie|pierwsze|drugie|trzecie|to|owe|takie|wspomniane|zaplanowane|planowane|przerwane|odroczone|a|ale|że|gdy|jeśli|ponieważ|bo|aby|żeby|gdyż|natomiast|podaje|podają|szacuje|szacują|prognozuje|wskazuje|informuje|ostrzega|ocenia|twierdzi|mówi|uważa|zakłada|sądzi|wylicza|oblicza|przewiduje|podkreśla|wyjaśnia|alarmuje|apeluje|radzi|zaleca|proponuje|sugeruje|pokazuje|wynika|stwierdza|podał|szacował|oszacował|prognozował|ostrzegał|informował|poinformował|twierdził|wskazał|powiedział|zapowiedział|podniósł|przewidział|przewidywał|rekomendował|przekazał|zrewidował)$/u
+// …and the endings of such verbs (not "ał": "udział", "kapitał" are nouns)
+const VERB_ENDING = /(?:uje|ują|ił|ył|iła|yła|iło|yło|ili|yli|ała|ało|ały)$/u
+// "z" is "from" before a meeting ("protokół z WZ") and "with" before an institution ("rozmowy z MFW")
+function caseBefore(before: string, withCase: Case5): Case5 {
   const tail = before.trimEnd()
   if (!tail || /[.!?:;]$/.test(tail)) return 'nom'
   const last = tail.match(/(?:(\p{L}+)\s+)?(\p{L}+)$/u)
   const word = last?.[2]?.toLocaleLowerCase('pl') ?? ''
   const prev = last?.[1]?.toLocaleLowerCase('pl')
-  if (word in MEETING_PREP) return MEETING_PREP[word]
-  if (MEETING_NOM_BEFORE.test(word)) return 'nom'
+  if (word === 'z' || word === 'ze') return withCase
+  if (word in PREP_CASE) return PREP_CASE[word]
+  if (NOM_BEFORE.test(word) || VERB_ENDING.test(word)) return 'nom'
   if (/ego$/.test(word)) return 'gen'
   if (/emu$/.test(word)) return 'dat'
-  if (/(?:ym|im)$/.test(word)) return prev && (MEETING_PREP[prev] === 'inst' || prev === 'z' || prev === 'ze') ? 'inst' : 'loc'
+  if (/(?:ym|im)$/.test(word)) return prev && (PREP_CASE[prev] === 'inst' || prev === 'z' || prev === 'ze') ? 'inst' : 'loc'
   return 'gen'
 }
 // Several in a row ("zwołanie WZ i NWZ") are in the same case
-const MEETING_LIST = /^\s*(?:,|\s(?:i|oraz|lub|albo))\s*$/u
-export function sayMeetings(text: string): string {
-  let last: { end: number; kase: MeetingCase } | null = null
-  return text.replace(/(?<![\p{L}\d])([NZ]?)WZ(A?)(?![\p{L}\d])/gu, (m, kind: string, shareholders: string, at: number, all: string) => {
-    const kase = last && MEETING_LIST.test(all.slice(last.end, at)) ? last.kase : meetingCase(all.slice(0, at))
+const LIST_BETWEEN = /^\s*(?:,|\s(?:i|oraz|lub|albo))\s*$/u
+export function sayInstitutions(text: string): string {
+  let last: { end: number; kase: Case5 } | null = null
+  return text.replace(/(?<![\p{L}\d])(?:([NZ]?)WZ(A?)|(PIE|MFW))(?![\p{L}\d])/gu, (m, kind: string | undefined, shareholders: string | undefined, institution: string | undefined, at: number, all: string) => {
+    const kase = last && LIST_BETWEEN.test(all.slice(last.end, at)) ? last.kase : caseBefore(all.slice(0, at), institution ? 'inst' : 'gen')
     last = { end: at + m.length, kase }
+    if (institution) return INSTITUTIONS[institution][kase]
     const stem = kind === 'N' ? 'nadzwyczajn' : kind === 'Z' ? 'zwyczajn' : ''
     const said = `${stem ? `${stem}${MEETING_ENDING[kase]} ` : ''}${MEETING[kase]}${shareholders ? ' akcjonariuszy' : ''}`
     return said[0].toLocaleUpperCase('pl') + said.slice(1)
   })
 }
+
+// Abbreviations said letter by letter with the Polish names of the letters, so a voice does not read them as a word:
+// "OECD" is "o e ce de"
+const SPELLED_PL = ['OECD']
+const SPELLED_PL_RE = new RegExp(String.raw`(?<![\p{L}\d])(${SPELLED_PL.join('|')})(?![\p{L}\d])`, 'gu')
+export const saySpelled = (text: string) => text.replace(SPELLED_PL_RE, (m) => spell(m))
 
 // "DM" is a brokerage: "Trigon DM przedstawia" -> "Trigon dom maklerski przedstawia", "według DM BOŚ" ->
 // "według domu maklerskiego BOŚ", "w DM" -> "w domu maklerskim"
@@ -538,9 +556,9 @@ export const sayPauses = (text: string) => markPauses(text).split(PAUSE_MARK).jo
 
 function sayMarked(text: string): string {
   let t = sayArticles(sayRoman(sayYears(sayQuarters(sayCompounds(sayAddresses(text))))))
-  t = sayMeetings(t)
+  t = sayInstitutions(t)
   for (const [re, said] of WORDS) t = t.replace(re, said)
-  t = sayAsWords(sayEnglish(sayMarkets(sayBrokers(t))))
+  t = saySpelled(sayAsWords(sayEnglish(sayMarkets(sayBrokers(t)))))
   return markPauses(sayNumbers(sayNames(t)))
 }
 
