@@ -10,6 +10,9 @@ export const dynamic = 'force-static'
 // is the red of the logo, which is half way between the two and the color the launcher icon already has. An iPhone
 // takes its launch screen from src/app/layout.tsx instead, and can follow the system.
 const SPLASH = '#E54C58'
+// The color of the bars of the app (the status bar, the bar at the bottom of the phone): white, not the red of the
+// start screen, which looked wrong there. The page sets the status bar's color itself once it is up (src/lib/theme.ts).
+const BARS = '#ffffff'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -22,7 +25,7 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: `${BASE_PATH}/`,
     display: 'standalone',
     background_color: SPLASH,
-    theme_color: SPLASH,
+    theme_color: BARS,
     categories: ['news', 'finance'],
     icons: [
       { src: `${BASE_PATH}/icon-192.png`, sizes: '192x192', type: 'image/png', purpose: 'any' },
