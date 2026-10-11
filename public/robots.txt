@@ -1,0 +1,3 @@
+# Treści serwisu nie mogą być pobierane automatycznie ani używane do trenowania modeli.
+User-agent: *
+Disallow: /
