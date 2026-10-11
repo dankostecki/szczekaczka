@@ -54,6 +54,14 @@ Lista jest w `src/lib/sources.ts`.
 
 Ustawienia, przeczytane i zapisane są trzymane tylko w przeglądarce (localStorage).
 
+## Aplikacja (PWA)
+
+- Stronę da się zainstalować jak aplikację: `src/app/manifest.ts` (manifest budowany razem ze stroną, z prefiksem `/szczekaczka` na GitHub Pages), ikony `public/icon-192.png`, `icon-512.png`, `icon-maskable-512.png` (z `src/lib/duck.ts`) i `public/sw.js`.
+- `public/sw.js` (service worker; zakres to katalog, z którego jest serwowany): pliki z hashem w `/_next/static/` bierze z kopii, pozostałe pliki strony i `/api/news` najpierw z sieci, a gdy jej nie ma (albo odpowiada dłużej niż 5 s) wydaje ostatnią kopię. Dzięki temu aplikacja startuje bez sieci i pokazuje ostatnią listę. Pokazuje też powiadomienia (Android Chrome zezwala na nie tylko z service workera). Gdy zmienisz sposób kopiowania w `sw.js`, podnieś `CACHE` (`szczekaczka-v2`).
+- Rejestracja: `src/components/ServiceWorker.tsx` (tylko w buildzie produkcyjnym). Przycisk „Zainstaluj” w Ustawieniach (`src/lib/install.ts`) pojawia się, gdy przeglądarka oferuje instalację; na iPhonie jest podpowiedź „Dodaj do ekranu początkowego”. „Usuń wszystkie dane” kasuje też kopię i wyrejestrowuje service worker.
+- Nie ma Web Push (powiadomień przy zamkniętej aplikacji): wymagałby przechowywania subskrypcji urządzeń w Workerze, co zmienia politykę prywatności. Czytanie na głos przy zgaszonym ekranie też nie jest możliwe: system wstrzymuje wtedy stronę.
+- Każdy adres (Cloudflare, GitHub Pages) to osobna instalacja z osobnymi ustawieniami.
+
 ## Prywatność i regulamin
 
 - `/polityka-prywatnosci` i `/regulamin`: treść opisuje dokładnie to, co robi aplikacja (bez cookies, bez analityki, bez zewnętrznych skryptów; localStorage na urządzeniu; logi hostingu Cloudflare; głosy chmurowe przeglądarki).

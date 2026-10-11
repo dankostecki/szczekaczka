@@ -1,4 +1,4 @@
-// Desktop notifications for new headlines (browser Notification API).
+// Notifications for new headlines (browser Notification API).
 // Shown while the page is open in any tab, also in the background.
 import { type Item, tagOf } from './news'
 import { plural } from './speech'
@@ -17,16 +17,25 @@ export async function requestNotifyPermission(): Promise<NotificationPermission 
   return Notification.requestPermission()
 }
 
-function show(title: string, body: string, tag: string, url?: string) {
+// Through the service worker when there is one (the only way on Android Chrome, and the tap then works when the page
+// is closed), else from the page itself
+async function show(title: string, body: string, tag: string, url?: string) {
+  const options = { body, tag, icon: `${BASE_PATH}/icon-192.png`, data: { url } }
   try {
-    const n = new Notification(title, { body, tag, icon: `${BASE_PATH}/icon-192.png` })
+    const registration = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : undefined
+    if (registration?.active) {
+      await registration.showNotification(title, options)
+      return
+    }
+  } catch { /* fall back to the page */ }
+  try {
+    const n = new Notification(title, options)
     n.onclick = () => {
       window.focus()
       if (url && /^https?:\/\//.test(url)) window.open(url, '_blank', 'noopener,noreferrer')
       n.close()
     }
   } catch (e) {
-    // Android Chrome allows notifications only from a service worker
     console.warn('Powiadomienie nie zadziałało:', e)
   }
 }

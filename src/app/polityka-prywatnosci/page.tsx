@@ -72,8 +72,8 @@ export default function PrivacyPolicy() {
       <h2>3. Cookies i pamięć przeglądarki</h2>
       <p>
         <b>Serwis nie zapisuje plików cookies.</b> Do zapamiętania Twoich ustawień używa pamięci przeglądarki
-        (localStorage). Te informacje zostają na Twoim urządzeniu, nie są wysyłane na serwer i Administrator nie ma do
-        nich dostępu.
+        (localStorage), a żeby działać także bez sieci, pamięci podręcznej przeglądarki (Cache Storage). Te informacje
+        zostają na Twoim urządzeniu, nie są wysyłane na serwer i Administrator nie ma do nich dostępu.
       </p>
       <table className="legal-table">
         <thead>
@@ -100,8 +100,18 @@ export default function PrivacyPolicy() {
             <td>Informacja, że zamknięto okno o wersji testowej i prywatności (numer jego wersji), żeby nie pokazywać go ponownie.</td>
             <td>Do czasu usunięcia</td>
           </tr>
+          <tr>
+            <td><code>szczekaczka-v1</code> (pamięć podręczna)</td>
+            <td>Kopia plików strony i ostatnio pobranej listy newsów, żeby Serwis uruchamiał się bez sieci i pokazał ostatnią listę.</td>
+            <td>Do czasu usunięcia. Lista jest nadpisywana przy każdym pobraniu, a pliki strony przy każdej jej nowej wersji.</td>
+          </tr>
         </tbody>
       </table>
+      <p>
+        Pamięcią podręczną zarządza krótki skrypt Serwisu (service worker), który działa na Twoim urządzeniu. Nie
+        wysyła on żadnych danych na serwer ani do osób trzecich. Serwis można też zainstalować jak aplikację (na
+        ekranie głównym telefonu lub w oknie na komputerze), co nie zmienia tego, jakie dane przetwarza.
+      </p>
       <p>
         Zapisujemy tylko to, co jest niezbędne do działania funkcji, z których korzystasz. Zgodnie z art. 5 ust. 3
         dyrektywy 2002/58/WE (tzw. dyrektywy ePrivacy), wdrożonym w polskim Prawie komunikacji elektronicznej, takie
@@ -110,7 +120,7 @@ export default function PrivacyPolicy() {
       <p>
         <b>Jak usunąć te dane:</b> w ustawieniach Serwisu (ikona koła zębatego) kliknij „Usuń wszystkie dane z tej
         przeglądarki”. Możesz też wyczyścić dane witryny w ustawieniach przeglądarki. Wtedy Serwis wróci do ustawień
-        domyślnych.
+        domyślnych. Ten przycisk usuwa też kopię do pracy bez sieci.
       </p>
 
       <h2>4. Komu przekazujemy dane</h2>
@@ -159,8 +169,8 @@ export default function PrivacyPolicy() {
 
       <h3>Powiadomienia na pulpicie</h3>
       <p>
-        Powiadomienia wyświetla przeglądarka na Twoim urządzeniu, gdy strona jest otwarta. Serwis nie korzysta z
-        serwerów powiadomień push. Zgodą na powiadomienia zarządzasz w ustawieniach przeglądarki.
+        Powiadomienia wyświetla przeglądarka na Twoim urządzeniu (przy pomocy skryptu Serwisu, o którym mowa w pkt 3),
+        gdy strona jest otwarta. Serwis nie korzysta z serwerów powiadomień push. Zgodą na powiadomienia zarządzasz w ustawieniach przeglądarki.
       </p>
 
       <h2>5. Jak długo przechowujemy dane</h2>

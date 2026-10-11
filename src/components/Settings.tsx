@@ -6,6 +6,7 @@ import { FEEDS, SOURCES, HAS_ENGLISH, feedKey, type Source } from '@/lib/sources
 import type { Prefs, Theme } from '@/lib/prefs'
 import { polishVoices, voicesFor, pickVoice, speak, stopSpeaking, voiceLabel, isAppleMobile } from '@/lib/speech'
 import { AUTHOR, STORAGE_PREFIX } from '@/lib/site'
+import { isInstalledApp, promptInstall, useCanInstall } from '@/lib/install'
 import type { AwakeState } from '@/lib/wakeLock'
 import type { LiveStatus } from '@/lib/live'
 import { Close, Speaker, Bell, Play, Eye } from './Icons'
@@ -123,15 +124,24 @@ export default function Settings(p: Props) {
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  // Removes everything the site keeps in this browser, then starts afresh with defaults
-  function clearAllData() {
-    if (!window.confirm('Usunąć ustawienia, przeczytane i zapisane newsy z tej przeglądarki?')) return
+  // Removes everything the site keeps in this browser (also the copy for working without a network), then starts afresh
+  async function clearAllData() {
+    if (!window.confirm('Usunąć ustawienia, przeczytane i zapisane newsy oraz kopię offline z tej przeglądarki?')) return
     stopSpeaking()
     try {
       Object.keys(localStorage).filter((k) => k.startsWith(STORAGE_PREFIX)).forEach((k) => localStorage.removeItem(k))
     } catch {}
+    try {
+      await Promise.all((await caches.keys()).filter((k) => k.startsWith('szczekaczka-')).map((k) => caches.delete(k)))
+      await (await navigator.serviceWorker?.getRegistration())?.unregister()
+    } catch {}
     window.location.reload()
   }
+
+  // "Install this app": a button where the browser offers it, a hint on an iPhone; nothing once it is installed
+  const canInstall = useCanInstall()
+  const [installed, setInstalled] = useState(false)
+  useEffect(() => setInstalled(isInstalledApp()), [])
 
   // Sources with their channels shown
   const [open, setOpen] = useState<Set<Source>>(() => new Set())
@@ -273,10 +283,26 @@ export default function Settings(p: Props) {
           <h3>Powiadomienia na pulpicie</h3>
           {p.perm !== 'unsupported' && <Switch label="Pokazuj powiadomienia" checked={prefs.notify} onChange={p.onNotifyToggle} />}
           {PERM_TEXT[p.perm] && <p className="hint">{PERM_TEXT[p.perm]}</p>}
-          <p className="hint">Działają, dopóki strona jest otwarta w jakiejś karcie.</p>
+          <p className="hint">Działają, dopóki strona jest otwarta w jakiejś karcie lub w oknie aplikacji.</p>
           {p.perm === 'granted' && <button className="btn" onClick={p.onNotifyTest}>Wyślij testowe</button>}
         </section>
 
+
+        {!installed && (canInstall || isAppleMobile()) && (
+          <section>
+            <h3>Aplikacja</h3>
+            {canInstall ? (
+              <>
+                <p className="hint">Zainstaluj Szczekaczkę jak zwykłą aplikację: będzie obok innych aplikacji i otworzy się we własnym oknie.</p>
+                <button className="btn" onClick={() => void promptInstall()}>Zainstaluj</button>
+              </>
+            ) : (
+              <p className="hint">
+                Aby zainstalować Szczekaczkę na iPhonie lub iPadzie, dotknij w Safari przycisku „Udostępnij”, a potem „Dodaj do ekranu początkowego”.
+              </p>
+            )}
+          </section>
+        )}
 
         <section>
           <h3>Obserwowane spółki (ESPI)</h3>
@@ -323,7 +349,7 @@ export default function Settings(p: Props) {
             w pamięci tej przeglądarki.
           </p>
           <div className="row-buttons">
-            <button className="btn danger" onClick={clearAllData}>Usuń wszystkie dane z tej przeglądarki</button>
+            <button className="btn danger" onClick={() => void clearAllData()}>Usuń wszystkie dane z tej przeglądarki</button>
           </div>
           <p className="legal-links">
             <Link href="/o-stronie">O stronie i źródła</Link> · <Link href="/polityka-prywatnosci">Polityka prywatności</Link> · <Link href="/regulamin">Regulamin</Link>
