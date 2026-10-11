@@ -28,6 +28,8 @@ async function news(req: Request, env: Env, url: URL): Promise<Response> {
   const etag = `"v${v}"`
   const headers: Record<string, string> = {
     'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache', ETag: etag, Vary: 'Origin',
+    // Crawlers are asked not to keep or index the news (see also public/robots.txt)
+    'X-Robots-Tag': 'noindex, nofollow, noarchive',
   }
   const origin = otherSite(req, url, env)
   if (origin) headers['Access-Control-Allow-Origin'] = origin
