@@ -452,6 +452,48 @@ export function sayInstitutions(text: string): string {
   })
 }
 
+// "Płd." and "Płn." are "południowy" and "północny" in the gender and case of the name they belong to: "Korea Płd." ->
+// "Korea Południowa", "w Korei Płd." -> "w Korei Południowej", "z Koreą Płd." -> "z Koreą Południową", "Sudan Płd." ->
+// "Sudan Południowy", "Ameryka Płn." -> "Ameryka Północna"; before a name: "w płd. Polsce" -> "w południowej Polsce";
+// "na płd. od Warszawy" -> "na południe od Warszawy". Joined ones ("płd.-wsch.") are left alone.
+const COMPASS: Record<string, { adjective: string; noun: string }> = {
+  płd: { adjective: 'południow', noun: 'południe' },
+  płn: { adjective: 'północn', noun: 'północ' },
+}
+// Masculine names whose locative looks like a feminine one ("w Sudanie", "na Cyprze")
+const MASCULINE_LOCATIVE = /^(?:Sudanie|Wietnamie|Jemenie|Libanie|Kaukazie|Cyprze|Kordofanie|Darfurze)$/u
+// The ending of the adjective that goes with a name, from the name's own ending; "u" is both the genitive and the
+// locative of a masculine name, which the preposition before it tells apart
+function adjectiveEnding(name: string, before: string): string {
+  if (/[ąę]$/u.test(name)) return 'ą'
+  if (MASCULINE_LOCATIVE.test(name)) return 'ym'
+  if (/(?:[iy]|ie|ce|dze)$/u.test(name)) return 'ej'
+  if (/ch$/u.test(name)) return 'ych'
+  if (/a$/u.test(name)) return 'a'
+  if (/owi$/u.test(name)) return 'emu'
+  if (/em$/u.test(name)) return 'ym'
+  if (/e$/u.test(name)) return 'e'
+  if (/u$/u.test(name)) return PREP_CASE[before.trimEnd().match(/(\p{L}+)$/u)?.[1]?.toLocaleLowerCase('pl') ?? ''] === 'loc' ? 'ym' : 'ego'
+  return 'y'
+}
+export function sayDirections(text: string): string {
+  return text
+    .replace(/(?<![\p{L}\d])(na)\s+(płd|płn)\.(?=\s+od(?!\p{L}))/giu, (m, na: string, kind: string) => `${na} ${COMPASS[kind.toLocaleLowerCase('pl')].noun}`)
+    .replace(/(?<![\p{L}\d])([Pp])(ł[dn])\.(?![-–]\p{L})/gu, (m, first: string, kind: string, at: number, all: string) => {
+      const { adjective } = COMPASS[`p${kind}`]
+      const said = (ending: string, dot = '') => `${first === 'P' ? adjective[0].toLocaleUpperCase('pl') : adjective[0]}${adjective.slice(1)}${ending}${dot}`
+      const before = all.slice(0, at)
+      const after = all.slice(at + m.length)
+      // "Korea Płd.": the name before it (a capitalised word, or a hemisphere: "na półkuli płn.")
+      const name = before.match(/(?<![\p{L}\d])(\p{Lu}\p{L}*|półkul\p{L}*)\s+$/u)
+      if (name) return said(adjectiveEnding(name[1], before.slice(0, name.index)), sentenceGoesOn(after) ? '' : '.')
+      // "płd. Polska": the name after it
+      const next = after.match(/^\s+(\p{Lu}\p{L}*)/u)
+      if (next) return said(adjectiveEnding(next[1], before))
+      return m
+    })
+}
+
 // Abbreviations said letter by letter with the Polish names of the letters, so a voice does not read them as a word:
 // "OECD" is "o e ce de"
 const SPELLED_PL = ['OECD']
@@ -556,7 +598,7 @@ export const sayPauses = (text: string) => markPauses(text).split(PAUSE_MARK).jo
 
 function sayMarked(text: string): string {
   let t = sayArticles(sayRoman(sayYears(sayQuarters(sayCompounds(sayAddresses(text))))))
-  t = sayInstitutions(t)
+  t = sayDirections(sayInstitutions(t))
   for (const [re, said] of WORDS) t = t.replace(re, said)
   t = saySpelled(sayAsWords(sayEnglish(sayMarkets(sayBrokers(t)))))
   return markPauses(sayNumbers(sayNames(t)))
