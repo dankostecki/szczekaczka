@@ -538,6 +538,38 @@ export const sayHours = (text: string) =>
     return g === 'G' ? said[0].toLocaleUpperCase('pl') + said.slice(1) : said
   })
 
+// "pow." is "powiat", "woj." is "województwo" and "gm." is "gmina", in the case the words around them ask for: "w pow.
+// grodziskim" -> "w powiecie grodziskim", "z woj. śląskiego" -> "z województwa śląskiego", "w gm. Wieliszew" -> "w gminie
+// Wieliszew". The adjective after them tells the case when it can ("grodziskiego" is the genitive, "grodziskim" the
+// locative or the instrumental), else the word before. Only in front of the adjective of a place name (-ski, -cki, -zki)
+// or, for a commune, a capitalised name: "pow. 50 m kw." and "pow. średniej" (above) stay.
+const TERRITORY: Record<string, Record<InstCase, string>> = {
+  pow: { nom: 'powiat', gen: 'powiatu', dat: 'powiatowi', acc: 'powiat', inst: 'powiatem', loc: 'powiecie' },
+  woj: { nom: 'województwo', gen: 'województwa', dat: 'województwu', acc: 'województwo', inst: 'województwem', loc: 'województwie' },
+  gm: { nom: 'gmina', gen: 'gminy', dat: 'gminie', acc: 'gminę', inst: 'gminą', loc: 'gminie' },
+}
+const PLACE_ADJECTIVE = /(?:sk|ck|zk)(?:i|a|ie|iego|iemu|im|iej|ą)$/u
+function territoryCase(adjective: string, before: string): InstCase {
+  const asked = caseBefore(before, 'inst')
+  if (/ego$/u.test(adjective)) return 'gen'
+  if (/emu$/u.test(adjective)) return 'dat'
+  if (/(?:ym|im)$/u.test(adjective)) return asked === 'inst' ? 'inst' : 'loc'
+  if (/ej$/u.test(adjective)) return asked === 'dat' || asked === 'loc' ? asked : 'gen'
+  if (/ą$/u.test(adjective)) return asked === 'inst' ? 'inst' : 'acc'
+  return asked === 'acc' ? 'acc' : 'nom'
+}
+export const sayTerritories = (text: string) =>
+  text.replace(/(?<![\p{L}\d])([Pp]ow|[Ww]oj|[Gg]m)\.\s+(\p{L}[\p{L}-]*)/gu, (m, abbreviation: string, word: string, at: number, all: string) => {
+    const kind = abbreviation.toLocaleLowerCase('pl')
+    const before = all.slice(0, at)
+    // a commune is followed by its name, which does not change: its case is the one the words before ask for
+    const kase = PLACE_ADJECTIVE.test(word.toLocaleLowerCase('pl')) ? territoryCase(word.toLocaleLowerCase('pl'), before)
+      : kind === 'gm' && /^\p{Lu}/u.test(word) ? caseBefore(before, 'inst') : null
+    if (!kase) return m
+    const said = TERRITORY[kind][kase]
+    return `${abbreviation[0] === abbreviation[0].toLocaleUpperCase('pl') ? said[0].toLocaleUpperCase('pl') + said.slice(1) : said} ${word}`
+  })
+
 // Abbreviations said letter by letter with the Polish names of the letters, so a voice does not read them as a word:
 // "OECD" is "o e ce de"
 const SPELLED_PL = ['OECD']
@@ -642,7 +674,7 @@ export const sayPauses = (text: string) => markPauses(text).split(PAUSE_MARK).jo
 
 function sayMarked(text: string): string {
   let t = sayArticles(sayRoman(sayYears(sayQuarters(sayCompounds(sayAddresses(text))))))
-  t = sayHours(sayDirections(sayInstitutions(t)))
+  t = sayTerritories(sayHours(sayDirections(sayInstitutions(t))))
   for (const [re, said] of WORDS) t = t.replace(re, said)
   t = saySpelled(sayAsWords(sayEnglish(sayMarkets(sayBrokers(t)))))
   return markPauses(sayNumbers(sayNames(t)))
