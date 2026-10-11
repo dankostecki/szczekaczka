@@ -21,7 +21,7 @@ const FORMS: [RegExp, string][] = [
 ]
 
 // Abbreviations of four letters and more that are spelled, not said as a word
-const SPELLED = new Set(['FOMC', 'HICP', 'CPIF', 'MSCI', 'NYSE', 'OECD', 'IFRS', 'UOKIK'])
+const SPELLED = new Set(['FOMC', 'HICP', 'CPIF', 'MSCI', 'NYSE', 'OECD', 'IFRS'])
 // Short words inside a name in capitals that are said as words ("VON", "DE")
 const PARTICLES = new Set(['VON', 'VAN', 'DER', 'DEN', 'DEL', 'DOS', 'DAS', 'LOS', 'LAS', 'LES', 'DES', 'DIE', 'THE', 'AND', 'OF', 'UND'])
 const VOWEL = /[AEIOUYĄĘÓ]/
@@ -404,7 +404,9 @@ const WORDS: [RegExp, string][] = [
 // zgromadzenie". "PIE", "MFW" and "UE" are the same: "według MFW" -> "według Międzynarodowego Funduszu Walutowego",
 // "Jak podaje PIE" -> "Jak podaje Polski Instytut Ekonomiczny", "mieszkańcy UE" -> "mieszkańcy Unii Europejskiej",
 // "w UE" -> "w Unii Europejskiej", "z UE" -> "z Unią Europejską", "przez UE" -> "przez Unię Europejską". "UE-27",
-// "UE-owski" and "post-UE" stay as they are.
+// "UE-owski" and "post-UE" stay as they are. The ministries and offices too: "Rzeczniczka MSWiA" -> "Rzeczniczka
+// Ministerstwa Spraw Wewnętrznych i Administracji", "szefa MON" -> "szefa Ministerstwa Obrony Narodowej", "UKE" is
+// the Urząd Komunikacji Elektronicznej and "UOKiK" the Urząd Ochrony Konkurencji i Konsumentów.
 type InstCase = 'nom' | 'gen' | 'dat' | 'acc' | 'inst' | 'loc'
 const MEETING: Record<InstCase, string> = { nom: 'walne zgromadzenie', gen: 'walnego zgromadzenia', dat: 'walnemu zgromadzeniu', acc: 'walne zgromadzenie', inst: 'walnym zgromadzeniem', loc: 'walnym zgromadzeniu' }
 const MEETING_ENDING: Record<InstCase, string> = { nom: 'e', gen: 'ego', dat: 'emu', acc: 'e', inst: 'ym', loc: 'ym' }
@@ -413,6 +415,16 @@ const INSTITUTIONS: Record<string, Record<InstCase, string>> = {
   MFW: { nom: 'Międzynarodowy Fundusz Walutowy', gen: 'Międzynarodowego Funduszu Walutowego', dat: 'Międzynarodowemu Funduszowi Walutowemu', acc: 'Międzynarodowy Fundusz Walutowy', inst: 'Międzynarodowym Funduszem Walutowym', loc: 'Międzynarodowym Funduszu Walutowym' },
   UE: { nom: 'Unia Europejska', gen: 'Unii Europejskiej', dat: 'Unii Europejskiej', acc: 'Unię Europejską', inst: 'Unią Europejską', loc: 'Unii Europejskiej' },
 }
+// A ministry (neuter) or an office (masculine) with the name that follows it, which does not change
+const MINISTRY: Record<InstCase, string> = { nom: 'Ministerstwo', gen: 'Ministerstwa', dat: 'Ministerstwu', acc: 'Ministerstwo', inst: 'Ministerstwem', loc: 'Ministerstwie' }
+const OFFICE: Record<InstCase, string> = { nom: 'Urząd', gen: 'Urzędu', dat: 'Urzędowi', acc: 'Urząd', inst: 'Urzędem', loc: 'Urzędzie' }
+const named = (head: Record<InstCase, string>, name: string) =>
+  Object.fromEntries(Object.entries(head).map(([kase, word]) => [kase, `${word} ${name}`])) as Record<InstCase, string>
+INSTITUTIONS.MSWiA = named(MINISTRY, 'Spraw Wewnętrznych i Administracji')
+INSTITUTIONS.MON = named(MINISTRY, 'Obrony Narodowej')
+INSTITUTIONS.UKE = named(OFFICE, 'Komunikacji Elektronicznej')
+INSTITUTIONS.UOKiK = INSTITUTIONS.UOKIK = named(OFFICE, 'Ochrony Konkurencji i Konsumentów')
+const INSTITUTION_RE = new RegExp(String.raw`(?<![\p{L}\d]|\p{Ll}-)(?:([NZ]?)WZ(A?)|(${Object.keys(INSTITUTIONS).join('|')}))(?![\p{L}\d]|-\d|-\p{Ll})`, 'gu')
 const PREP_CASE: Record<string, InstCase> = {
   na: 'loc', w: 'loc', we: 'loc', o: 'loc', po: 'loc', przy: 'loc',
   przed: 'inst', nad: 'inst', pod: 'inst', między: 'inst', poza: 'inst',
@@ -426,6 +438,8 @@ const PREP_CASE: Record<string, InstCase> = {
 const NOM_BEFORE = /^(?:zwołuje|zwołują|zwołał[aoy]?|zwołać|zwołano|zwoła|zwołane|odwołuje|odwołują|odwołał[aoy]?|odwołać|odwołano|odwołane|odbędzie|odbyło|odbyły|odbywa|ogłasza|ogłosił[aoy]?|ogłoszono|się|jest|zostało|zostanie|będzie|było|planuje|zapowiada|przesuwa|przekłada|przenosi|zakończyło|rozpoczęło|zgłasza|kolejne|następne|najbliższe|coroczne|doroczne|przyszłe|ostatnie|pierwsze|drugie|trzecie|to|owe|takie|wspomniane|zaplanowane|planowane|przerwane|odroczone|a|ale|że|gdy|jeśli|ponieważ|bo|aby|żeby|gdyż|natomiast|podaje|podają|szacuje|szacują|prognozuje|wskazuje|informuje|ostrzega|ocenia|twierdzi|mówi|uważa|zakłada|sądzi|wylicza|oblicza|przewiduje|podkreśla|wyjaśnia|alarmuje|apeluje|radzi|zaleca|proponuje|sugeruje|pokazuje|wynika|stwierdza|podał|szacował|oszacował|prognozował|ostrzegał|informował|poinformował|twierdził|wskazał|powiedział|zapowiedział|podniósł|przewidział|przewidywał|rekomendował|przekazał|zrewidował)$/u
 // …and the endings of such verbs (not "ał": "udział", "kapitał" are nouns)
 const VERB_ENDING = /(?:uje|ują|ił|ył|iła|yła|iło|yło|ili|yli|ała|ało|ały)$/u
+// What is "from" an institution, not "with" it
+const FROM_NOUN = /^(?:fundusz\p{L}*|środk\p{L}*|dotacj\p{L}*|dofinansowan\p{L}*|pieniąd\p{L}*|pieniędz\p{L}*|dane|danych|komunikat\p{L}*|informacj\p{L}*|pism\p{L}*|decyzj\p{L}*|wytyczn\p{L}*|rozporządzen\p{L}*|import\p{L}*|eksport\p{L}*|dostaw\p{L}*|kraj\p{L}*|państw\p{L}*|wsparci\p{L}*|pożyczk\p{L}*|grant\p{L}*|płatnośc\p{L}*|wpływ\p{L}*|wypłat\p{L}*|transfer\p{L}*|pochodz\p{L}*|wynik\p{L}*|wyjści\p{L}*|wyjść|wyjdzie|wyjdą|wychodzi|wystąpien\p{L}*|wystąpić|wycofa\p{L}*)$/u
 // "z" is "from" before a meeting ("protokół z WZ") and "with" before an institution ("rozmowy z MFW")
 function caseBefore(before: string, withCase: InstCase): InstCase {
   const tail = before.trimEnd()
@@ -438,7 +452,9 @@ function caseBefore(before: string, withCase: InstCase): InstCase {
   const last = tail.match(/(?:(\p{L}+)\s+)?(\p{L}+)$/u)
   const word = last?.[2]?.toLocaleLowerCase('pl') ?? ''
   const prev = last?.[1]?.toLocaleLowerCase('pl')
-  if (word === 'z' || word === 'ze') return withCase
+  // "fundusze z UE", "wyjście z UE": from, the genitive; "rozmowy z UE", "umowa z MON": with
+  if (word === 'z' || word === 'ze') return prev && FROM_NOUN.test(prev) ? 'gen' : withCase
+  if (/^(?:materiał|kapitał|udział|sygnał|finał|ideał|kanał|dział)y$/u.test(word)) return 'gen'
   if (word in PREP_CASE) return PREP_CASE[word]
   if (NOM_BEFORE.test(word) || VERB_ENDING.test(word)) return 'nom'
   if (/ego$/.test(word)) return 'gen'
@@ -450,7 +466,7 @@ function caseBefore(before: string, withCase: InstCase): InstCase {
 const LIST_BETWEEN = /^\s*(?:,|\s(?:i|oraz|lub|albo))\s*$/u
 export function sayInstitutions(text: string): string {
   let last: { end: number; kase: InstCase } | null = null
-  return text.replace(/(?<![\p{L}\d]|\p{Ll}-)(?:([NZ]?)WZ(A?)|(PIE|MFW|UE))(?![\p{L}\d]|-\d|-\p{Ll})/gu, (m, kind: string | undefined, shareholders: string | undefined, institution: string | undefined, at: number, all: string) => {
+  return text.replace(INSTITUTION_RE, (m, kind: string | undefined, shareholders: string | undefined, institution: string | undefined, at: number, all: string) => {
     const kase = last && LIST_BETWEEN.test(all.slice(last.end, at)) ? last.kase : caseBefore(all.slice(0, at), institution ? 'inst' : 'gen')
     last = { end: at + m.length, kase }
     if (institution) return INSTITUTIONS[institution][kase]
@@ -502,6 +518,24 @@ export function sayDirections(text: string): string {
     })
 }
 
+// "o godz. 11" is "o godzinie jedenastej", "do godz. 9:30" is "do godziny dziewiątej trzydzieści", "na godz. 11" is "na godzinę
+// jedenastą": the hour is an ordinal in the case of the word before it, where a voice alone says "godzina jedenasta".
+// A range ("godz. 9-17") is left alone.
+const HOUR_PREP: Record<string, InstCase> = {
+  o: 'loc', po: 'loc', przy: 'loc', do: 'gen', od: 'gen', około: 'gen', ok: 'gen', koło: 'gen', wokół: 'gen', przed: 'inst', na: 'acc', przez: 'acc',
+}
+const HOUR_WORD: Record<InstCase, string> = { nom: 'godzina', gen: 'godziny', dat: 'godzinie', acc: 'godzinę', inst: 'godziną', loc: 'godzinie' }
+const HOUR_END: Record<InstCase, string> = { nom: 'a', gen: 'ej', dat: 'ej', acc: 'ą', inst: 'ą', loc: 'ej' }
+export const sayHours = (text: string) =>
+  text.replace(/(?<![\p{L}\d])([Gg])odz\.\s*(\d{1,2})(?:[:.](\d{2}))?(?!\d|[:.]\d|\s*[-–]\s*\d)/gu, (m, g: string, h: string, min: string | undefined, at: number, all: string) => {
+    const hour = +h
+    if (hour < 1 || hour > 24 || (min && +min > 59)) return m
+    const kase = HOUR_PREP[all.slice(0, at).match(/(\p{L}+)\.?\s*$/u)?.[1]?.toLocaleLowerCase('pl') ?? ''] ?? 'nom'
+    const minutes = min && +min ? ` ${+min < 10 ? 'zero ' : ''}${cardinal(+min)}` : ''
+    const said = `${HOUR_WORD[kase]} ${ordinalAs(hour, HOUR_END[kase])}${minutes}`
+    return g === 'G' ? said[0].toLocaleUpperCase('pl') + said.slice(1) : said
+  })
+
 // Abbreviations said letter by letter with the Polish names of the letters, so a voice does not read them as a word:
 // "OECD" is "o e ce de"
 const SPELLED_PL = ['OECD']
@@ -520,7 +554,7 @@ export const sayBrokers = (text: string) =>
 // Abbreviations said as words, not spelled ("rozporządzenia MAR" -> "mar", "dla PAP" -> "pap").
 // ASI (alternatywna spółka inwestycyjna) is "as" and "i" run together: written "Asi" a voice makes it a name
 // with a soft "ś" (like the vocative of Asia)
-const AS_WORDS: Record<string, string> = { MAR: 'Mar', PAP: 'Pap', ZUS: 'Zus', GUS: 'Gus', NIK: 'Nik', MON: 'Mon', PIT: 'Pit', CIT: 'Cit', VAT: 'Wat', ASI: 'as i' }
+const AS_WORDS: Record<string, string> = { MAR: 'Mar', PAP: 'Pap', ZUS: 'Zus', GUS: 'Gus', NIK: 'Nik', PIT: 'Pit', CIT: 'Cit', VAT: 'Wat', ASI: 'as i' }
 const AS_WORDS_RE = new RegExp(String.raw`(?<![\p{L}\d])(${Object.keys(AS_WORDS).join('|')})(?![\p{L}\d])`, 'gu')
 export const sayAsWords = (text: string) => text.replace(AS_WORDS_RE, (m) => AS_WORDS[m])
 
@@ -606,7 +640,7 @@ export const sayPauses = (text: string) => markPauses(text).split(PAUSE_MARK).jo
 
 function sayMarked(text: string): string {
   let t = sayArticles(sayRoman(sayYears(sayQuarters(sayCompounds(sayAddresses(text))))))
-  t = sayDirections(sayInstitutions(t))
+  t = sayHours(sayDirections(sayInstitutions(t)))
   for (const [re, said] of WORDS) t = t.replace(re, said)
   t = saySpelled(sayAsWords(sayEnglish(sayMarkets(sayBrokers(t)))))
   return markPauses(sayNumbers(sayNames(t)))
