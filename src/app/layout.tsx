@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { PREFS_KEY } from '@/lib/prefs'
 import { BASE_PATH } from '@/lib/site'
+import ServiceWorker from '@/components/ServiceWorker'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -8,6 +9,9 @@ export const metadata: Metadata = {
   description: 'Komunikaty ESPI, GPW, newsy Stooq, komunikaty PAP MediaRoom oraz zapowiedzi danych makro i wydarzeń giełdowych w jednym miejscu, czytane na głos.',
   // Not for search engines or archives: the other copy of the page (GitHub Pages) cannot have a robots.txt of its own
   robots: { index: false, follow: false, noarchive: true },
+  applicationName: 'Szczekaczka',
+  appleWebApp: { capable: true, title: 'Szczekaczka', statusBarStyle: 'default' },
+  other: { 'apple-mobile-web-app-capable': 'yes' }, // Safari on an iPhone, next to the manifest
   icons: {
     icon: [{ url: `${BASE_PATH}/icon.png`, sizes: '64x64', type: 'image/png' }, { url: `${BASE_PATH}/icon-192.png`, sizes: '192x192', type: 'image/png' }],
     apple: `${BASE_PATH}/apple-touch-icon.png`,
@@ -30,7 +34,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <ServiceWorker />
+      </body>
     </html>
   )
 }
