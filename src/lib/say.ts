@@ -126,6 +126,48 @@ export function sayNumbers(text: string): string {
     })
 }
 
+// ── Addresses: "przy Puławskiej 48" is "przy Puławskiej czterdzieści osiem" ──
+
+// A house number is said as a plain number, whatever the street name before it: a voice may take it for an ordinal
+// or give it the ending of the street ("czterdziestej ósmej"). So it is written out here.
+const CARD_ONES = ['', 'jeden', 'dwa', 'trzy', 'cztery', 'pięć', 'sześć', 'siedem', 'osiem', 'dziewięć']
+const CARD_TEENS = ['dziesięć', 'jedenaście', 'dwanaście', 'trzynaście', 'czternaście', 'piętnaście', 'szesnaście', 'siedemnaście', 'osiemnaście', 'dziewiętnaście']
+const CARD_TENS = ['', '', 'dwadzieścia', 'trzydzieści', 'czterdzieści', 'pięćdziesiąt', 'sześćdziesiąt', 'siedemdziesiąt', 'osiemdziesiąt', 'dziewięćdziesiąt']
+const CARD_HUNDREDS = ['', 'sto', 'dwieście', 'trzysta', 'czterysta', 'pięćset', 'sześćset', 'siedemset', 'osiemset', 'dziewięćset']
+// 48 -> "czterdzieści osiem", 305 -> "trzysta pięć" (up to 999)
+function cardinal(n: number): string {
+  const r = n % 100
+  const tail = r < 10 ? [CARD_ONES[r]] : r < 20 ? [CARD_TEENS[r - 10]] : [CARD_TENS[Math.floor(r / 10)], CARD_ONES[r % 10]]
+  return [CARD_HUNDREDS[Math.floor(n / 100)], ...tail].filter(Boolean).join(' ') || 'zero'
+}
+// What stands before a street name: "ul.", "al.", "pl.", "os." and the words for them, or a preposition
+// ("przy", "na", "w") and then a street name that is an adjective ("Puławskiej", "Alejach Jerozolimskich")
+const STREET_MARKERS = new Set(['ul.', 'ulica', 'ulicy', 'ulicą', 'ulicę', 'al.', 'aleja', 'alei', 'aleje', 'alejach', 'aleją', 'pl.', 'plac', 'placu',
+  'os.', 'osiedle', 'osiedlu', 'rondo', 'rondzie', 'rynek', 'rynku', 'skwer', 'skweru', 'bulwar', 'bulwaru'])
+const STREET_PREPS = new Set(['przy', 'na', 'w', 'we', 'do', 'od', 'z', 'ze', 'u', 'pod', 'nad', 'za', 'przed', 'obok', 'koło', 'wzdłuż'])
+const STREET_WORD = /^\p{Lu}[\p{L}-]*$/u
+function isStreet(words: string[]): boolean {
+  // the street name: up to three words with a capital letter, at the end
+  let n = 0
+  while (n < 3 && n < words.length && STREET_WORD.test(words[words.length - 1 - n].replace(/\.$/, ''))) n++
+  if (n === 0) return false
+  const last = words[words.length - 1].toLowerCase()
+  const asks = (marker: string) => STREET_MARKERS.has(marker) || (STREET_PREPS.has(marker) && /(?:ej|ich)$/.test(last))
+  const before = words[words.length - 1 - n]?.toLowerCase()
+  if (before !== undefined && asks(before)) return true
+  // at the start of a sentence the preposition has a capital letter too: "Przy Puławskiej 48"
+  return n >= 2 && asks(words[words.length - n].toLowerCase())
+}
+// The number: 1 to 3 digits, a letter after it ("5A"), a second number after a slash ("63/65": "łamane przez"); not a
+// decimal, a time, a date, a percentage or a range
+const HOUSE = /((?:[\p{L}][\p{L}-]*\.?\s+){1,4})(\d{1,3})([A-Za-z])?(?:\/(\d{1,3})([A-Za-z])?)?(?![\p{L}\d]|[,.:]\d|%|[-–]\d)/gu
+export const sayAddresses = (text: string) =>
+  text.replace(HOUSE, (m: string, head: string, num: string, letter?: string, num2?: string, letter2?: string) => {
+    if (!isStreet(head.trim().split(/\s+/))) return m
+    const one = (n: string, l?: string) => `${cardinal(+n)}${l ? ` ${l}` : ''}`
+    return `${head}${one(num, letter)}${num2 ? ` łamane przez ${one(num2, letter2)}` : ''}`
+  })
+
 // ── Words made of a number: "19-latka" is "dziewiętnastolatka" ──
 
 const C_UNITS = ['', 'jedno', 'dwu', 'trzy', 'cztero', 'pięcio', 'sześcio', 'siedmio', 'ośmio', 'dziewięcio']
@@ -495,7 +537,7 @@ export const sayPauses = (text: string) => markPauses(text).split(PAUSE_MARK).jo
 // ── All of it ──
 
 function sayMarked(text: string): string {
-  let t = sayArticles(sayRoman(sayYears(sayQuarters(sayCompounds(text)))))
+  let t = sayArticles(sayRoman(sayYears(sayQuarters(sayCompounds(sayAddresses(text))))))
   t = sayMeetings(t)
   for (const [re, said] of WORDS) t = t.replace(re, said)
   t = sayAsWords(sayEnglish(sayMarkets(sayBrokers(t))))
