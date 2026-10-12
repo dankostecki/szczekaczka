@@ -303,6 +303,54 @@ export function sayQuarters(text: string): string {
     })
 }
 
+// ── Months as Roman numerals: "po VIII" is "po sierpniu" ──
+
+const MONTH_NAMES: Record<Kase, string[]> = {
+  nom: ['styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec', 'lipiec', 'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień'],
+  gen: ['stycznia', 'lutego', 'marca', 'kwietnia', 'maja', 'czerwca', 'lipca', 'sierpnia', 'września', 'października', 'listopada', 'grudnia'],
+  loc: ['styczniu', 'lutym', 'marcu', 'kwietniu', 'maju', 'czerwcu', 'lipcu', 'sierpniu', 'wrześniu', 'październiku', 'listopadzie', 'grudniu'],
+  inst: ['styczniem', 'lutym', 'marcem', 'kwietniem', 'majem', 'czerwcem', 'lipcem', 'sierpniem', 'wrześniem', 'październikiem', 'listopadem', 'grudniem'],
+}
+// The case a month is in after these words: the preposition, or the noun it is the end, beginning or middle of
+const MONTH_CASE: Record<string, Kase> = {
+  po: 'loc', w: 'loc', we: 'loc', przy: 'loc', przed: 'inst', za: 'nom', do: 'gen', od: 'gen', z: 'gen', ze: 'gen', wg: 'gen', według: 'gen',
+  koniec: 'gen', końca: 'gen', końcu: 'gen', początek: 'gen', początku: 'gen', połowie: 'gen', połowy: 'gen',
+}
+// After these a lone "I", "V" or "X" is a month too: nothing else is "na koniec X"
+const MONTH_SURE = new Set(['po', 'koniec', 'końca', 'końcu', 'początek', 'początku', 'połowie', 'połowy'])
+const MONTH_NUM = String.raw`(?:XII|XI|IX|X|VIII|VII|VI|IV|V|III|II|I)`
+const MONTH_END = String.raw`(?![\p{L}\d]|[.,]\d)`
+const MONTH_ONE = new RegExp(String.raw`(?<![\p{L}\d.,-])(${Object.keys(MONTH_CASE).join('|')})(\s+)(${MONTH_NUM})(?![-–])${MONTH_END}`, 'giu')
+const MONTH_RANGE = new RegExp(String.raw`(?<![\p{L}\d.,-])(w\s+okresie|za\s+okres|okresie|okres|w|za)(\s+)(${MONTH_NUM})\s*[-–]\s*(${MONTH_NUM})${MONTH_END}`, 'giu')
+const MONTH_FROM_TO = new RegExp(String.raw`(?<![\p{L}\d.,-])(od)(\s+)(${MONTH_NUM})(\s+do\s+)(${MONTH_NUM})${MONTH_END}`, 'giu')
+// A numeral that goes with the next word is not a month: "po II wojnie", "w III RP", "w II kw.", "po V Symfonii"
+const monthStays = (rest: string) => {
+  const next = rest.match(/^\s+(\p{L}[\p{L}.]*)/u)?.[1]
+  if (!next) return false
+  const word = next.replace(/\.$/, '').toLocaleLowerCase('pl')
+  return /^\p{Lu}/u.test(next) || NUMBERED.test(word) || /^(?:kw|półr|w|rp)$/.test(word)
+}
+
+// "po VIII wyniosły" -> "po sierpniu wyniosły", "do VII" -> "do lipca", "na koniec IX" -> "na koniec września", "od I do VIII" ->
+// "od stycznia do sierpnia", "w okresie I-VIII" -> "w okresie od stycznia do sierpnia". A lone "I", "V" or "X" is a month only after
+// "po" ("I" is also "and", "X" a website); two of them in a range are months after any of the words above.
+export function sayMonths(text: string): string {
+  const month = (n: string, k: Kase) => MONTH_NAMES[k][roman(n) - 1]
+  return text
+    .replace(MONTH_FROM_TO, (m, from: string, s1: string, a: string, mid: string, b: string, at: number, all: string) =>
+      monthStays(all.slice(at + m.length)) ? m : `${from}${s1}${month(a, 'gen')}${mid}${month(b, 'gen')}`)
+    .replace(MONTH_RANGE, (m, prep: string, space: string, a: string, b: string, at: number, all: string) => {
+      if (roman(a) >= roman(b) || monthStays(all.slice(at + m.length))) return m
+      const lead = /^(?:w|za)$/i.test(prep) ? `${prep}${space}${/^w$/i.test(prep) ? 'okresie' : 'okres'} ` : `${prep}${space}`
+      return `${lead}od ${month(a, 'gen')} do ${month(b, 'gen')}`
+    })
+    .replace(MONTH_ONE, (m, prep: string, space: string, num: string, at: number, all: string) => {
+      const lone = /^[IVX]$/.test(num)
+      if ((lone && !MONTH_SURE.has(prep.toLocaleLowerCase('pl'))) || monthStays(all.slice(at + m.length))) return m
+      return `${prep}${space}${month(num, MONTH_CASE[prep.toLocaleLowerCase('pl')])}`
+    })
+}
+
 // ── Roman numerals: "przed niedzielną II turą" -> "przed niedzielną drugą turą" ──
 
 // The ordinal takes the form of the word it goes with: from that word's ending, and the preposition
@@ -465,6 +513,8 @@ function caseBefore(before: string, withCase: InstCase): InstCase {
   // "ws." is said "w sprawie", which asks for the genitive; it does not end a sentence
   if (/(?:^|\s)(?:ws|wg)\.$/iu.test(tail)) return 'gen'
   if (!tail || /[.!?:;]$/.test(tail)) return 'nom'
+  // "… 29,9 mld zł - MF": after a dash with spaces the source stands on its own, as after a colon
+  if (/\s[-–—]$/u.test(tail)) return 'nom'
   // "USA i UE": the same case as "USA", which the words before it show
   const joined = tail.match(/^([\s\S]*?)\S+\s+(?:i|oraz|lub|albo|czy)$/iu)
   if (joined) return caseBefore(joined[1], withCase)
@@ -690,7 +740,7 @@ export const sayPauses = (text: string) => markPauses(text).split(PAUSE_MARK).jo
 // ── All of it ──
 
 function sayMarked(text: string): string {
-  let t = sayArticles(sayRoman(sayYears(sayQuarters(sayCompounds(sayAddresses(text))))))
+  let t = sayArticles(sayRoman(sayMonths(sayYears(sayQuarters(sayCompounds(sayAddresses(text)))))))
   t = sayTerritories(sayHours(sayDirections(sayInstitutions(t))))
   for (const [re, said] of WORDS) t = t.replace(re, said)
   t = saySpelled(sayAsWords(sayEnglish(sayMarkets(sayBrokers(t)))))
