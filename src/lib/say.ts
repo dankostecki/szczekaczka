@@ -732,8 +732,21 @@ const NAMES_EN: [RegExp, string][] = [
   [/(?<!\p{L})Pay(?!\p{Ll})/gu, 'Pej'],
 ]
 const SPELLED_EN_RE = new RegExp(String.raw`(?<![\p{L}\d])(${SPELLED_EN.join('|')})(?![\p{L}\d])`, 'gu')
+// A word of an English name that a Polish voice says as a Polish word: "Asia" is a name for it. Inside an English name,
+// next to another capitalised word ("New Asia Forum", "Asia Pacific", "Nikkei Asia", "South-East Asia"), it is said the English way;
+// alone, or after a full stop or a lower-case word ("Rozmawiała z Asią", "Asia poszła"), it stays
+const EN_IN_NAMES: Record<string, string> = { Asia: 'Ejża' }
+const EN_IN_NAMES_RE = new RegExp(String.raw`(?<![\p{L}\d])(${Object.keys(EN_IN_NAMES).join('|')})(?![\p{L}\d])`, 'gu')
+const sayEnglishInNames = (text: string) =>
+  text
+    .replace(/(?<![\p{L}\d])New(\s+)(?=Asia(?![\p{L}\d]))/gu, 'Niu$1')
+    .replace(EN_IN_NAMES_RE, (m: string, word: string, at: number, all: string) => {
+      const left = all.slice(0, at).match(/(\p{L}+)[ \-/]$/u)?.[1]
+      const right = all.slice(at + m.length).match(/^[ \-/](\p{Lu}\p{L}*)/u)?.[1]
+      return /^\p{Lu}/u.test(left ?? '') || right ? EN_IN_NAMES[word] : m
+    })
 export function sayEnglish(text: string): string {
-  let t = text
+  let t = sayEnglishInNames(text)
   for (const [re, said] of NAMES_EN) t = t.replace(re, said)
   return t.replace(SPELLED_EN_RE, (m) => [...m].map((c) => EN_LETTERS[c]).join(' '))
 }
