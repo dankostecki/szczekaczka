@@ -143,9 +143,9 @@ function splitUnits(num: string, unit: string): [number, string | null][] | unde
   return parts.length ? parts : undefined
 }
 
-// Prepositions that ask for the genitive, with the words that only give a size in between ("do około 2 mld zł"): after them the unit is
+// Prepositions (and a few verbs) that ask for the genitive, with the words that only give a size in between ("do około 2 mld zł"): after them the unit is
 // "do 2 miliardów złotych", "od 2 złotych", not "2 miliardy"
-const GENITIVE_BEFORE = /(?:^|[\s(„"])(?:do|od|z|ze|bez|dla|u|wokół|obok|według|wg|spośród|wobec|powyżej|poniżej|zamiast|oprócz|wśród|sprzed|spod)\s+(?:(?:około|ok\.|blisko|prawie|niemal|ponad|nawet|aż|zaledwie|ledwie|przynajmniej)\s+)*$/iu
+const GENITIVE_BEFORE = /(?:^|[\s(„"])(?:do|od|z|ze|bez|dla|u|wokół|obok|według|wg|spośród|wobec|powyżej|poniżej|zamiast|oprócz|wśród|sprzed|spod|brak|brakuje|brakowało|zabrakło|zabraknie|potrzeba)\s+(?:(?:około|ok\.|blisko|prawie|niemal|ponad|nawet|aż|zaledwie|ledwie|przynajmniej)\s+)*$/iu
 // The word after a number: the nominative by the number ("2 miliony", "5 milionów"), the genitive for "do 2 milionów", "do 1 miliona"
 const unitForm = (forms: readonly string[], n: number, genitive: boolean) =>
   genitive ? (n === 1 ? forms[3] : forms[2]) : plural(n, forms[0], forms[1], forms[2])
@@ -154,6 +154,23 @@ const GROSZE = ['grosz', 'grosze', 'groszy', 'grosza']
 // What a price is "per": "zł/l" is "złotych za litr"
 const PER_UNIT: Record<string, string> = { l: 'litr', kg: 'kilogram', t: 'tonę', szt: 'sztukę', bbl: 'baryłkę', MWh: 'megawatogodzinę', kWh: 'kilowatogodzinę',
   GJ: 'gigadżul', mkw: 'metr kwadratowy', m2: 'metr kwadratowy', 'm²': 'metr kwadratowy' }
+
+// A number up to 999 in words, in the nominative or the genitive ("sześćset", "sześciuset"); a larger one stays in digits. A voice that
+// reads "10 milionów 600 tysięcy" takes the genitive of "milionów" for the next number ("sześciuset"), so the parts are written out.
+function numberWords(n: number, genitive: boolean): string {
+  if (!(n > 0 && n < 1000)) return String(n)
+  if (!genitive) return cardinal(n)
+  const r = n % 100
+  const tail = r < 10 ? [GEN_ONES[r]] : r < 20 ? [GEN_TEENS[r - 10]] : [GEN_TENS[Math.floor(r / 10)], GEN_ONES[r % 10]]
+  return [GEN_HUNDREDS[Math.floor(n / 100)], ...tail].filter(Boolean).join(' ')
+}
+// A number with no unit after it that says its gender ("jedna", "dwie" osoby): 1, 2 and the ones ending in them, except the teens
+const hasGender = (n: number) => (n % 10 === 1 || n % 10 === 2) && (n % 100 < 11 || n % 100 > 19)
+// Currencies that are masculine: "dwa złote", "jeden dolar" (not "euro")
+const MASCULINE_CURRENCY = new Set(['zł', 'USD', 'CHF', 'GBP'])
+// "10 mln 600 tys. zł", "5 tys. 200 zł": a number after another with its unit, and one that another follows
+const CHAIN_BEFORE = /(?:(?<![\d,])\d+\s*(?:bln|mld|mln|tys\.)\s+)+$/u
+const CHAIN_AFTER = /^\s+\d+\s*(?:bln|mld|mln|tys\.|zł|USD|EUR|CHF|GBP)(?![\p{L}\d])/u
 
 // "-41,7 tys." -> "minus 41,7 tysiąca", "-2,1 mln brk" -> "minus 2,1 miliona baryłek", "5 mln zł" -> "5 milionów złotych",
 // "5,483 mld zł" -> "5 miliardów 483 miliony złotych", "13 pkt. proc." -> "13 punktów procentowych" (but "13 proc." -> "13 procent")
@@ -170,25 +187,35 @@ export function sayNumbers(text: string): string {
       const unit = /^p\.\s?p\.$|^pkt\.?\s?proc\.?$/.test(written) ? 'pkt proc.' : written === 'pkt.' ? 'pkt' : /^(?:m\s?kw\.?|m²|m2)$/.test(written) ? 'mkw' : written.replace(/\s+/g, ' ')
       const forms = UNITS[unit]
       const digits = num.replace(/[\s\u00a0]/g, '')
-      const genitive = GENITIVE_BEFORE.test(all.slice(Math.max(0, at - 60), at))
+      // after "10 mln" the next number is in the case of the first one: the genitive context is the one before the whole chain
+      const rest = all.slice(at + m.length)
+      const chain = all.slice(Math.max(0, at - 120), at).match(CHAIN_BEFORE)
+      const chainStart = at - (chain?.[0].length ?? 0)
+      const genitive = GENITIVE_BEFORE.test(all.slice(Math.max(0, chainStart - 60), chainStart))
       // "2,5-3,5 mln zł": the first number of a range has no unit of its own, so the second keeps the fraction, as the first has it
       const inRange = /\d[-–]$/.test(all.slice(Math.max(0, at - 2), at))
-      const end = !currency && !barrels && written.endsWith('.') && endsSentence(all.slice(at + m.length))
+      const end = !currency && !barrels && written.endsWith('.') && endsSentence(rest)
       // "7,06 zł" -> "7 złotych i 6 groszy", "0,45 zł" -> "45 groszy", "2,5 zł" -> "2 złote i 50 groszy": one or two decimals are groszy
       if (unit === 'zł' && !currency && !barrels && !inRange && /^\d+,\d{1,2}$/.test(digits)) {
         const [zloty, fraction] = digits.split(',')
         const grosze = +fraction.padEnd(2, '0')
-        return [+zloty ? `${+zloty} ${unitForm(forms, +zloty, genitive)}` : '', `${grosze} ${unitForm(GROSZE, grosze, genitive)}`].filter(Boolean).join(' i ')
+        return [+zloty ? `${numberWords(+zloty, genitive)} ${unitForm(forms, +zloty, genitive)}` : '', `${numberWords(grosze, genitive)} ${unitForm(GROSZE, grosze, genitive)}`].filter(Boolean).join(' i ')
       }
       const parts = inRange ? undefined : splitUnits(digits, unit)
       if (parts) {
-        const said = parts.map(([n, u]) => (u ? `${n} ${unitForm(UNITS[u], n, genitive)}` : `${n}`)).join(' ')
+        // a number with a unit is in words; the last one with no unit only when it does not show a gender ("dwie osoby")
+        const said = parts.map(([n, u]) => {
+          const words = u || !hasGender(n) || (currency && MASCULINE_CURRENCY.has(currency)) ? numberWords(n, genitive) : String(n)
+          return u ? `${words} ${unitForm(UNITS[u], n, genitive)}` : words
+        }).join(' ')
         const [last, lastUnit] = parts[parts.length - 1]
         const money = currency ? ` ${lastUnit ? OF_CURRENCY[currency] : unitForm(UNITS[currency], last, genitive)}` : ''
         return `${said}${barrels ? ' baryłek' : ''}${money}${end ? '.' : ''}`
       }
       const word = digits.includes(',') ? forms[3] : unitForm(forms, +digits, genitive)
-      return `${num} ${word}${barrels ? ' baryłek' : ''}${currency ? ` ${OF_CURRENCY[currency]}` : ''}${end ? '.' : ''}`
+      // "10 mln 600 tys. zł": the numbers of such a chain are in words too, when the noun is masculine or the number shows no gender
+      const spoken = (chain || CHAIN_AFTER.test(rest)) && /^\d+$/.test(digits) && (unit in NEXT_UNIT || MASCULINE_CURRENCY.has(unit) || !hasGender(+digits)) ? numberWords(+digits, genitive) : num
+      return `${spoken} ${word}${barrels ? ' baryłek' : ''}${currency ? ` ${OF_CURRENCY[currency]}` : ''}${end ? '.' : ''}`
     })
     // "700 tys. mkw. magazynów" -> "700 tysięcy metrów kwadratowych magazynów": the dot ends the abbreviation, not the sentence
     .replace(/(tysiąc|tysiące|tysięcy|tysiąca|milion|miliony|milionów|miliona|miliard|miliardy|miliardów|miliarda|bilion|biliony|bilionów|biliona)(\s+)(?:m\s?kw|mkw)(\.?)(?![\p{L}\d])/gu,
@@ -206,6 +233,10 @@ const CARD_ONES = ['', 'jeden', 'dwa', 'trzy', 'cztery', 'pięć', 'sześć', 's
 const CARD_TEENS = ['dziesięć', 'jedenaście', 'dwanaście', 'trzynaście', 'czternaście', 'piętnaście', 'szesnaście', 'siedemnaście', 'osiemnaście', 'dziewiętnaście']
 const CARD_TENS = ['', '', 'dwadzieścia', 'trzydzieści', 'czterdzieści', 'pięćdziesiąt', 'sześćdziesiąt', 'siedemdziesiąt', 'osiemdziesiąt', 'dziewięćdziesiąt']
 const CARD_HUNDREDS = ['', 'sto', 'dwieście', 'trzysta', 'czterysta', 'pięćset', 'sześćset', 'siedemset', 'osiemset', 'dziewięćset']
+const GEN_ONES = ['', 'jednego', 'dwóch', 'trzech', 'czterech', 'pięciu', 'sześciu', 'siedmiu', 'ośmiu', 'dziewięciu']
+const GEN_TEENS = ['dziesięciu', 'jedenastu', 'dwunastu', 'trzynastu', 'czternastu', 'piętnastu', 'szesnastu', 'siedemnastu', 'osiemnastu', 'dziewiętnastu']
+const GEN_TENS = ['', '', 'dwudziestu', 'trzydziestu', 'czterdziestu', 'pięćdziesięciu', 'sześćdziesięciu', 'siedemdziesięciu', 'osiemdziesięciu', 'dziewięćdziesięciu']
+const GEN_HUNDREDS = ['', 'stu', 'dwustu', 'trzystu', 'czterystu', 'pięciuset', 'sześciuset', 'siedmiuset', 'ośmiuset', 'dziewięciuset']
 // 48 -> "czterdzieści osiem", 305 -> "trzysta pięć" (up to 999)
 function cardinal(n: number): string {
   const r = n % 100
