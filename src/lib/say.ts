@@ -364,12 +364,23 @@ export function sayArticles(text: string): string {
     const before = all.slice(0, at)
     // "Art. 7 ust. 1 …" at the start of a sentence: nominative, with a capital
     const start = m[0] === 'A' && (!before.trim() || /[.!?:;]\s*$/.test(before))
-    const k: Kase = start ? 'nom' : /(?:^|\s)(?:zgodnie|w związku|wraz|stosownie)\s+z\s*$/u.test(before) ? 'inst' : caseAfter(before)
+    const k: Kase = start ? 'nom' : /(?:^|\s)(?:zgodnie|w związku|wraz|stosownie)\s+z\s*$/iu.test(before) ? 'inst' : caseAfter(before)
     const n = +num
     const said = n >= 1 && n < 200 ? `${ARTYKUL[k]} ${ordinalUpTo199(n, k)}` : `${ARTYKUL[k]} ${num}`
     return start ? said[0].toLocaleUpperCase('pl') + said.slice(1) : said
   })
 }
+
+// "ust. 1", "pkt 2", "ust. 1 i 4": the paragraph and the point are said as the ordinals they are, in the nominative as the abbreviations are
+// ("w trybie artykułu dziewiętnastego ustęp pierwszy rozporządzenia MAR"). Left as digits after "artykułu dziewiętnastego" a voice declines them too
+// and says "ustępu pierwszego". A range ("ust. 1-3") stays.
+const PARAGRAPH = /(?<![\p{L}\d])(ust\.|ustęp|pkt\.?|punkt)\s*(\d{1,3}[a-z]?(?:(?:,\s+|\s+(?:i|oraz|lub|albo)\s+)\d{1,3}[a-z]?)*)(?![\p{L}\d]|[-–]\d)/giu
+export const sayParagraphs = (text: string) =>
+  text.replace(PARAGRAPH, (m: string, word: string, list: string) => {
+    const noun = /^u/i.test(word) ? 'ustęp' : 'punkt'
+    const said = list.replace(/(\d{1,3})([a-z]?)/g, (_, n: string, letter: string) => (+n >= 1 && +n < 200 ? ordinalUpTo199(+n, 'nom') : n) + (letter ? ` ${letter}` : ''))
+    return `${word[0] === word[0].toLocaleUpperCase('pl') ? noun[0].toLocaleUpperCase('pl') + noun.slice(1) : noun} ${said}`
+  })
 
 // "XXI" -> 21, up to 39; anything else NaN
 const ROMAN_DIGIT: Record<string, number> = { I: 1, V: 5, X: 10 }
@@ -1042,7 +1053,7 @@ export const sayPausedParts = (text: string): string[] => markPauses(text).split
 // ── All of it ──
 
 function sayMarked(text: string): string {
-  let t = sayArticles(sayRoman(sayMonths(sayDayRanges(sayCountRanges(sayMonthDays(sayYearRanges(sayYears(sayQuarters(sayCompounds(sayIssueNumbers(sayAddresses(text))))))))))))
+  let t = sayParagraphs(sayArticles(sayRoman(sayMonths(sayDayRanges(sayCountRanges(sayMonthDays(sayYearRanges(sayYears(sayQuarters(sayCompounds(sayIssueNumbers(sayAddresses(text)))))))))))))
   t = sayTerritories(sayHours(sayDirections(sayInstitutions(t))))
   for (const [re, said] of WORDS) t = t.replace(re, said)
   t = saySpelled(sayAsWords(sayEnglish(sayProperNames(sayMarkets(sayBrokers(t))))))
