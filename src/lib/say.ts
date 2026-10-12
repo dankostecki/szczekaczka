@@ -405,6 +405,10 @@ const WORDS: [RegExp, string][] = [
   [/(?<!\p{L})r\/r(?!\p{L})/gu, 'rok do roku'],
   [/(?<!\p{L})m\/m(?!\p{L})/gu, 'miesiąc do miesiąca'],
   [/(?<!\p{L})k\/k(?!\p{L})/gu, 'kwartał do kwartału'],
+  // the same written as one word ("wzrósł o 5 proc. rdr"); lower case only, a capitalised one is a name or a title
+  [/(?<![\p{L}\d])rdr(?![\p{L}\d])/gu, 'rok do roku'],
+  [/(?<![\p{L}\d])mdm(?![\p{L}\d])/gu, 'miesiąc do miesiąca'],
+  [/(?<![\p{L}\d])kdk(?![\p{L}\d])/gu, 'kwartał do kwartału'],
   [/(?<!\p{L})NewConnect(?!\p{L})/gu, 'New Connect'],
   [/(?<!\p{L})ust\.(?=\s*\d)/gu, 'ustęp'],
   [/(?<!\p{L})pkt\.?(?=\s*\d)/gu, 'punkt'],
