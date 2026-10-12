@@ -146,6 +146,8 @@ function splitUnits(num: string, unit: string): [number, string | null][] | unde
 export function sayNumbers(text: string): string {
   return text
     .replace(/(^|[\s(])-(?=\d)/g, '$1minus ')
+    // "71,0 proc.", "4,00%", "5,0 mld zł": a decimal that is only zeros is the whole number
+    .replace(/(?<![\d,.])(\d+),0+(?=\s?%(?![\p{L}\d])|\s*(?:tys\.|godz\.|pkt\s?proc\.|p\.\s?p\.|proc\.|(?:mln|mld|bln|pkt|pb|zł|USD|EUR|CHF|GBP)(?![\p{L}\d])))/gu, '$1')
     .replace(UNIT, (m: string, num: string, written: string, barrels: string | undefined, currency: string | undefined, at: number, all: string) => {
       const unit = /^p\.\s?p\.$|^pkt\.?\s?proc\.?$/.test(written) ? 'pkt proc.' : written === 'pkt.' ? 'pkt' : written.replace(/\s+/g, ' ')
       const forms = UNITS[unit]
@@ -210,7 +212,7 @@ export const sayAddresses = (text: string) =>
 
 // "Raport bieżący nr 20/2024" -> "Raport bieżący numer 20 przez 2024", the numbers after it in a list the same ("nr 5/2025 i 6/2025"
 // -> "numer 5 przez 2025 i 6 przez 2025"). With more after the second number ("nr 3/2024/05") it stays as written.
-const ISSUE = /(?<![\p{L}\d])(nr|numer)\.?\s*(\d{1,4})\/((?:19|20)\d{2}|\d{2})(?![\d\/])/giu
+const ISSUE = /(?<![\p{L}\d])(nr|numer)\.?\s*(\d{1,4})\/((?:19|20)\d{2}|\d{2})(?![\d\/]|-\d)/giu
 const ISSUE_NEXT = /(przez (?:\d{2}|\d{4}))((?:,\s*|\s+(?:i|oraz|lub|albo)\s+))(\d{1,4})\/((?:19|20)\d{2}|\d{2})(?![\d\/])/gu
 export function sayIssueNumbers(text: string): string {
   let t = text.replace(ISSUE, (m, word: string, n: string, year: string) => `${/^[A-Z]/.test(word) ? 'Numer' : 'numer'} ${n} przez ${year}`)
@@ -360,12 +362,31 @@ const MONTH_END = String.raw`(?![\p{L}\d]|[.,]\d)`
 const MONTH_ONE = new RegExp(String.raw`(?<![\p{L}\d.,-])(${Object.keys(MONTH_CASE).join('|')})(\s+)(${MONTH_NUM})(?![-–])${MONTH_END}`, 'giu')
 const MONTH_RANGE = new RegExp(String.raw`(?<![\p{L}\d.,-])(w\s+okresie|za\s+okres|okresie|okres|w|za)(\s+)(${MONTH_NUM})\s*[-–]\s*(${MONTH_NUM})${MONTH_END}`, 'giu')
 const MONTH_FROM_TO = new RegExp(String.raw`(?<![\p{L}\d.,-])(od)(\s+)(${MONTH_NUM})(\s+do\s+)(${MONTH_NUM})${MONTH_END}`, 'giu')
-// A numeral that goes with the next word is not a month: "po II wojnie", "w III RP", "w II kw.", "po V Symfonii"
+// A numeral that goes with the next word is not a month: "po II wojnie", "w III RP", "w II kw.", "po V Symfonii", "w II wariancie". With a
+// verb, a conjunction, a number or nothing after it, it is: "po VIII wyniosły", "do VII spadły", "w VIII br.", "po VIII wydatki wzrosły"
+const ORDINAL_NOUNS = new Set(['symfonii', 'sonacie', 'sztuce', 'seansie', 'odcinku', 'szczeblu', 'stopniu', 'serialu', 'liceum', 'gimnazjum'])
 const monthStays = (rest: string) => {
   const next = rest.match(/^\s+(\p{L}[\p{L}.]*)/u)?.[1]
   if (!next) return false
   const word = next.replace(/\.$/, '').toLocaleLowerCase('pl')
-  return /^\p{Lu}/u.test(next) || NUMBERED.test(word) || /^(?:kw|półr|w|rp)$/.test(word)
+  return /^\p{Lu}/u.test(next) || NUMBERED.test(word) || /^(?:kw|półr|rp)$/.test(word) || next === 'w.' || ORDINAL_NOUNS.has(word) || MASC_LOC_E.has(word)
+}
+
+// A day and its month in Roman numerals: "do 11 X" -> "do 11 października", "od 1 I do 31 XII" -> "od 1 stycznia do 31 grudnia", "11 X 2026 r." -> "11
+// października …". With no year after it, only after a word that goes with a date (do, od, z, na, po, w, dnia…); a lone "V" ("5 V" is five
+// volts) only before a year.
+const DATE_WORD = /(?:^|\s)(?:do|od|z|ze|na|po|przed|w|we|dnia|dniu|wg|według|stan|za|dzień|dzień)\s+$/iu
+const YEAR_AFTER_MONTH = /^\s*(?:r\.|roku|rok|'\d\d|(?:19|20)\d{2}|dwa tysiące|tysiąc dziewięćset)/u
+const MONTH_DAY = new RegExp(String.raw`(?<![\p{L}\d.,/:-])(\d{1,2})(\s+)(${MONTH_NUM})(?![\p{L}\d-]|[.,]\d)`, 'gu')
+export function sayMonthDays(text: string): string {
+  return text.replace(MONTH_DAY, (m: string, day: string, space: string, num: string, at: number, all: string) => {
+    if (+day < 1 || +day > 31) return m
+    const year = YEAR_AFTER_MONTH.test(all.slice(at + m.length))
+    if (!year && (!DATE_WORD.test(all.slice(0, at)) || num === 'V')) return m
+    const next = all.slice(at + m.length).match(/^\s+(\p{L}[\p{L}.]*)/u)?.[1]?.replace(/\.$/, '').toLocaleLowerCase('pl')
+    if (next && (NUMBERED.test(next) || /^(?:kw|półr|rp)$/.test(next))) return m
+    return `${day} ${MONTH_NAMES.gen[roman(num) - 1]}`
+  })
 }
 
 // "po VIII wyniosły" -> "po sierpniu wyniosły", "do VII" -> "do lipca", "na koniec IX" -> "na koniec września", "od I do VIII" ->
@@ -388,6 +409,26 @@ export function sayMonths(text: string): string {
     })
 }
 
+// ── Years: a range, "2021-27" ──
+
+// A year as a number, not as the ordinal of "w 2026 r.": 2027 -> "dwa tysiące dwadzieścia siedem"
+const yearCardinal = (y: number) => (y >= 2000 ? ['dwa tysiące', y > 2000 ? cardinal(y - 2000) : ''] : ['tysiąc', cardinal(y - 1000)]).filter(Boolean).join(' ')
+// What a range of years follows when it is a plan or a perspective: "perspektywy UE 2021-27" -> "perspektywy Unii Europejskiej na lata …"
+const PLAN_WORD = /^(?:perspektyw|budżet|program|strategi|plan|fundusz|środk|dofinansowan|KPO|FENIKS)/iu
+const YEAR_RANGE = /(?<![\d.,/:-])((?:19|20)\d{2})[-–]((?:19|20)\d{2}|\d{2})(?![\d.,/:-]\d|[\d/:-])/gu
+// "2021-2027" and "2021-27" -> the two years in words, "dwa tysiące dwadzieścia jeden, dwa tysiące dwadzieścia siedem" (a comma between them, or
+// "2020-2022" would run together as one number); after a plan, perspective or budget with "na lata" in front of them. Not with spaces ("2020 - 2022"), a date ("2026-10-09") or a number of a document.
+export function sayYearRanges(text: string): string {
+  return text.replace(YEAR_RANGE, (m: string, from: string, to: string, at: number, all: string) => {
+    const a = +from, b = to.length === 2 ? Math.floor(a / 100) * 100 + +to : +to
+    if (b <= a || b > 2100) return m
+    const before = all.slice(0, at)
+    const words = before.match(/(?:\p{L}+\s+){0,4}$/u)?.[0].trim().split(/\s+/) ?? []
+    const lead = words.length && /^(?:lat|lata|latach|latami|okresie|okres|roku|rok)$/iu.test(words.at(-1)!) ? '' : words.some((w) => PLAN_WORD.test(w)) && !/\b(?:w|we|za|do|od|z|po)\s*$/iu.test(before) ? 'na lata ' : ''
+    return `${lead}${yearCardinal(a)}, ${yearCardinal(b)}`
+  })
+}
+
 // ── Roman numerals: "przed niedzielną II turą" -> "przed niedzielną drugą turą" ──
 
 // The ordinal takes the form of the word it goes with: from that word's ending, and the preposition
@@ -403,7 +444,7 @@ const MASC_LOC_E = new Set(['etapie', 'filarze', 'sezonie', 'programie', 'okresi
   'wariancie', 'sektorze', 'rzędzie', 'rządzie', 'kongresie', 'zjeździe', 'terminie', 'poziomie', 'piętrze', 'składzie', 'świecie',
   'semestrze', 'rozbiorze', 'oddziale', 'secie', 'obwodzie', 'zespole', 'konkursie', 'finale', 'półfinale', 'ćwierćfinale', 'kanale', 'dziale'])
 // Words numbered this way; a numeral before one of them goes with it
-const NUMBERED = /^(?:lig|tur|wojn|miejsc|etap|faz|rund|instancj|stop[ni]|kadencj|sesj|edycj|transz|emisj|seri|częś|czytani|rat[aąęy]|klas|kategori|grup|filar|sektor|sezon|kongres|zjazd|zjeźdz|wiek|połow|generacj|wersj|poziom|rozdział|tom|dywizj|pułk|piętr|rzęd|rząd|rok|dzie[ńn]|dni|tydzie|tygod|lice|kwart|mecz|set|odsłon|akt|rozbi|pokoleni|świat|rzeczpospolit|rzeczypospolit)/u
+const NUMBERED = /^(?:lig|lidz|tur|wojn|miejsc|etap|faz|rund|instancj|stop[ni]|kadencj|sesj|edycj|transz|emisj|seri|częś|czytani|rat[aąęy]|klas|kategori|grup|filar|sektor|sezon|kongres|zjazd|zjeźdz|wiek|połow|generacj|wersj|poziom|rozdział|tom|dywizj|pułk|piętr|rzęd|rząd|rok|dzie[ńn]|dni|tydzie|tygod|lice|kwart|mecz|set|odsłon|akt|rozbi|pokoleni|świat|rzeczpospolit|rzeczypospolit)/u
 // Words a numeral may follow: "etap II", "w części III"
 const AFTER = /^(?:etap|faz|częś|seri|tom|rozdział|edycj|transz|emisj|klas|kategori|grup|wersj|kadencj|sesj|rund|sekcj|sektor|poziom|wariant|generacj|pakiet|filar|zjazd|kongres|dywizj)/iu
 // Kings, queens and popes: "Leon XIV", "Karola III", "Elżbiety II"
@@ -511,7 +552,8 @@ const WORDS: [RegExp, string][] = [
 // "UE-owski" and "post-UE" stay as they are. The ministries and offices too: "Rzeczniczka MSWiA" -> "Rzeczniczka
 // Ministerstwa Spraw Wewnętrznych i Administracji", "szefa MON" -> "szefa Ministerstwa Obrony Narodowej", "MF" is the
 // Ministerstwo Finansów, "UKE" is the Urząd Komunikacji Elektronicznej and "UOKiK" the Urząd Ochrony Konkurencji i
-// Konsumentów, "RN" the rada nadzorcza ("uchwała RN" -> "uchwała Rady nadzorczej").
+// Konsumentów, "RN" the rada nadzorcza ("uchwała RN" -> "uchwała Rady nadzorczej"). More ministries: MFiPR (Funduszy i Polityki
+// Regionalnej), MRPiPS (Rodziny i Polityki Społecznej), MSZ, MRiRW, MKiDN, MKiŚ, MSiT, MRiT, MNiSW.
 type InstCase = 'nom' | 'gen' | 'dat' | 'acc' | 'inst' | 'loc'
 const MEETING: Record<InstCase, string> = { nom: 'walne zgromadzenie', gen: 'walnego zgromadzenia', dat: 'walnemu zgromadzeniu', acc: 'walne zgromadzenie', inst: 'walnym zgromadzeniem', loc: 'walnym zgromadzeniu' }
 const MEETING_ENDING: Record<InstCase, string> = { nom: 'e', gen: 'ego', dat: 'emu', acc: 'e', inst: 'ym', loc: 'ym' }
@@ -526,6 +568,15 @@ const OFFICE: Record<InstCase, string> = { nom: 'Urząd', gen: 'Urzędu', dat: '
 const named = (head: Record<InstCase, string>, name: string) =>
   Object.fromEntries(Object.entries(head).map(([kase, word]) => [kase, `${word} ${name}`])) as Record<InstCase, string>
 INSTITUTIONS.RN = { nom: 'Rada nadzorcza', gen: 'Rady nadzorczej', dat: 'Radzie nadzorczej', acc: 'Radę nadzorczą', inst: 'Radą nadzorczą', loc: 'Radzie nadzorczej' }
+INSTITUTIONS.MFiPR = named(MINISTRY, 'Funduszy i Polityki Regionalnej')
+INSTITUTIONS.MRPiPS = named(MINISTRY, 'Rodziny i Polityki Społecznej')
+INSTITUTIONS.MSZ = named(MINISTRY, 'Spraw Zagranicznych')
+INSTITUTIONS.MRiRW = named(MINISTRY, 'Rolnictwa i Rozwoju Wsi')
+INSTITUTIONS.MKiDN = named(MINISTRY, 'Kultury i Dziedzictwa Narodowego')
+INSTITUTIONS.MKiŚ = named(MINISTRY, 'Klimatu i Środowiska')
+INSTITUTIONS.MSiT = named(MINISTRY, 'Sportu i Turystyki')
+INSTITUTIONS.MRiT = named(MINISTRY, 'Rozwoju i Technologii')
+INSTITUTIONS.MNiSW = named(MINISTRY, 'Nauki i Szkolnictwa Wyższego')
 INSTITUTIONS.MSWiA = named(MINISTRY, 'Spraw Wewnętrznych i Administracji')
 INSTITUTIONS.MON = named(MINISTRY, 'Obrony Narodowej')
 INSTITUTIONS.MF = named(MINISTRY, 'Finansów')
@@ -797,7 +848,7 @@ export const sayPausedParts = (text: string): string[] => markPauses(text).split
 // ── All of it ──
 
 function sayMarked(text: string): string {
-  let t = sayArticles(sayRoman(sayMonths(sayYears(sayQuarters(sayCompounds(sayIssueNumbers(sayAddresses(text))))))))
+  let t = sayArticles(sayRoman(sayMonths(sayMonthDays(sayYearRanges(sayYears(sayQuarters(sayCompounds(sayIssueNumbers(sayAddresses(text))))))))))
   t = sayTerritories(sayHours(sayDirections(sayInstitutions(t))))
   for (const [re, said] of WORDS) t = t.replace(re, said)
   t = saySpelled(sayAsWords(sayEnglish(sayMarkets(sayBrokers(t)))))
