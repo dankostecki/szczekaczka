@@ -58,8 +58,9 @@ export function renamedItem<T extends { id: string; source: string; label: strin
 }
 
 const FEED_LANG = new Map(FEEDS.map((f) => [feedKey(f.source, f.label), f.lang ?? 'pl']))
-// Whether any channel is in English (the settings then offer an English voice)
-export const HAS_ENGLISH = FEEDS.some((f) => f.lang === 'en')
+// Whether any news may be in English (the settings then offer an English voice): a channel of its own, or a press release in
+// a Polish one (lang.ts, itemLang)
+export const HAS_ENGLISH = true
 export const langOf = (source: string, label: string): Lang => FEED_LANG.get(feedKey(source, label)) ?? 'pl'
 
 export const labelsOf = (source: Source) => FEEDS.filter((f) => f.source === source).map((f) => f.label)

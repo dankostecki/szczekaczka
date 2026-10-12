@@ -791,6 +791,8 @@ const markPauses = (text: string) =>
     // a semicolon keeps its place in the text and gets the same pause
     .replace(/;(\s+|$)/g, (m, space: string) => `;${PAUSE_MARK}${space}`)
 export const sayPauses = (text: string) => markPauses(text).split(PAUSE_MARK).join('')
+// Only the pauses, none of the rules above: for a text in English, which the rules of Polish would turn into Polish
+export const sayPausedParts = (text: string): string[] => markPauses(text).split(PAUSE_MARK).map((s) => s.trim()).filter(Boolean)
 
 // ── All of it ──
 

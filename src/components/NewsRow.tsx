@@ -2,7 +2,7 @@
 
 import { memo } from 'react'
 import { type Item, tagOf, clock, ago, fullDate } from '@/lib/news'
-import { langOf } from '@/lib/sources'
+import { itemLang } from '@/lib/lang'
 import { Star, Speaker } from './Icons'
 
 interface Props {
@@ -20,7 +20,7 @@ interface Props {
 
 function NewsRow({ item, now, read, saved, fresh, watched, onRead, onSave, onSpeak, speaking = false }: Props) {
   const since = ago(item.time, now)
-  const lang = langOf(item.source, item.label)
+  const lang = itemLang(item)
 
   return (
     <article className={`row${read ? ' read' : ''}${fresh ? ' fresh' : ''}${watched ? ' watched' : ''}${speaking ? ' speaking' : ''}`}
