@@ -123,16 +123,41 @@ const PERCENT_ADJECTIVE: Record<string, string> = {
 // Whether the dot of an abbreviation also ended the sentence: at the very end, or before a capital letter ("8 tys. Stopa…")
 const endsSentence = (rest: string) => /^\s*($|\p{Lu})/u.test(rest)
 
+// The unit below a big one: "5,483 mld" is 5 miliardów and 483 milionów, "1,234 mln" 1 milion and 234 tysiące; below a thousand
+// there is the plain number ("5,483 tys." is "5 tysięcy 483"), null here, and nothing below that
+const NEXT_UNIT: Record<string, string | null> = { 'bln': 'mld', 'mld': 'mln', 'mln': 'tys.', 'tys.': null }
+// What a number written with three decimals (or six) says: the whole part in the unit, then each group of three digits in the
+// unit below, as pairs of an amount and its unit (null: the plain number); undefined when it is not written that way
+function splitUnits(num: string, unit: string): [number, string | null][] | undefined {
+  const [whole, fraction] = num.split(',')
+  if (!fraction || !/^(?:\d{3}){1,2}$/.test(fraction) || !(unit in NEXT_UNIT)) return undefined
+  const parts: [number, string | null][] = whole && +whole ? [[+whole, unit]] : []
+  let below: string | null | undefined = NEXT_UNIT[unit]
+  for (const group of fraction.match(/\d{3}/g)!) {
+    if (below === undefined) return undefined
+    if (+group) parts.push([+group, below])
+    below = below === null ? undefined : NEXT_UNIT[below]
+  }
+  return parts.length ? parts : undefined
+}
+
 // "-41,7 tys." -> "minus 41,7 tysiąca", "-2,1 mln brk" -> "minus 2,1 miliona baryłek", "5 mln zł" -> "5 milionów złotych",
-// "13 pkt. proc." -> "13 punktów procentowych" (but "13 proc." -> "13 procent")
+// "5,483 mld zł" -> "5 miliardów 483 miliony złotych", "13 pkt. proc." -> "13 punktów procentowych" (but "13 proc." -> "13 procent")
 export function sayNumbers(text: string): string {
   return text
     .replace(/(^|[\s(])-(?=\d)/g, '$1minus ')
     .replace(UNIT, (m: string, num: string, written: string, barrels: string | undefined, currency: string | undefined, at: number, all: string) => {
       const unit = /^p\.\s?p\.$|^pkt\.?\s?proc\.?$/.test(written) ? 'pkt proc.' : written === 'pkt.' ? 'pkt' : written.replace(/\s+/g, ' ')
       const forms = UNITS[unit]
-      const word = num.includes(',') ? forms[3] : plural(+num, forms[0], forms[1], forms[2])
       const end = !currency && !barrels && written.endsWith('.') && endsSentence(all.slice(at + m.length))
+      const parts = splitUnits(num, unit)
+      if (parts) {
+        const said = parts.map(([n, u]) => (u ? `${n} ${plural(n, ...(UNITS[u].slice(0, 3) as [string, string, string]))}` : `${n}`)).join(' ')
+        const [last, lastUnit] = parts[parts.length - 1]
+        const money = currency ? ` ${lastUnit ? OF_CURRENCY[currency] : plural(last, ...(UNITS[currency].slice(0, 3) as [string, string, string]))}` : ''
+        return `${said}${barrels ? ' baryłek' : ''}${money}${end ? '.' : ''}`
+      }
+      const word = num.includes(',') ? forms[3] : plural(+num, forms[0], forms[1], forms[2])
       return `${num} ${word}${barrels ? ' baryłek' : ''}${currency ? ` ${OF_CURRENCY[currency]}` : ''}${end ? '.' : ''}`
     })
     .replace(POINT_PERCENT, (m: string, noun: string, at: number, all: string) =>
