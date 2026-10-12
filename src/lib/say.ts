@@ -113,7 +113,7 @@ const UNITS: Record<string, [string, string, string, string]> = { // one, 2–4,
 const OF_CURRENCY: Record<string, string> = { 'zł': 'złotych', 'USD': 'dolarów', 'EUR': 'euro', 'CHF': 'franków', 'GBP': 'funtów' }
 // "pkt proc.", "pkt. proc." (a dot after "pkt" too, and none at the end) and "p.p." are the percentage points; "pkt. procentowych"
 // has the dot of "pkt." to drop
-const UNIT = /(\d+(?:,\d+)?)\s*(tys\.|godz\.|pkt\.?\s?proc(?:\.|(?!\p{L}))|p\.\s?p\.|proc\.|pkt\.(?=\s+procentow)|(?:m\s?kw|mkw)\.?(?!\p{L})|m²|m2(?![\p{L}\d])|(?:mln|mld|bln|pkt|pb|zł|USD|EUR|CHF|GBP)(?!\p{L}))(\s+brk(?!\p{L}))?(?:\s+(zł|USD|EUR|CHF|GBP)(?!\p{L}))?/gu
+const UNIT = /(?<!\d)(\d{1,3}(?:[ \u00a0]\d{3})+(?:,\d+)?|\d+(?:,\d+)?)\s*(tys\.|godz\.|pkt\.?\s?proc(?:\.|(?!\p{L}))|p\.\s?p\.|proc\.|pkt\.(?=\s+procentow)|(?:m\s?kw|mkw)\.?(?!\p{L})|m²|m2(?![\p{L}\d])|(?:mln|mld|bln|pkt|pb|zł|USD|EUR|CHF|GBP)(?!\p{L}))(\s+brk(?!\p{L}))?(?:\s+(zł|USD|EUR|CHF|GBP)(?!\p{L}))?/gu
 // "punktów proc." (the word is written out, only the "proc." is short) is "punktów procentowych", in the case of the noun
 const POINT_PERCENT = /(?<!\p{L})(punkt(?:ów|y|u|em|ach|om|ami|owi)?|punkcie)\s+proc\./giu
 const PERCENT_ADJECTIVE: Record<string, string> = {
@@ -127,20 +127,29 @@ const endsSentence = (rest: string) => /^\s*($|\p{Lu})/u.test(rest)
 // The unit below a big one: "5,483 mld" is 5 miliardów and 483 milionów, "1,234 mln" 1 milion and 234 tysiące; below a thousand
 // there is the plain number ("5,483 tys." is "5 tysięcy 483"), null here, and nothing below that
 const NEXT_UNIT: Record<string, string | null> = { 'bln': 'mld', 'mld': 'mln', 'mln': 'tys.', 'tys.': null }
-// What a number written with three decimals (or six) says: the whole part in the unit, then each group of three digits in the
-// unit below, as pairs of an amount and its unit (null: the plain number); undefined when it is not written that way
+// What a number written with decimals says: the whole part in the unit, then each group of three digits in the unit below, as
+// pairs of an amount and its unit (null: the plain number). One or two decimals are the first group not filled up: "19,78 mln" is
+// 19 milionów 780 tysięcy, "7,01 tys." 7 tysięcy 10, "6,1 tys." 6 tysięcy 100. Undefined when it is not written that way
 function splitUnits(num: string, unit: string): [number, string | null][] | undefined {
-  const [whole, fraction] = num.split(',')
-  if (!fraction || !/^(?:\d{3}){1,2}$/.test(fraction) || !(unit in NEXT_UNIT)) return undefined
+  const [whole, fraction] = num.replace(/[\s\u00a0]/g, '').split(',')
+  if (!fraction || fraction.length > 6 || !(unit in NEXT_UNIT)) return undefined
   const parts: [number, string | null][] = whole && +whole ? [[+whole, unit]] : []
   let below: string | null | undefined = NEXT_UNIT[unit]
-  for (const group of fraction.match(/\d{3}/g)!) {
+  for (const group of fraction.padEnd(fraction.length > 3 ? 6 : 3, '0').match(/\d{3}/g)!) {
     if (below === undefined) return undefined
     if (+group) parts.push([+group, below])
     below = below === null ? undefined : NEXT_UNIT[below]
   }
   return parts.length ? parts : undefined
 }
+
+// Prepositions that ask for the genitive, with the words that only give a size in between ("do około 2 mld zł"): after them the unit is
+// "do 2 miliardów złotych", "od 2 złotych", not "2 miliardy"
+const GENITIVE_BEFORE = /(?:^|[\s(„"])(?:do|od|z|ze|bez|dla|u|wokół|obok|według|wg|spośród|wobec|powyżej|poniżej|zamiast|oprócz|wśród|sprzed|spod)\s+(?:(?:około|ok\.|blisko|prawie|niemal|ponad|nawet|aż|zaledwie|ledwie|przynajmniej)\s+)*$/iu
+// The word after a number: the nominative by the number ("2 miliony", "5 milionów"), the genitive for "do 2 milionów", "do 1 miliona"
+const unitForm = (forms: readonly string[], n: number, genitive: boolean) =>
+  genitive ? (n === 1 ? forms[3] : forms[2]) : plural(n, forms[0], forms[1], forms[2])
+const GROSZE = ['grosz', 'grosze', 'groszy', 'grosza']
 
 // What a price is "per": "zł/l" is "złotych za litr"
 const PER_UNIT: Record<string, string> = { l: 'litr', kg: 'kilogram', t: 'tonę', szt: 'sztukę', bbl: 'baryłkę', MWh: 'megawatogodzinę', kWh: 'kilowatogodzinę',
@@ -160,21 +169,25 @@ export function sayNumbers(text: string): string {
     .replace(UNIT, (m: string, num: string, written: string, barrels: string | undefined, currency: string | undefined, at: number, all: string) => {
       const unit = /^p\.\s?p\.$|^pkt\.?\s?proc\.?$/.test(written) ? 'pkt proc.' : written === 'pkt.' ? 'pkt' : /^(?:m\s?kw\.?|m²|m2)$/.test(written) ? 'mkw' : written.replace(/\s+/g, ' ')
       const forms = UNITS[unit]
+      const digits = num.replace(/[\s\u00a0]/g, '')
+      const genitive = GENITIVE_BEFORE.test(all.slice(Math.max(0, at - 60), at))
+      // "2,5-3,5 mln zł": the first number of a range has no unit of its own, so the second keeps the fraction, as the first has it
+      const inRange = /\d[-–]$/.test(all.slice(Math.max(0, at - 2), at))
       const end = !currency && !barrels && written.endsWith('.') && endsSentence(all.slice(at + m.length))
       // "7,06 zł" -> "7 złotych i 6 groszy", "0,45 zł" -> "45 groszy", "2,5 zł" -> "2 złote i 50 groszy": one or two decimals are groszy
-      if (unit === 'zł' && !currency && !barrels && /^\d+,\d{1,2}$/.test(num)) {
-        const [zloty, fraction] = num.split(',')
+      if (unit === 'zł' && !currency && !barrels && !inRange && /^\d+,\d{1,2}$/.test(digits)) {
+        const [zloty, fraction] = digits.split(',')
         const grosze = +fraction.padEnd(2, '0')
-        return [+zloty ? `${+zloty} ${plural(+zloty, 'złoty', 'złote', 'złotych')}` : '', `${grosze} ${plural(grosze, 'grosz', 'grosze', 'groszy')}`].filter(Boolean).join(' i ')
+        return [+zloty ? `${+zloty} ${unitForm(forms, +zloty, genitive)}` : '', `${grosze} ${unitForm(GROSZE, grosze, genitive)}`].filter(Boolean).join(' i ')
       }
-      const parts = splitUnits(num, unit)
+      const parts = inRange ? undefined : splitUnits(digits, unit)
       if (parts) {
-        const said = parts.map(([n, u]) => (u ? `${n} ${plural(n, ...(UNITS[u].slice(0, 3) as [string, string, string]))}` : `${n}`)).join(' ')
+        const said = parts.map(([n, u]) => (u ? `${n} ${unitForm(UNITS[u], n, genitive)}` : `${n}`)).join(' ')
         const [last, lastUnit] = parts[parts.length - 1]
-        const money = currency ? ` ${lastUnit ? OF_CURRENCY[currency] : plural(last, ...(UNITS[currency].slice(0, 3) as [string, string, string]))}` : ''
+        const money = currency ? ` ${lastUnit ? OF_CURRENCY[currency] : unitForm(UNITS[currency], last, genitive)}` : ''
         return `${said}${barrels ? ' baryłek' : ''}${money}${end ? '.' : ''}`
       }
-      const word = num.includes(',') ? forms[3] : plural(+num, forms[0], forms[1], forms[2])
+      const word = digits.includes(',') ? forms[3] : unitForm(forms, +digits, genitive)
       return `${num} ${word}${barrels ? ' baryłek' : ''}${currency ? ` ${OF_CURRENCY[currency]}` : ''}${end ? '.' : ''}`
     })
     // "700 tys. mkw. magazynów" -> "700 tysięcy metrów kwadratowych magazynów": the dot ends the abbreviation, not the sentence
