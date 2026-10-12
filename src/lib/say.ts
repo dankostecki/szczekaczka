@@ -206,6 +206,18 @@ export const sayAddresses = (text: string) =>
     return `${head}${one(num, letter)}${num2 ? ` łamane przez ${one(num2, letter2)}` : ''}`
   })
 
+// ── "nr 20/2024": a number of a document, not a fraction ──
+
+// "Raport bieżący nr 20/2024" -> "Raport bieżący numer 20 przez 2024", the numbers after it in a list the same ("nr 5/2025 i 6/2025"
+// -> "numer 5 przez 2025 i 6 przez 2025"). With more after the second number ("nr 3/2024/05") it stays as written.
+const ISSUE = /(?<![\p{L}\d])(nr|numer)\.?\s*(\d{1,4})\/((?:19|20)\d{2}|\d{2})(?![\d\/])/giu
+const ISSUE_NEXT = /(przez (?:\d{2}|\d{4}))((?:,\s*|\s+(?:i|oraz|lub|albo)\s+))(\d{1,4})\/((?:19|20)\d{2}|\d{2})(?![\d\/])/gu
+export function sayIssueNumbers(text: string): string {
+  let t = text.replace(ISSUE, (m, word: string, n: string, year: string) => `${/^[A-Z]/.test(word) ? 'Numer' : 'numer'} ${n} przez ${year}`)
+  for (let before = ''; before !== t; ) { before = t; t = t.replace(ISSUE_NEXT, '$1$2$3 przez $4') }
+  return t
+}
+
 // ── Words made of a number: "19-latka" is "dziewiętnastolatka" ──
 
 const C_UNITS = ['', 'jedno', 'dwu', 'trzy', 'cztero', 'pięcio', 'sześcio', 'siedmio', 'ośmio', 'dziewięcio']
@@ -483,6 +495,8 @@ const WORDS: [RegExp, string][] = [
   [/(?<![\p{L}\d])mdm(?![\p{L}\d])/gu, 'miesiąc do miesiąca'],
   [/(?<![\p{L}\d])kdk(?![\p{L}\d])/gu, 'kwartał do kwartału'],
   [/(?<!\p{L})NewConnect(?!\p{L})/gu, 'New Connect'],
+  // "giełdzie GPW" says it twice: "Dziś na giełdzie GPW i New Connect" -> "Dziś na giełdzie papierów wartościowych w Warszawie i New Connect"
+  [/(?<!\p{L})(giełd(?:a|y|zie|ę|ą))\s+GPW(?![\p{L}\d])/giu, '$1 papierów wartościowych w Warszawie'],
   [/(?<!\p{L})ust\.(?=\s*\d)/gu, 'ustęp'],
   [/(?<!\p{L})pkt\.?(?=\s*\d)/gu, 'punkt'],
 ]
@@ -497,7 +511,7 @@ const WORDS: [RegExp, string][] = [
 // "UE-owski" and "post-UE" stay as they are. The ministries and offices too: "Rzeczniczka MSWiA" -> "Rzeczniczka
 // Ministerstwa Spraw Wewnętrznych i Administracji", "szefa MON" -> "szefa Ministerstwa Obrony Narodowej", "MF" is the
 // Ministerstwo Finansów, "UKE" is the Urząd Komunikacji Elektronicznej and "UOKiK" the Urząd Ochrony Konkurencji i
-// Konsumentów.
+// Konsumentów, "RN" the rada nadzorcza ("uchwała RN" -> "uchwała Rady nadzorczej").
 type InstCase = 'nom' | 'gen' | 'dat' | 'acc' | 'inst' | 'loc'
 const MEETING: Record<InstCase, string> = { nom: 'walne zgromadzenie', gen: 'walnego zgromadzenia', dat: 'walnemu zgromadzeniu', acc: 'walne zgromadzenie', inst: 'walnym zgromadzeniem', loc: 'walnym zgromadzeniu' }
 const MEETING_ENDING: Record<InstCase, string> = { nom: 'e', gen: 'ego', dat: 'emu', acc: 'e', inst: 'ym', loc: 'ym' }
@@ -511,6 +525,7 @@ const MINISTRY: Record<InstCase, string> = { nom: 'Ministerstwo', gen: 'Minister
 const OFFICE: Record<InstCase, string> = { nom: 'Urząd', gen: 'Urzędu', dat: 'Urzędowi', acc: 'Urząd', inst: 'Urzędem', loc: 'Urzędzie' }
 const named = (head: Record<InstCase, string>, name: string) =>
   Object.fromEntries(Object.entries(head).map(([kase, word]) => [kase, `${word} ${name}`])) as Record<InstCase, string>
+INSTITUTIONS.RN = { nom: 'Rada nadzorcza', gen: 'Rady nadzorczej', dat: 'Radzie nadzorczej', acc: 'Radę nadzorczą', inst: 'Radą nadzorczą', loc: 'Radzie nadzorczej' }
 INSTITUTIONS.MSWiA = named(MINISTRY, 'Spraw Wewnętrznych i Administracji')
 INSTITUTIONS.MON = named(MINISTRY, 'Obrony Narodowej')
 INSTITUTIONS.MF = named(MINISTRY, 'Finansów')
@@ -538,6 +553,8 @@ function caseBefore(before: string, withCase: InstCase): InstCase {
   // "ws." is said "w sprawie", which asks for the genitive; it does not end a sentence
   if (/(?:^|\s)(?:ws|wg)\.$/iu.test(tail)) return 'gen'
   if (!tail || /[.!?:;]$/.test(tail)) return 'nom'
+  // "Spółka LPP, WZ …": what follows the name of the company in the stock calendar (macronext.ts) is a sentence of its own
+  if (/(?:^|[.!?:;]\s+)Spółka\s[^,.!?:;]{1,60},$/u.test(tail)) return 'nom'
   // "… 29,9 mld zł - MF": after a dash with spaces the source stands on its own, as after a colon
   if (/\s[-–—]$/u.test(tail)) return 'nom'
   // "USA i UE": the same case as "USA", which the words before it show
@@ -548,7 +565,7 @@ function caseBefore(before: string, withCase: InstCase): InstCase {
   const prev = last?.[1]?.toLocaleLowerCase('pl')
   // "fundusze z UE", "wyjście z UE": from, the genitive; "rozmowy z UE", "umowa z MON": with
   if (word === 'z' || word === 'ze') return prev && FROM_NOUN.test(prev) ? 'gen' : withCase
-  if (/^(?:materiał|kapitał|udział|sygnał|finał|ideał|kanał|dział)y$/u.test(word)) return 'gen'
+  if (/^(?:(?:materiał|kapitał|udział|sygnał|finał|ideał|kanał|dział)y|(?:uchwał|pochwał|skał)[aęyą])$/u.test(word)) return 'gen'
   if (word in PREP_CASE) return PREP_CASE[word]
   if (NOM_BEFORE.test(word) || VERB_ENDING.test(word)) return 'nom'
   if (/ego$/.test(word)) return 'gen'
@@ -765,7 +782,7 @@ export const sayPauses = (text: string) => markPauses(text).split(PAUSE_MARK).jo
 // ── All of it ──
 
 function sayMarked(text: string): string {
-  let t = sayArticles(sayRoman(sayMonths(sayYears(sayQuarters(sayCompounds(sayAddresses(text)))))))
+  let t = sayArticles(sayRoman(sayMonths(sayYears(sayQuarters(sayCompounds(sayIssueNumbers(sayAddresses(text))))))))
   t = sayTerritories(sayHours(sayDirections(sayInstitutions(t))))
   for (const [re, said] of WORDS) t = t.replace(re, said)
   t = saySpelled(sayAsWords(sayEnglish(sayMarkets(sayBrokers(t)))))

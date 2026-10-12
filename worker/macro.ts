@@ -7,7 +7,7 @@ import { feedKey, type FeedConfig } from '../src/lib/sources'
 import { HEADERS, SHOW_ERROR_AFTER, TIMEOUT_S, pageInfo, retain, type CheckResult, type FeedState } from './feeds'
 
 // Raise this when reading the calendar changes: it is then read again at once, not at the next time above
-export const MACRO_VERSION = 4 // 2: releases without a time, announced in the morning; 3: speeches named in the title; 4: today's page
+export const MACRO_VERSION = 5 // 2: releases without a time, announced in the morning; 3: speeches named in the title; 4: today's page; 5: the stock calendar read with "Spółka" before each company
 const RETRY_MINUTES = [1, 2, 4, 8, 15] // after failed reads in a row
 const LEAD_MS = LEAD_MINUTES * 60_000
 const LATE_MS = 60_000 // less than this before the release, the announcement is not made
@@ -108,7 +108,7 @@ export async function checkMacro(feed: FeedConfig, prev: FeedState | undefined, 
     const minutes = Math.min(LEAD_MINUTES, Math.ceil((g.at - now) / 60_000))
     // MacroNext's page for today. The day and time after "#" make each link different, or the
     // list would keep one announcement only. The lead is the data; speeches are named in the title.
-    add.push({ id: g.id, title: groupTitle(g, minutes), description: g.lines.join(' '),
+    add.push({ id: g.id, title: groupTitle(g, minutes), description: g.lines.join(' '), ...(g.say ? { say: g.say.join('\n') } : {}),
       link: `${feed.url}#${g.day}${g.allDay ? '' : `-${clock(g.at)}`}`,
       pubDate: new Date(now).toISOString(), source: feed.source, label: feed.label })
   }

@@ -12,6 +12,7 @@ export interface NewsItem {
   pubDate: string // ISO, '' when the feed gives no usable date
   source: string
   label: string
+  say?: string    // what is read aloud when it differs from `description`, one part per line (MacroNext's stock calendar)
 }
 
 const NAMED: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash: '–', mdash: '—', hellip: '…', bdquo: '„', rdquo: '”', ldquo: '“', oacute: 'ó', Oacute: 'Ó' }
