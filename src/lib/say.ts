@@ -143,9 +143,9 @@ function splitUnits(num: string, unit: string): [number, string | null][] | unde
   return parts.length ? parts : undefined
 }
 
-// Prepositions (and a few verbs) that ask for the genitive, with the words that only give a size in between ("do około 2 mld zł"): after them the unit is
+// Prepositions (and a few verbs and nouns: "w wysokości", "na poziomie", "rzędu") that ask for the genitive, with the words that only give a size in between ("do około 2 mld zł"): after them the unit is
 // "do 2 miliardów złotych", "od 2 złotych", not "2 miliardy"
-const GENITIVE_BEFORE = /(?:^|[\s(„"])(?:do|od|z|ze|bez|dla|u|wokół|obok|według|wg|spośród|wobec|powyżej|poniżej|zamiast|oprócz|wśród|sprzed|spod|brak|brakuje|brakowało|zabrakło|zabraknie|potrzeba|ciągu|czasie|okresie|przestrzeni|odstępie)\s+(?:(?:około|ok\.|blisko|prawie|niemal|ponad|nawet|aż|zaledwie|ledwie|przynajmniej)\s+)*$/iu
+const GENITIVE_BEFORE = /(?:^|[\s(„"])(?:do|od|z|ze|bez|dla|u|wokół|obok|według|wg|spośród|wobec|powyżej|poniżej|zamiast|oprócz|wśród|sprzed|spod|brak|brakuje|brakowało|zabrakło|zabraknie|potrzeba|ciągu|czasie|okresie|przestrzeni|odstępie|wysokości|wartości|kwocie|poziomie|rzędu|okolicach|granicach)\s+(?:(?:około|ok\.|blisko|prawie|niemal|ponad|nawet|aż|zaledwie|ledwie|przynajmniej)\s+)*$/iu
 // The word after a number: the nominative by the number ("2 miliony", "5 milionów"), the genitive for "do 2 milionów", "do 1 miliona"
 const unitForm = (forms: readonly string[], n: number, genitive: boolean) =>
   genitive ? (n === 1 ? forms[3] : forms[2]) : plural(n, forms[0], forms[1], forms[2])
@@ -162,7 +162,9 @@ function numberWords(n: number, genitive: boolean): string {
   if (!genitive) return cardinal(n)
   const r = n % 100
   const tail = r < 10 ? [GEN_ONES[r]] : r < 20 ? [GEN_TEENS[r - 10]] : [GEN_TENS[Math.floor(r / 10)], GEN_ONES[r % 10]]
-  return [GEN_HUNDREDS[Math.floor(n / 100)], ...tail].filter(Boolean).join(' ')
+  const words = [GEN_HUNDREDS[Math.floor(n / 100)], ...tail].filter(Boolean).join(' ')
+  // only a lone 1 is declined ("jednego miliona"); at the end of a longer number "jeden" stays ("do czterystu dziewięćdziesięciu jeden miliardów")
+  return n > 1 ? words.replace(/ jednego$/, ' jeden') : words
 }
 // A number with no unit after it that says its gender ("jedna", "dwie" osoby): 1, 2 and the ones ending in them, except the teens
 const hasGender = (n: number) => (n % 10 === 1 || n % 10 === 2) && (n % 100 < 11 || n % 100 > 19)
@@ -479,12 +481,12 @@ for (const [gender, nom, gen, loc] of [
 const COUNT_RANGE = new RegExp(String.raw`(?<![\p{L}\d.,/:-])(\d{1,2})\s?[-–]\s?(\d{1,2})\s+(${Object.keys(COUNTED).join('|')})(?![\p{L}\d-])`, 'gu')
 // 2, 3, 4 and the ones ending in them (not the teens) are the numbers that take the plural "lata", not "lat", in the nominative
 const FEW = (n: number) => n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)
-// "jeden" is "jedna" and "dwa" is "dwie" with a feminine noun (as the last word of the number); in the genitive and the locative "jednego" is
-// "jednej" (feminine) or "jednym" (the locative, masculine and neuter)
+// "jeden" is "jedna" and "dwa" is "dwie" with a feminine noun (as the last word of the number); a lone 1 in the genitive and the locative is "jednego",
+// "jednej" (feminine) or "jednym" (the locative, masculine and neuter); at the end of a longer number "jeden" stays in every case
 function countWords(n: number, kase: 'nom' | 'gen' | 'loc', gender: 'm' | 'f' | 'n'): string {
   const words = numberWords(n, kase !== 'nom').split(' ')
   const last = words.length - 1
-  if (n % 10 === 1 && n % 100 !== 11) words[last] = kase === 'nom' ? { m: 'jeden', f: 'jedna', n: 'jedno' }[gender] : gender === 'f' ? 'jednej' : kase === 'loc' ? 'jednym' : 'jednego'
+  if (n === 1) words[last] = kase === 'nom' ? { m: 'jeden', f: 'jedna', n: 'jedno' }[gender] : gender === 'f' ? 'jednej' : kase === 'loc' ? 'jednym' : 'jednego'
   if (n % 10 === 2 && n % 100 !== 12 && kase === 'nom' && gender === 'f') words[last] = 'dwie'
   return words.join(' ')
 }
