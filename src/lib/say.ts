@@ -789,7 +789,7 @@ export const sayBrokers = (text: string) =>
 // Abbreviations said as words, not spelled ("rozporządzenia MAR" -> "mar", "dla PAP" -> "pap").
 // ASI (alternatywna spółka inwestycyjna) is "as" and "i" run together: written "Asi" a voice makes it a name
 // with a soft "ś" (like the vocative of Asia)
-const AS_WORDS: Record<string, string> = { MAR: 'Mar', PAP: 'Pap', ZUS: 'Zus', GUS: 'Gus', NIK: 'Nik', PIT: 'Pit', CIT: 'Cit', VAT: 'Wat', ASI: 'as i' }
+const AS_WORDS: Record<string, string> = { MAR: 'Mar', PAP: 'Pap', ZUS: 'Zus', GUS: 'Gus', NIK: 'Nik', PIT: 'Pit', CIT: 'Cit', VAT: 'Wat', ASI: 'as i', BOŚ: 'Boś' }
 const AS_WORDS_RE = new RegExp(String.raw`(?<![\p{L}\d])(${Object.keys(AS_WORDS).join('|')})(?![\p{L}\d])`, 'gu')
 // Whether the text ends with an article, paragraph or point and what follows it up to here: numbers, ordinals ("siedemnastego"), letters,
 // "i" ("artykułu siedemnastego ustęp 1 i 4"). Token by token from the end, so a long text costs nothing.
@@ -871,17 +871,31 @@ export function sayEnglish(text: string): string {
 // Currency codes in a pair: "EUR/PLN" is "euro pe el en", "USD/PLN" "u es de pe el en"
 const CURRENCIES = new Set(['PLN', 'EUR', 'USD', 'CHF', 'GBP', 'JPY', 'CZK', 'HUF', 'NOK', 'SEK', 'DKK', 'CAD', 'AUD', 'NZD', 'CNY', 'TRY', 'RON', 'RUB', 'UAH'])
 const sayCurrency = (code: string) => (code === 'EUR' ? 'euro' : [...code].map((c) => PL_LETTERS[c]).join(' '))
-// "WIG20" -> "wig 20", "mWIG40" -> "mwig 40" (a word, not spelled); "S&P 500" -> "es and pi 500";
-// "na FX/FI" -> "na rynku walutowym i obligacji"
+// "WIG20" -> "wig dwadzieścia", "mWIG40" -> "emwig czterdzieści", "sWIG80" -> "eswig osiemdziesiąt" (a word, not spelled; the "m" and the
+// "s" of the index are said as letters, the number in words); "S&P 500" -> "es and pi 500"; "na FX/FI" -> "na rynku walutowym i obligacji"
+const INDEX_PREFIX: Record<string, string> = { m: 'em', s: 'es' }
 export function sayMarkets(text: string): string {
   return text
-    .replace(/(?<![\p{L}\d])([ms]?)WIG(\d*)(?!\p{L})/gu, (m, pre: string, num: string) => `${pre}wig${num ? ` ${num}` : ''}`)
+    // "SWIG" without a number is not an index
+    .replace(/(?<![\p{L}\d])([msMS]?)WIG(\d*)(TR)?(?![\p{L}\d])/gu, (m, pre: string, num: string, total?: string) =>
+      /[MS]/.test(pre) && !num ? m
+        : `${INDEX_PREFIX[pre.toLowerCase()] ?? ''}wig${num ? ` ${+num > 0 && +num < 1000 ? cardinal(+num) : num}` : ''}${total ? ' te er' : ''}`)
     .replace(/(?<![\p{L}\d])S&P(?:\s?(\d+))?(?![\p{L}\d])/gu, (m, num?: string) => `es and pi${num ? ` ${num}` : ''}`)
     .replace(/(?<!\p{L})([Nn][Aa]|[Ww])\s+FX\/FI(?!\p{L})/gu, '$1 rynku walutowym i obligacji')
     .replace(/(?<!\p{L})FX\/FI(?!\p{L})/gu, 'rynek walutowy i obligacji')
     .replace(/(?<![\p{L}\d])([A-Z]{3})\/([A-Z]{3})(?![\p{L}\d])/gu, (m, a: string, b: string) =>
       CURRENCIES.has(a) && CURRENCIES.has(b) ? `${sayCurrency(a)} ${sayCurrency(b)}` : m)
 }
+
+// ── Names of banks and brands ──
+
+// "mBank" and "MBANK" -> "Embank", "mObywatel" -> "Emobywatel": a small "m" before a capital letter is the letter "em", the rest a word.
+// "PKO BP" and "PKO bp" are said letter by letter, "pe ka o be pe" (written "bp" a voice reads one word)
+export const sayBrands = (text: string) =>
+  text
+    .replace(/(?<![\p{L}\d])m(\p{Lu})(\p{Ll}+)/gu, (m, first: string, rest: string) => `Em${first.toLocaleLowerCase('pl')}${rest}`)
+    .replace(/(?<![\p{L}\d])MBANK(?![\p{L}\d])/gu, 'Embank') // the name in capitals, as a company is written in ESPI
+    .replace(/(?<![\p{L}\d])PKO\s?(?:BP|Bp|bp)(?![\p{L}\d])/gu, 'Pe ka o be pe')
 
 // ── Pauses ──
 
@@ -915,7 +929,7 @@ function sayMarked(text: string): string {
   let t = sayArticles(sayRoman(sayMonths(sayMonthDays(sayYearRanges(sayYears(sayQuarters(sayCompounds(sayIssueNumbers(sayAddresses(text))))))))))
   t = sayTerritories(sayHours(sayDirections(sayInstitutions(t))))
   for (const [re, said] of WORDS) t = t.replace(re, said)
-  t = saySpelled(sayAsWords(sayEnglish(sayMarkets(sayBrokers(t)))))
+  t = saySpelled(sayAsWords(sayEnglish(sayBrands(sayMarkets(sayBrokers(t))))))
   return markPauses(sayNumbers(sayNames(t)))
 }
 
