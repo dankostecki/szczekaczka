@@ -62,14 +62,26 @@ export function voiceLabel(v: SpeechSynthesisVoice): string {
 }
 
 // Chrome's Google voices stop after about 15 seconds of speech, so longer text
-// goes out as several short utterances, cut at sentence or clause ends.
+// goes out as several short utterances, cut at sentence or clause ends: after a full stop, else after a comma, else
+// at a space that does not tear a conjunction or a preposition ("oraz", "i", "w", "na") from the word it goes with,
+// so the voice does not stop in front of "oraz" in the middle of a sentence.
+const FUNCTION_WORD = /^(?:oraz|i|a|lub|albo|czy|ale|że|w|we|z|ze|na|do|o|od|po|za|dla|przez|przy|pod|nad|bez|u)$/iu
+function spaceBetweenPhrases(rest: string, max: number): number {
+  for (let i = rest.lastIndexOf(' ', max); i > max / 3; i = rest.lastIndexOf(' ', i - 1)) {
+    const before = rest.slice(0, i).match(/(\S+)$/)?.[1] ?? ''
+    const after = rest.slice(i + 1).match(/^(\S+)/)?.[1] ?? ''
+    if (!FUNCTION_WORD.test(before.replace(/[.,;:!?]$/, '')) && !FUNCTION_WORD.test(after.replace(/[.,;:!?]$/, ''))) return i
+  }
+  return rest.lastIndexOf(' ', max)
+}
 export function chunks(text: string, max = 180): string[] {
   const out: string[] = []
   let rest = text.replace(/\s+/g, ' ').trim()
   while (rest.length > max) {
     const part = rest.slice(0, max)
-    const cut = Math.max(part.lastIndexOf('. '), part.lastIndexOf('! '), part.lastIndexOf('? '), part.lastIndexOf('; '))
-    const at = cut > max / 3 ? cut + 1 : Math.max(part.lastIndexOf(', '), part.lastIndexOf(' '))
+    const sentence = Math.max(part.lastIndexOf('. '), part.lastIndexOf('! '), part.lastIndexOf('? '), part.lastIndexOf('; '))
+    const comma = part.lastIndexOf(', ')
+    const at = sentence > max / 3 ? sentence + 1 : comma > max / 3 ? comma + 1 : spaceBetweenPhrases(rest, max)
     const end = at > 0 ? at : max
     out.push(rest.slice(0, end).trim())
     rest = rest.slice(end).trim()
@@ -194,7 +206,9 @@ export function spokenLead(description: string, title: string): string {
 // their "lead" is the figures or the companies, read whole; the title with the minutes left ("Za 10 minut …").
 export function spokenParts(it: Item, prefs: Prefs, now = Date.now()): string[] {
   const withLead = prefs.leadFeeds.includes(feedKey(it.source, it.label))
-  if (it.source === 'MACRONEXT') return [`${sayMacroTitle(it.title, it.link, it.time, now)}.`, withLead ? it.description : ''].filter(Boolean).flatMap(sayAloudParts)
+  // The stock calendar comes with the rows as they are read (it.say, one per line): each row is a part of its own, so the
+  // voice stops between the end of an event and the next "Spółka …" as between sentences
+  if (it.source === 'MACRONEXT') return [`${sayMacroTitle(it.title, it.link, it.time, now)}.`, ...(withLead ? (it.say ?? it.description).split('\n') : [])].filter(Boolean).flatMap(sayAloudParts)
   const title = it.source === 'GPW' ? `GPW: ${it.title}` : it.source === 'ESPI' ? `Nowe ESPI: ${it.title}` : it.title
   const lead = withLead ? spokenLead(it.description, it.title) : ''
   return (lead ? [title, lead] : [title]).flatMap(sayAloudParts)

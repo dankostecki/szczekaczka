@@ -151,6 +151,7 @@ export interface MacroGroup {
   allDay?: boolean    // releases without a time ("?"): announced in the morning, "Dziś …"
   countries: string[] // of the data
   lines: string[]     // the data, one line per row read; with the country in front where it changes, when there are several
+  say?: string[]      // the stock market: the same rows as they are read aloud ("Spółka LPP, dzień ustalenia …"), one part each
   talks?: string[]    // speeches and meetings, named in the title without a country: "wystąpienie szefowej Fed z Bostonu (Susan Collins)"
   title?: string      // the stock market: the title as it is, announced at `at` itself
   until?: number      // the stock market: not announced after this
@@ -302,8 +303,9 @@ const listPl = (names: string[]) => (names.length > 1 ? `${names.slice(0, -1).jo
 const sentence = (s: string) => (/[.!?]$/.test(s) ? s : `${s}.`)
 
 // "Raport za III kwartał 2026 roku opublikują: Citigroup, Goldman Sachs oraz Taiwan Semiconductor
-// Manufacturing Company – nie podano godziny publikacji." One line per event, companies together.
-function usLines(known: StockRow[], unknown: StockRow[]): string[] {
+// Manufacturing Company – nie podano godziny publikacji." One line per event, companies together. A single company
+// is read "Spółka PepsiCo, dzień ustalenia praw do dywidendy 1,5 USD na akcję.": the word, the name, the event.
+function usLines(known: StockRow[], unknown: StockRow[]): { lines: string[]; say: string[] } {
   const byEvent = new Map<string, { known: string[]; unknown: string[] }>()
   const add = (r: StockRow, k: 'known' | 'unknown') => {
     const event = r.event.replace(/\.$/, '')
@@ -312,13 +314,20 @@ function usLines(known: StockRow[], unknown: StockRow[]): string[] {
   }
   known.forEach((r) => add(r, 'known'))
   unknown.forEach((r) => add(r, 'unknown'))
-  return [...byEvent].map(([event, g]) => {
+  const lines: string[] = [], say: string[] = []
+  for (const [event, g] of byEvent) {
     const names = [listPl(g.known), g.unknown.length ? `${listPl(g.unknown)} – nie podano godziny publikacji` : ''].filter(Boolean).join(' oraz ')
     const report = event.match(/^Publikacja raportu (.+)$/i)
     const many = g.known.length + g.unknown.length > 1
-    if (report) return `Raport ${report[1]} ${many ? 'opublikują' : 'opublikuje'}: ${names}.`
-    return many ? `${event}: ${names}.` : `${names}: ${event}.`
-  })
+    const verb = many ? 'opublikują' : 'opublikuje'
+    lines.push(report ? `Raport ${report[1]} ${verb}: ${names}.` : many ? `${event}: ${names}.` : `${names}: ${event}.`)
+    // Read aloud. One company, an event of its own: the name first, then the event (the time not given at the end). The report
+    // of several in one sentence, with no colon or dash in it: each of them is a long pause, in front of the names and of the "oraz"
+    const spoken = names.replace(' – nie podano', ', nie podano')
+    say.push(!report && !many ? `Spółka ${g.known[0] ?? g.unknown[0]}, ${event}${g.unknown.length ? ', nie podano godziny publikacji' : ''}.`
+      : report ? `Raport ${report[1]} ${verb} ${spoken}.` : many ? `${event}: ${spoken}.` : `${spoken}: ${event}.`)
+  }
+  return { lines, say }
 }
 
 // The day's announcements of the stock calendar
@@ -326,23 +335,27 @@ export function stockGroups(rows: StockRow[], keyPrefix: string, y: number, m: n
   const day = `${y}-${m}-${d}`
   const ymd = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
   const groups: MacroGroup[] = []
-  const group = (id: string, at: number, title: string, lines: string[]) =>
-    groups.push({ id: `${keyPrefix}:${ymd}:${id}`, at, day, countries: [], lines, title, until: at + STILL_MS })
+  const group = (id: string, at: number, title: string, lines: string[], say?: string[]) =>
+    groups.push({ id: `${keyPrefix}:${ymd}:${id}`, at, day, countries: [], lines, say, title, until: at + STILL_MS })
 
   const polish = rows.filter((r) => POLISH.includes(r.market))
   if (polish.length) {
     const gpw = polish.some((r) => r.market === 'GPW'), nc = polish.some((r) => r.market === 'NC')
     group('gpw', warsawToUtc(y, m, d, ...GPW_AT), gpw && nc ? 'Dziś na giełdzie GPW i NewConnect' : gpw ? 'Dziś na giełdzie GPW' : 'Dziś na NewConnect',
-      polish.map((r) => sentence(`${r.company}: ${r.event}`)))
+      polish.map((r) => sentence(`${r.company}: ${r.event}`)), polish.map((r) => sentence(`Spółka ${r.company}, ${r.event}`)))
   }
   const us = rows.filter((r) => r.market in US)
   const before = us.filter((r) => /przed/i.test(r.time)), after = us.filter((r) => /po\s+sesji/i.test(r.time))
   const unknown = us.filter((r) => !before.includes(r) && !after.includes(r))
   const where = (rs: StockRow[]) => [...new Set(rs.map((r) => US[r.market]))].join(' i ')
   if (before.length || unknown.length) {
-    group('usa-przed', newYorkToUtc(y, m, d, ...US_BEFORE_AT), `Dziś na ${where([...before, ...unknown])} przed sesją`, usLines(before, unknown))
+    const us1 = usLines(before, unknown)
+    group('usa-przed', newYorkToUtc(y, m, d, ...US_BEFORE_AT), `Dziś na ${where([...before, ...unknown])} przed sesją`, us1.lines, us1.say)
   }
-  if (after.length) group('usa-po', newYorkToUtc(y, m, d, ...US_AFTER_AT), `Dziś na ${where(after)} po sesji`, usLines(after, []))
+  if (after.length) {
+    const us2 = usLines(after, [])
+    group('usa-po', newYorkToUtc(y, m, d, ...US_AFTER_AT), `Dziś na ${where(after)} po sesji`, us2.lines, us2.say)
+  }
   return groups.sort((a, b) => a.at - b.at)
 }
 
