@@ -2,9 +2,10 @@
 // server; the available voices depend on the system and the browser.
 import type { Item } from './news'
 import type { Prefs } from './prefs'
-import { feedKey, langOf, type Lang } from './sources'
+import { feedKey, type Lang } from './sources'
+import { itemLang } from './lang'
 import { sayMacroTitle } from './macronext'
-import { sayAloudParts } from './say'
+import { sayAloudParts, sayPausedParts } from './say'
 
 export const speechSupported = () =>
   typeof window !== 'undefined' && 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window
@@ -209,15 +210,17 @@ export function spokenParts(it: Item, prefs: Prefs, now = Date.now()): string[] 
   // The stock calendar comes with the rows as they are read (it.say, one per line): each row is a part of its own, so the
   // voice stops between the end of an event and the next "Spółka …" as between sentences
   if (it.source === 'MACRONEXT') return [`${sayMacroTitle(it.title, it.link, it.time, now)}.`, ...(withLead ? (it.say ?? it.description).split('\n') : [])].filter(Boolean).flatMap(sayAloudParts)
-  const title = it.source === 'GPW' ? `GPW: ${it.title}` : it.source === 'ESPI' ? `Nowe ESPI: ${it.title}` : it.title
   const lead = withLead ? spokenLead(it.description, it.title) : ''
+  // A press release in English: the title and the lead as they are, no Polish words in front of them and none of the rules of Polish
+  if (itemLang(it) === 'en') return (lead ? [it.title, lead] : [it.title]).flatMap(sayPausedParts)
+  const title = it.source === 'GPW' ? `GPW: ${it.title}` : it.source === 'ESPI' ? `Nowe ESPI: ${it.title}` : it.title
   return (lead ? [title, lead] : [title]).flatMap(sayAloudParts)
 }
 
-// News in English is read with the English voice
+// News in English (a channel of its own, or a press release in a Polish one) is read with the English voice
 export function speakItem(it: Item, prefs: Prefs, voices: SpeechSynthesisVoice[], onEnd?: () => void) {
   const parts = spokenParts(it, prefs)
-  const lang = langOf(it.source, it.label)
+  const lang = itemLang(it)
   parts.forEach((part, i) => speak(part, prefs, voices, i === parts.length - 1 ? onEnd : undefined, lang))
 }
 
