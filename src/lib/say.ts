@@ -438,20 +438,25 @@ const monthStays = (rest: string) => {
   return /^\p{Lu}/u.test(next) || NUMBERED.test(word) || /^(?:kw|półr|rp)$/.test(word) || next === 'w.' || ORDINAL_NOUNS.has(word) || MASC_LOC_E.has(word)
 }
 
-// A day and its month in Roman numerals: "do 11 X" -> "do 11 października", "od 1 I do 31 XII" -> "od 1 stycznia do 31 grudnia", "11 X 2026 r." -> "11
-// października …". With no year after it, only after a word that goes with a date (do, od, z, na, po, w, dnia…); a lone "V" ("5 V" is five
-// volts) only before a year.
+// A day and its month in Roman numerals: "do 11 X" -> "do 11 października", "od 1 I do 31 XII" -> "od 1 stycznia do 31 grudnia", "11 X 2026 r." ->
+// "11 października …", "19-20 X" -> "19-20 października". A number of a day with a Roman numeral after it is a date, whatever stands before it
+// ("Ceny paliw 19 X", "Wtorek 19 X"): "X" on its own is hardly ever anything else (a website, formerly Twitter, has no number before it).
+// Only the lone "I" (it is "and" too) wants a word that goes with a date (do, od, z, na, po, w, dnia…), and "V" ("5 V" is five volts) a year.
 const DATE_WORD = /(?:^|\s)(?:do|od|z|ze|na|po|przed|w|we|dnia|dniu|wg|według|stan|za|dzień|dzień)\s+$/iu
 const YEAR_AFTER_MONTH = /^\s*(?:r\.|roku|rok|'\d\d|(?:19|20)\d{2}|dwa tysiące|tysiąc dziewięćset)/u
-const MONTH_DAY = new RegExp(String.raw`(?<![\p{L}\d.,/:-])(\d{1,2})(\s+)(${MONTH_NUM})(?![\p{L}\d-]|[.,]\d)`, 'gu')
+// "5 X 3" is a product or a size, a date only with a year or a time after it ("19 X 10:00")
+const SIZE_AFTER = /^\s+\d(?!\d?[:.]\d{2})/u
+const MONTH_DAY = new RegExp(String.raw`(?<![\p{L}\d.,/:-])(?:(\d{1,2})(\s?[-–]\s?))?(\d{1,2})(\s+)(${MONTH_NUM})(?![\p{L}\d-]|[.,]\d)`, 'gu')
 export function sayMonthDays(text: string): string {
-  return text.replace(MONTH_DAY, (m: string, day: string, space: string, num: string, at: number, all: string) => {
-    if (+day < 1 || +day > 31) return m
-    const year = YEAR_AFTER_MONTH.test(all.slice(at + m.length))
-    if (!year && (!DATE_WORD.test(all.slice(0, at)) || num === 'V')) return m
-    const next = all.slice(at + m.length).match(/^\s+(\p{L}[\p{L}.]*)/u)?.[1]?.replace(/\.$/, '').toLocaleLowerCase('pl')
+  return text.replace(MONTH_DAY, (m: string, first: string | undefined, dash: string | undefined, day: string, space: string, num: string, at: number, all: string) => {
+    if (+day < 1 || +day > 31 || (first !== undefined && (+first < 1 || +first >= +day))) return m
+    const rest = all.slice(at + m.length)
+    const year = YEAR_AFTER_MONTH.test(rest)
+    if (!year && (num === 'V' || (num === 'I' && !DATE_WORD.test(all.slice(0, at))))) return m
+    if (!year && num === 'X' && SIZE_AFTER.test(rest)) return m
+    const next = rest.match(/^\s+(\p{L}[\p{L}.]*)/u)?.[1]?.replace(/\.$/, '').toLocaleLowerCase('pl')
     if (next && (NUMBERED.test(next) || /^(?:kw|półr|rp)$/.test(next))) return m
-    return `${day} ${MONTH_NAMES.gen[roman(num) - 1]}`
+    return `${first !== undefined ? `${first}${dash}` : ''}${day} ${MONTH_NAMES.gen[roman(num) - 1]}`
   })
 }
 
