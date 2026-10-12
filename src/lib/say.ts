@@ -100,6 +100,7 @@ const UNITS: Record<string, [string, string, string, string]> = { // one, 2–4,
   'pkt': ['punkt', 'punkty', 'punktów', 'punktu'],
   'pkt proc.': ['punkt procentowy', 'punkty procentowe', 'punktów procentowych', 'punktu procentowego'],
   'pb': ['punkt bazowy', 'punkty bazowe', 'punktów bazowych', 'punktu bazowego'],
+  'mkw': ['metr kwadratowy', 'metry kwadratowe', 'metrów kwadratowych', 'metra kwadratowego'],
   'proc.': ['procent', 'procent', 'procent', 'procent'],
   'godz.': ['godzina', 'godziny', 'godzin', 'godziny'],
   'zł': ['złoty', 'złote', 'złotych', 'złotego'],
@@ -112,7 +113,7 @@ const UNITS: Record<string, [string, string, string, string]> = { // one, 2–4,
 const OF_CURRENCY: Record<string, string> = { 'zł': 'złotych', 'USD': 'dolarów', 'EUR': 'euro', 'CHF': 'franków', 'GBP': 'funtów' }
 // "pkt proc.", "pkt. proc." (a dot after "pkt" too, and none at the end) and "p.p." are the percentage points; "pkt. procentowych"
 // has the dot of "pkt." to drop
-const UNIT = /(\d+(?:,\d+)?)\s*(tys\.|godz\.|pkt\.?\s?proc(?:\.|(?!\p{L}))|p\.\s?p\.|proc\.|pkt\.(?=\s+procentow)|(?:mln|mld|bln|pkt|pb|zł|USD|EUR|CHF|GBP)(?!\p{L}))(\s+brk(?!\p{L}))?(?:\s+(zł|USD|EUR|CHF|GBP)(?!\p{L}))?/gu
+const UNIT = /(\d+(?:,\d+)?)\s*(tys\.|godz\.|pkt\.?\s?proc(?:\.|(?!\p{L}))|p\.\s?p\.|proc\.|pkt\.(?=\s+procentow)|(?:m\s?kw|mkw)\.?(?!\p{L})|m²|m2(?![\p{L}\d])|(?:mln|mld|bln|pkt|pb|zł|USD|EUR|CHF|GBP)(?!\p{L}))(\s+brk(?!\p{L}))?(?:\s+(zł|USD|EUR|CHF|GBP)(?!\p{L}))?/gu
 // "punktów proc." (the word is written out, only the "proc." is short) is "punktów procentowych", in the case of the noun
 const POINT_PERCENT = /(?<!\p{L})(punkt(?:ów|y|u|em|ach|om|ami|owi)?|punkcie)\s+proc\./giu
 const PERCENT_ADJECTIVE: Record<string, string> = {
@@ -149,7 +150,7 @@ export function sayNumbers(text: string): string {
     // "71,0 proc.", "4,00%", "5,0 mld zł": a decimal that is only zeros is the whole number
     .replace(/(?<![\d,.])(\d+),0+(?=\s?%(?![\p{L}\d])|\s*(?:tys\.|godz\.|pkt\s?proc\.|p\.\s?p\.|proc\.|(?:mln|mld|bln|pkt|pb|zł|USD|EUR|CHF|GBP)(?![\p{L}\d])))/gu, '$1')
     .replace(UNIT, (m: string, num: string, written: string, barrels: string | undefined, currency: string | undefined, at: number, all: string) => {
-      const unit = /^p\.\s?p\.$|^pkt\.?\s?proc\.?$/.test(written) ? 'pkt proc.' : written === 'pkt.' ? 'pkt' : written.replace(/\s+/g, ' ')
+      const unit = /^p\.\s?p\.$|^pkt\.?\s?proc\.?$/.test(written) ? 'pkt proc.' : written === 'pkt.' ? 'pkt' : /^(?:m\s?kw\.?|m²|m2)$/.test(written) ? 'mkw' : written.replace(/\s+/g, ' ')
       const forms = UNITS[unit]
       const end = !currency && !barrels && written.endsWith('.') && endsSentence(all.slice(at + m.length))
       const parts = splitUnits(num, unit)
@@ -162,6 +163,10 @@ export function sayNumbers(text: string): string {
       const word = num.includes(',') ? forms[3] : plural(+num, forms[0], forms[1], forms[2])
       return `${num} ${word}${barrels ? ' baryłek' : ''}${currency ? ` ${OF_CURRENCY[currency]}` : ''}${end ? '.' : ''}`
     })
+    // "700 tys. mkw. magazynów" -> "700 tysięcy metrów kwadratowych magazynów": the dot ends the abbreviation, not the sentence
+    .replace(/(tysiąc|tysiące|tysięcy|tysiąca|milion|miliony|milionów|miliona|miliard|miliardy|miliardów|miliarda|bilion|biliony|bilionów|biliona)(\s+)(?:m\s?kw|mkw)(\.?)(?![\p{L}\d])/gu,
+      (m: string, scale: string, space: string, dot: string, at: number, all: string) =>
+        `${scale}${space}metrów kwadratowych${dot && endsSentence(all.slice(at + m.length)) ? '.' : ''}`)
     .replace(POINT_PERCENT, (m: string, noun: string, at: number, all: string) =>
       `${noun} ${PERCENT_ADJECTIVE[noun.toLowerCase()]}${endsSentence(all.slice(at + m.length)) ? '.' : ''}`)
 }
