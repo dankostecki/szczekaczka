@@ -242,6 +242,13 @@ const HOURS = ['zero', 'pierwszej', 'drugiej', 'trzeciej', 'czwartej', 'piątej'
   'jedenastej', 'dwunastej', 'trzynastej', 'czternastej', 'piętnastej', 'szesnastej', 'siedemnastej', 'osiemnastej', 'dziewiętnastej',
   'dwudziestej', 'dwudziestej pierwszej', 'dwudziestej drugiej', 'dwudziestej trzeciej']
 
+// The minutes of a clock time in words, 1 to 59 ("pięćdziesiąt", "zero pięć" with the zero): a number left as digits after "osiemnastej" a voice
+// puts in the genitive too ("osiemnastej pięćdziesięciu"), on a computer, though a phone says "pięćdziesiąt"
+const MINUTE_ONES = ['', 'jeden', 'dwa', 'trzy', 'cztery', 'pięć', 'sześć', 'siedem', 'osiem', 'dziewięć']
+const MINUTE_TEENS = ['dziesięć', 'jedenaście', 'dwanaście', 'trzynaście', 'czternaście', 'piętnaście', 'szesnaście', 'siedemnaście', 'osiemnaście', 'dziewiętnaście']
+const MINUTE_TENS = ['', '', 'dwadzieścia', 'trzydzieści', 'czterdzieści', 'pięćdziesiąt']
+const minuteWords = (n: number) => (n < 10 ? MINUTE_ONES[n] : n < 20 ? MINUTE_TEENS[n - 10] : [MINUTE_TENS[Math.floor(n / 10)], MINUTE_ONES[n % 10]].filter(Boolean).join(' '))
+
 // The title as it is said, with the hour in words: "Za 10 minut o godzinie szesnastej dane makro
 // z USA" while the release is ahead (the minutes counted again, for one read a few minutes after it
 // came), "O godzinie szesnastej dane makro z USA" once it is out. Also for the earlier "O 16:00 …".
@@ -259,7 +266,7 @@ export function sayMacroTitle(title: string, link: string, sentAt: number, now =
     const night = minute === 0 ? 'o północy' : `${minute === 1 ? 'minutę' : `${minute} ${plural(minute, 'minutę', 'minuty', 'minut')}`} po północy`
     return soon ? `${soon}, ${night}, ${rest}` : `${night[0].toLocaleUpperCase('pl')}${night.slice(1)}, ${rest}`
   }
-  const at = `godzinie ${HOURS[hour]}${t[2] === '00' ? '' : t[2].startsWith('0') ? ` zero ${minute}` : ` ${t[2]}`}`
+  const at = `godzinie ${HOURS[hour]}${minute === 0 ? '' : `${t[2].startsWith('0') ? ' zero' : ''} ${minuteWords(minute)}`}`
   return soon ? `${soon} o ${at} ${rest}` : `O ${at} ${rest}`
 }
 
