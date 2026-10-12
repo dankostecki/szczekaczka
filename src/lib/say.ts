@@ -142,17 +142,31 @@ function splitUnits(num: string, unit: string): [number, string | null][] | unde
   return parts.length ? parts : undefined
 }
 
+// What a price is "per": "zł/l" is "złotych za litr"
+const PER_UNIT: Record<string, string> = { l: 'litr', kg: 'kilogram', t: 'tonę', szt: 'sztukę', bbl: 'baryłkę', MWh: 'megawatogodzinę', kWh: 'kilowatogodzinę',
+  GJ: 'gigadżul', mkw: 'metr kwadratowy', m2: 'metr kwadratowy', 'm²': 'metr kwadratowy' }
+
 // "-41,7 tys." -> "minus 41,7 tysiąca", "-2,1 mln brk" -> "minus 2,1 miliona baryłek", "5 mln zł" -> "5 milionów złotych",
 // "5,483 mld zł" -> "5 miliardów 483 miliony złotych", "13 pkt. proc." -> "13 punktów procentowych" (but "13 proc." -> "13 procent")
 export function sayNumbers(text: string): string {
   return text
     .replace(/(^|[\s(])-(?=\d)/g, '$1minus ')
+    // "7,06 zł/l" -> "7,06 zł za litr", "70 USD/bbl" -> "70 USD za baryłkę"
+    .replace(/(\d\s?(?:zł|USD|EUR|CHF|GBP))\/(l|kg|t|szt\.?|bbl|MWh|kWh|GJ|mkw|m2|m²)(?![\p{L}\d])/gu,
+      (m: string, amount: string, per: string, at: number, all: string) =>
+        `${amount} za ${PER_UNIT[per.replace(/\.$/, '')]}${per.endsWith('.') && endsSentence(all.slice(at + m.length)) ? '.' : ''}`)
     // "71,0 proc.", "4,00%", "5,0 mld zł": a decimal that is only zeros is the whole number
     .replace(/(?<![\d,.])(\d+),0+(?=\s?%(?![\p{L}\d])|\s*(?:tys\.|godz\.|pkt\s?proc\.|p\.\s?p\.|proc\.|(?:mln|mld|bln|pkt|pb|zł|USD|EUR|CHF|GBP)(?![\p{L}\d])))/gu, '$1')
     .replace(UNIT, (m: string, num: string, written: string, barrels: string | undefined, currency: string | undefined, at: number, all: string) => {
       const unit = /^p\.\s?p\.$|^pkt\.?\s?proc\.?$/.test(written) ? 'pkt proc.' : written === 'pkt.' ? 'pkt' : /^(?:m\s?kw\.?|m²|m2)$/.test(written) ? 'mkw' : written.replace(/\s+/g, ' ')
       const forms = UNITS[unit]
       const end = !currency && !barrels && written.endsWith('.') && endsSentence(all.slice(at + m.length))
+      // "7,06 zł" -> "7 złotych i 6 groszy", "0,45 zł" -> "45 groszy", "2,5 zł" -> "2 złote i 50 groszy": one or two decimals are groszy
+      if (unit === 'zł' && !currency && !barrels && /^\d+,\d{1,2}$/.test(num)) {
+        const [zloty, fraction] = num.split(',')
+        const grosze = +fraction.padEnd(2, '0')
+        return [+zloty ? `${+zloty} ${plural(+zloty, 'złoty', 'złote', 'złotych')}` : '', `${grosze} ${plural(grosze, 'grosz', 'grosze', 'groszy')}`].filter(Boolean).join(' i ')
+      }
       const parts = splitUnits(num, unit)
       if (parts) {
         const said = parts.map(([n, u]) => (u ? `${n} ${plural(n, ...(UNITS[u].slice(0, 3) as [string, string, string]))}` : `${n}`)).join(' ')
@@ -560,7 +574,7 @@ const WORDS: [RegExp, string][] = [
 // "UE-owski" and "post-UE" stay as they are. The ministries and offices too: "Rzeczniczka MSWiA" -> "Rzeczniczka
 // Ministerstwa Spraw Wewnętrznych i Administracji", "szefa MON" -> "szefa Ministerstwa Obrony Narodowej", "MF" is the
 // Ministerstwo Finansów, "UKE" is the Urząd Komunikacji Elektronicznej and "UOKiK" the Urząd Ochrony Konkurencji i
-// Konsumentów, "RN" the rada nadzorcza ("uchwała RN" -> "uchwała Rady nadzorczej"). More ministries: MFiPR (Funduszy i Polityki
+// Konsumentów, "ON" the olej napędowy among fuels ("dla ON 8,02 zł/l" -> "dla oleju napędowego …"), "RN" the rada nadzorcza ("uchwała RN" -> "uchwała Rady nadzorczej"). More ministries: MFiPR (Funduszy i Polityki
 // Regionalnej), MRPiPS (Rodziny i Polityki Społecznej), MSZ, MRiRW, MKiDN, MKiŚ, MSiT, MRiT, MNiSW.
 type InstCase = 'nom' | 'gen' | 'dat' | 'acc' | 'inst' | 'loc'
 const MEETING: Record<InstCase, string> = { nom: 'walne zgromadzenie', gen: 'walnego zgromadzenia', dat: 'walnemu zgromadzeniu', acc: 'walne zgromadzenie', inst: 'walnym zgromadzeniem', loc: 'walnym zgromadzeniu' }
@@ -575,6 +589,9 @@ const MINISTRY: Record<InstCase, string> = { nom: 'Ministerstwo', gen: 'Minister
 const OFFICE: Record<InstCase, string> = { nom: 'Urząd', gen: 'Urzędu', dat: 'Urzędowi', acc: 'Urząd', inst: 'Urzędem', loc: 'Urzędzie' }
 const named = (head: Record<InstCase, string>, name: string) =>
   Object.fromEntries(Object.entries(head).map(([kase, word]) => [kase, `${word} ${name}`])) as Record<InstCase, string>
+// "ON" is the diesel (olej napędowy), but only where it stands among fuels: next to petrol, fuel prices, litres, stations
+INSTITUTIONS.ON = { nom: 'olej napędowy', gen: 'oleju napędowego', dat: 'olejowi napędowemu', acc: 'olej napędowy', inst: 'olejem napędowym', loc: 'oleju napędowym' }
+const FUEL_CONTEXT = /Pb\s?9[58]|benzyn\p{L}*|paliw\p{L}*|LPG|zł\/l|za litr|diesel|olej\p{L}*\s+napędow|stacj\p{L}*\s+(?:paliw|benzyn)|ceny?\s+maksymaln/iu
 INSTITUTIONS.RN = { nom: 'Rada nadzorcza', gen: 'Rady nadzorczej', dat: 'Radzie nadzorczej', acc: 'Radę nadzorczą', inst: 'Radą nadzorczą', loc: 'Radzie nadzorczej' }
 INSTITUTIONS.MFiPR = named(MINISTRY, 'Funduszy i Polityki Regionalnej')
 INSTITUTIONS.MRPiPS = named(MINISTRY, 'Rodziny i Polityki Społecznej')
@@ -637,7 +654,10 @@ const LIST_BETWEEN = /^\s*(?:,|\s(?:i|oraz|lub|albo))\s*$/u
 export function sayInstitutions(text: string): string {
   let last: { end: number; kase: InstCase } | null = null
   return text.replace(INSTITUTION_RE, (m, kind: string | undefined, shareholders: string | undefined, institution: string | undefined, at: number, all: string) => {
-    const kase = last && LIST_BETWEEN.test(all.slice(last.end, at)) ? last.kase : caseBefore(all.slice(0, at), institution ? 'inst' : 'gen')
+    if (institution === 'ON' && !FUEL_CONTEXT.test(all.slice(Math.max(0, at - 120), at + 120))) return m
+    // "Pb95 podrożała o 45 groszy, ON o 1,50 zł": the diesel with a verb or "o 1,50" after it is the subject, whatever stands before it
+    const subject = institution === 'ON' && !/(?:^|\s)(?:i|oraz|lub|albo)\s+$/iu.test(all.slice(0, at)) && /^\s+(?:o\s+\d|\p{L}+(?:ł|ła|ło|li|ły)(?![\p{L}])|wynosi|wynoszą|kosztuje|kosztują|jest|są)/u.test(all.slice(at + m.length))
+    const kase: InstCase = subject ? 'nom' : last && LIST_BETWEEN.test(all.slice(last.end, at)) ? last.kase : caseBefore(all.slice(0, at), institution ? 'inst' : 'gen')
     last = { end: at + m.length, kase }
     if (institution) return INSTITUTIONS[institution][kase]
     const stem = kind === 'N' ? 'nadzwyczajn' : kind === 'Z' ? 'zwyczajn' : ''
