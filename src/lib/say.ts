@@ -13,6 +13,10 @@ const FORMS: [RegExp, string][] = [
   [/(?<!\p{L})sp\.?\s?z\.?\s?o\.\s?o\.?(?!\p{L})/giu, 'spółka z ograniczoną odpowiedzialnością'],
   [/(?<!\p{L})sp\.\s?k\.(?!\p{L})/giu, 'spółka komandytowa'],
   [/(?<!\p{L})sp\.\s?j\.(?!\p{L})/giu, 'spółka jawna'],
+  // English legal forms, in full as they are said ("HUUUGE, INC." -> "Hiudż, inkorporejtid"): Inc. incorporated, Corp. corporation, Ltd. limited
+  [/(?<![\p{L}\d])(?:Inc|INC)\.?(?![\p{L}\d])/gu, 'inkorporejtid'],
+  [/(?<![\p{L}\d])(?:Corp|CORP)\.?(?![\p{L}\d])/gu, 'korporejszyn'],
+  [/(?<![\p{L}\d])(?:Ltd|LTD)\.?(?![\p{L}\d])/gu, 'limitid'],
   // "EQUNICO SE": after a name in capitals only, SE is a European company
   [/(?<=\p{Lu}{2}\s)SE(?!\p{L})/gu, 'spółka europejska'],
   // "Bp Ważny" (PAP): a bishop
@@ -933,8 +937,9 @@ const NAMES_EN: [RegExp, string][] = [
   // English words in company names: "CREEPY JAR S.A." -> "Kripi Dżar spółka akcyjna"
   [/(?<![\p{L}\d])(?:CREEPY|Creepy)(?![\p{L}\d])/gu, 'Kripi'],
   [/(?<![\p{L}\d])(?:JAR|Jar)(?![\p{L}\d])/gu, 'Dżar'],
-  // "HUUUGE, INC." is "huge" (the stretched "uuu" is no matter), "Games" is "gejms": "Huuuge Games" -> "Hjudż Gejms"
-  [/(?<![\p{L}\d])Hu{2,}ge(?![\p{L}\d])/giu, 'Hjudż'],
+  // "HUUUGE, INC." is "huge" (the stretched "uuu" is no matter), "Games" is "gejms": "Huuuge Games" -> "Hiudż Gejms". Written "Hjudż" a voice drops the
+  // "h" and says "judż"; "Hiudż" keeps it (the "hi" is the soft h of "historia", as "biu" in "biuro")
+  [/(?<![\p{L}\d])Hu{2,}ge(?![\p{L}\d])/giu, 'Hiudż'],
   // "CI GAMES S.A." keeps its "Ci" a word (said alone in capitals it would be spelled)
   [/(?<![\p{L}\d])CI(\s+)Games(?![\p{L}\d])/giu, 'Ci$1Gejms'],
   [/(?<![\p{L}\d])Games(?![\p{L}\d])/giu, 'Gejms'],
