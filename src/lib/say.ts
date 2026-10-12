@@ -918,15 +918,20 @@ export function sayMarkets(text: string): string {
       CURRENCIES.has(a) && CURRENCIES.has(b) ? `${sayCurrency(a)} ${sayCurrency(b)}` : m)
 }
 
-// ── Names of banks and brands ──
+// ── Names of banks, brands and people ──
 
 // "mBank" and "MBANK" -> "Embank", "mObywatel" -> "Emobywatel": a small "m" before a capital letter is the letter "em", the rest a word.
 // "PKO BP" and "PKO bp" are said letter by letter, "pe ka o be pe" (written "bp" a voice reads one word)
-export const sayBrands = (text: string) =>
+// Surnames that a voice reads by their spelling, not as they are said in Polish: "Merz" (the German chancellor) is "Merc", the endings
+// the name takes in Polish are kept ("Merza" is "Merca", "Merzowi" "Mercowi", "Merzem" "Mercem")
+const SURNAMES: Record<string, string> = { merz: 'Merc', scholz: 'Szolc' }
+const SURNAME_RE = new RegExp(String.raw`(?<![\p{L}\d])(${Object.keys(SURNAMES).join('|')})(a|owi|em|u|owie|ów|om|ami|ach)?(?![\p{L}\d])`, 'giu')
+export const sayProperNames = (text: string) =>
   text
     .replace(/(?<![\p{L}\d])m(\p{Lu})(\p{Ll}+)/gu, (m, first: string, rest: string) => `Em${first.toLocaleLowerCase('pl')}${rest}`)
     .replace(/(?<![\p{L}\d])MBANK(?![\p{L}\d])/gu, 'Embank') // the name in capitals, as a company is written in ESPI
     .replace(/(?<![\p{L}\d])PKO\s?(?:BP|Bp|bp)(?![\p{L}\d])/gu, 'Pe ka o be pe')
+    .replace(SURNAME_RE, (m, name: string, ending?: string) => `${SURNAMES[name.toLowerCase()]}${(ending ?? '').toLowerCase()}`)
 
 // ── Pauses ──
 
@@ -960,7 +965,7 @@ function sayMarked(text: string): string {
   let t = sayArticles(sayRoman(sayMonths(sayMonthDays(sayYearRanges(sayYears(sayQuarters(sayCompounds(sayIssueNumbers(sayAddresses(text))))))))))
   t = sayTerritories(sayHours(sayDirections(sayInstitutions(t))))
   for (const [re, said] of WORDS) t = t.replace(re, said)
-  t = saySpelled(sayAsWords(sayEnglish(sayBrands(sayMarkets(sayBrokers(t))))))
+  t = saySpelled(sayAsWords(sayEnglish(sayProperNames(sayMarkets(sayBrokers(t))))))
   return markPauses(sayNumbers(sayNames(t)))
 }
 
