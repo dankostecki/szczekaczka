@@ -922,6 +922,11 @@ const NAMES_EN: [RegExp, string][] = [
   [/(?<![\p{L}\d])PayU(?![\p{L}\d])/gu, 'Pej ju'],
   [/(?<![\p{L}\d])ISB[Nn]ews(?![\p{L}\d])/gu, 'i es be niuz'],
   [/(?<![\p{L}\d])Play2Chill(?![\p{L}\d])/gu, 'Plej tu czil'],
+  // A "2" between a word and a capitalised one is the English "to" ("Kool2Play" -> "Kul tu Plej", "Go2Market"), "Kool" and "Cool" are "kul";
+  // the name in capitals as ESPI writes a company ("KOOL2PLAY S.A.") is said the same before the capitals are turned into words
+  [/(?<![\p{L}\d])Kool2Play(?![\p{L}\d])/giu, 'Kul tu Plej'],
+  [/(?<=\p{Ll})2(?=\p{Lu}\p{Ll})/gu, ' tu '],
+  [/(?<![\p{L}\d])(?:Kool|Cool)(?![\p{L}\d])/gu, 'Kul'],
   [/(?<![\p{L}\d])PlayWay(?![\p{L}\d])/gu, 'Plej łej'],
   // English words in company names: "CREEPY JAR S.A." -> "Kripi Dżar spółka akcyjna"
   [/(?<![\p{L}\d])(?:CREEPY|Creepy)(?![\p{L}\d])/gu, 'Kripi'],
