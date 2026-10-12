@@ -145,7 +145,7 @@ function splitUnits(num: string, unit: string): [number, string | null][] | unde
 
 // Prepositions (and a few verbs) that ask for the genitive, with the words that only give a size in between ("do około 2 mld zł"): after them the unit is
 // "do 2 miliardów złotych", "od 2 złotych", not "2 miliardy"
-const GENITIVE_BEFORE = /(?:^|[\s(„"])(?:do|od|z|ze|bez|dla|u|wokół|obok|według|wg|spośród|wobec|powyżej|poniżej|zamiast|oprócz|wśród|sprzed|spod|brak|brakuje|brakowało|zabrakło|zabraknie|potrzeba)\s+(?:(?:około|ok\.|blisko|prawie|niemal|ponad|nawet|aż|zaledwie|ledwie|przynajmniej)\s+)*$/iu
+const GENITIVE_BEFORE = /(?:^|[\s(„"])(?:do|od|z|ze|bez|dla|u|wokół|obok|według|wg|spośród|wobec|powyżej|poniżej|zamiast|oprócz|wśród|sprzed|spod|brak|brakuje|brakowało|zabrakło|zabraknie|potrzeba|ciągu|czasie|okresie|przestrzeni|odstępie)\s+(?:(?:około|ok\.|blisko|prawie|niemal|ponad|nawet|aż|zaledwie|ledwie|przynajmniej)\s+)*$/iu
 // The word after a number: the nominative by the number ("2 miliony", "5 milionów"), the genitive for "do 2 milionów", "do 1 miliona"
 const unitForm = (forms: readonly string[], n: number, genitive: boolean) =>
   genitive ? (n === 1 ? forms[3] : forms[2]) : plural(n, forms[0], forms[1], forms[2])
@@ -459,6 +459,45 @@ export function sayMonthDays(text: string): string {
     return `${first !== undefined ? `${first}${dash}` : ''}${day} ${MONTH_NAMES.gen[roman(num) - 1]}`
   })
 }
+
+// A range of small numbers before a noun that is counted: "w ciągu 2-3 lat" is "w ciągu dwóch trzech lat", "za 2-3 lata" "za dwa trzy lata", "1-2 godziny"
+// "jedna dwie godziny", "po 2-3 latach" "po dwóch trzech latach". Written with a dash a voice says "2 minus 3"; the numbers are in the case the noun
+// shows (the plural "lata" is the nominative, "latach" the locative) or, with "lat" and "dni", which are the genitive plural and also stand after
+// 5 and more, the case the words before ask for ("w ciągu", "do", "od"…).
+type Counted = { gender: 'm' | 'f' | 'n'; form: 'nom' | 'gen' | 'loc' | 'amb' }
+const COUNTED: Record<string, Counted> = {}
+for (const [gender, nom, gen, loc] of [
+  ['m', 'lata', 'lat', 'latach'], ['m', 'miesiące', 'miesięcy', 'miesiącach'], ['m', 'tygodnie', 'tygodni', 'tygodniach'],
+  ['m', 'dni', 'dni', 'dniach'], ['m', 'kwartały', 'kwartałów', 'kwartałach'], ['m', 'razy', 'razy', ''],
+  ['f', 'godziny', 'godzin', 'godzinach'], ['f', 'minuty', 'minut', 'minutach'], ['f', 'sekundy', 'sekund', 'sekundach'],
+  ['f', 'osoby', 'osób', 'osobach'],
+] as const) {
+  COUNTED[nom] = { gender, form: nom === gen ? 'amb' : 'nom' }
+  COUNTED[gen] ??= { gender, form: 'gen' }
+  if (loc) COUNTED[loc] = { gender, form: 'loc' }
+}
+const COUNT_RANGE = new RegExp(String.raw`(?<![\p{L}\d.,/:-])(\d{1,2})\s?[-–]\s?(\d{1,2})\s+(${Object.keys(COUNTED).join('|')})(?![\p{L}\d-])`, 'gu')
+// 2, 3, 4 and the ones ending in them (not the teens) are the numbers that take the plural "lata", not "lat", in the nominative
+const FEW = (n: number) => n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)
+// "jeden" is "jedna" and "dwa" is "dwie" with a feminine noun (as the last word of the number); in the genitive and the locative "jednego" is
+// "jednej" (feminine) or "jednym" (the locative, masculine and neuter)
+function countWords(n: number, kase: 'nom' | 'gen' | 'loc', gender: 'm' | 'f' | 'n'): string {
+  const words = numberWords(n, kase !== 'nom').split(' ')
+  const last = words.length - 1
+  if (n % 10 === 1 && n % 100 !== 11) words[last] = kase === 'nom' ? { m: 'jeden', f: 'jedna', n: 'jedno' }[gender] : gender === 'f' ? 'jednej' : kase === 'loc' ? 'jednym' : 'jednego'
+  if (n % 10 === 2 && n % 100 !== 12 && kase === 'nom' && gender === 'f') words[last] = 'dwie'
+  return words.join(' ')
+}
+export const sayCountRanges = (text: string) =>
+  text.replace(COUNT_RANGE, (m: string, first: string, last: string, noun: string, at: number, all: string) => {
+    const a = +first, b = +last
+    if (a < 1 || a >= b) return m
+    const { gender, form } = COUNTED[noun]
+    const genitiveBefore = GENITIVE_BEFORE.test(all.slice(Math.max(0, at - 60), at))
+    // "lat" after 2, 3, 4 can only be the genitive ("w ciągu 2-3 lat"); after 5 and more it is the genitive when the words before ask for it
+    const kase = form === 'loc' ? 'loc' : form === 'nom' ? 'nom' : genitiveBefore || (form === 'gen' && (FEW(a) || FEW(b))) ? 'gen' : 'nom'
+    return `${countWords(a, kase, gender)} ${countWords(b, kase, gender)} ${noun}`
+  })
 
 // A range of days with the month after it: "w dniach 7 - 8 października" -> "w dniach od siódmego do ósmego października", "7-8 października" the same,
 // "30 września - 2 października" -> "od trzydziestego września do drugiego października". The days are written out: left as digits with a dash a voice
@@ -980,7 +1019,7 @@ export const sayPausedParts = (text: string): string[] => markPauses(text).split
 // ── All of it ──
 
 function sayMarked(text: string): string {
-  let t = sayArticles(sayRoman(sayMonths(sayDayRanges(sayMonthDays(sayYearRanges(sayYears(sayQuarters(sayCompounds(sayIssueNumbers(sayAddresses(text)))))))))))
+  let t = sayArticles(sayRoman(sayMonths(sayDayRanges(sayCountRanges(sayMonthDays(sayYearRanges(sayYears(sayQuarters(sayCompounds(sayIssueNumbers(sayAddresses(text))))))))))))
   t = sayTerritories(sayHours(sayDirections(sayInstitutions(t))))
   for (const [re, said] of WORDS) t = t.replace(re, said)
   t = saySpelled(sayAsWords(sayEnglish(sayProperNames(sayMarkets(sayBrokers(t))))))
