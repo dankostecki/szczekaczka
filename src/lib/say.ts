@@ -877,7 +877,7 @@ export const sayBrokers = (text: string) =>
 // Abbreviations said as words, not spelled ("rozporządzenia MAR" -> "mar", "dla PAP" -> "pap").
 // ASI (alternatywna spółka inwestycyjna) is "as" and "i" run together: written "Asi" a voice makes it a name
 // with a soft "ś" (like the vocative of Asia)
-const AS_WORDS: Record<string, string> = { MAR: 'Mar', PAP: 'Pap', ZUS: 'Zus', GUS: 'Gus', NIK: 'Nik', PIT: 'Pit', CIT: 'Cit', VAT: 'Wat', ASI: 'as i', BOŚ: 'Boś' }
+const AS_WORDS: Record<string, string> = { MAR: 'Mar', PAP: 'Pap', ZUS: 'Zus', GUS: 'Gus', NIK: 'Nik', PIT: 'Pit', CIT: 'Cit', VAT: 'Wat', ASI: 'as i', BOŚ: 'Boś', FIZ: 'Fiz' }
 const AS_WORDS_RE = new RegExp(String.raw`(?<![\p{L}\d])(${Object.keys(AS_WORDS).join('|')})(?![\p{L}\d])`, 'gu')
 // Whether the text ends with an article, paragraph or point and what follows it up to here: numbers, ordinals ("siedemnastego"), letters,
 // "i" ("artykułu siedemnastego ustęp 1 i 4"). Token by token from the end, so a long text costs nothing.
@@ -913,7 +913,7 @@ const EN_LETTERS: Record<string, string> = {
 }
 // Abbreviations that are said in English in Polish too ("AI" is "ej aj", not "a i"); the rest is spelled the Polish way (PKB, NBP, USA)
 const SPELLED_EN = ['AI', 'AGI', 'IT', 'CEO', 'CFO', 'COO', 'CTO', 'CIO', 'GPT', 'API', 'UX', 'VR', 'NFT', 'BBC', 'CNN', 'CNBC', 'IBM', 'AMD',
-  'IPO', 'NFP', 'FDA']
+  'IPO', 'NFP', 'FDA', 'MCI']
 // Names said in English, written for a Polish voice
 const NAMES_EN: [RegExp, string][] = [
   [/(?<![\p{L}\d])USGS(?![\p{L}\d])/gu, 'Junajted Stejts Dżiolodżikal Serwej'],
@@ -931,6 +931,17 @@ const NAMES_EN: [RegExp, string][] = [
   // English words in company names: "CREEPY JAR S.A." -> "Kripi Dżar spółka akcyjna"
   [/(?<![\p{L}\d])(?:CREEPY|Creepy)(?![\p{L}\d])/gu, 'Kripi'],
   [/(?<![\p{L}\d])(?:JAR|Jar)(?![\p{L}\d])/gu, 'Dżar'],
+  // "HUUUGE, INC." is "huge" (the stretched "uuu" is no matter), "Games" is "gejms": "Huuuge Games" -> "Hjudż Gejms"
+  [/(?<![\p{L}\d])Hu{2,}ge(?![\p{L}\d])/giu, 'Hjudż'],
+  // "CI GAMES S.A." keeps its "Ci" a word (said alone in capitals it would be spelled)
+  [/(?<![\p{L}\d])CI(\s+)Games(?![\p{L}\d])/giu, 'Ci$1Gejms'],
+  [/(?<![\p{L}\d])Games(?![\p{L}\d])/giu, 'Gejms'],
+  // "MCI CAPITAL ASI S.A." -> "em si aj Kapitał ..."; the funds of MCI, "MCI.PrivateVentures" -> "em si aj Prajwet Wenczers" (no dot, the words apart)
+  [/(?<![\p{L}\d])Capital(?![\p{L}\d])/giu, 'Kapitał'],
+  [/(?<![\p{L}\d])MCI\.(?=\p{Lu})/gu, 'MCI '],
+  [/(?<![\p{L}\d])Private(?=\p{Lu}|\s|$)/gu, 'Prajwet'],
+  [/(?<=\p{L})Ventures(?![\p{L}\d])/gu, ' Wenczers'],
+  [/(?<![\p{L}\d])Ventures(?![\p{L}\d])/gu, 'Wenczers'],
   // "Play" and "One" in names: "Play" -> "plej", "FaktorOne" -> "Faktor łan"
   [/(?<=\p{L})Play(?!\p{Ll})/gu, ' plej'],
   [/(?<!\p{L})Play(?!\p{Ll})/gu, 'Plej'],
@@ -1010,7 +1021,7 @@ const RANGE_BEFORE = /\d\S*(?:\s+\p{L}+\.?){0,2}$/u
 const PAUSE_MARK = '\u2063'
 const markPauses = (text: string) =>
   text
-    .replace(/(\S):(\s+|$)(\p{Ll})?/gu, (m, before: string, space: string, next?: string) => `${before}.${PAUSE_MARK}${space}${next ? next.toLocaleUpperCase('pl') : ''}`)
+    .replace(/(\S):(\s+|$)(\p{Ll})?/gu, (m, before: string, space: string, next?: string) => `${before}${before === '.' ? '' : '.'}${PAUSE_MARK}${space}${next ? next.toLocaleUpperCase('pl') : ''}`)
     .replace(DASH, (m: string, before: string, next: string, at: number, all: string) => {
       if (/\d/.test(next) && RANGE_BEFORE.test(all.slice(0, at))) return m
       return `${/[.!?…:;,]/.test(before) ? '' : '.'}${PAUSE_MARK} ${next.toLocaleUpperCase('pl')}`
