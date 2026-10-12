@@ -291,11 +291,14 @@ const ARTYKUL: Record<Kase, string> = { nom: 'artykuł', gen: 'artykułu', loc: 
 // "w trybie art. 19 MAR" -> "w trybie artykułu dziewiętnastego MAR", "zgodnie z art. 17" -> "zgodnie z
 // artykułem siedemnastym", "w art. 69" -> "w artykule sześćdziesiątym dziewiątym"
 export function sayArticles(text: string): string {
-  return text.replace(/(?<!\p{L})art\.\s?(\d{1,3})(?!\d)/gu, (m, num: string, at: number, all: string) => {
+  return text.replace(/(?<!\p{L})[Aa]rt\.\s?(\d{1,3})(?!\d)/gu, (m, num: string, at: number, all: string) => {
     const before = all.slice(0, at)
-    const k: Kase = /(?:^|\s)(?:zgodnie|w związku|wraz|stosownie)\s+z\s*$/u.test(before) ? 'inst' : caseAfter(before)
+    // "Art. 7 ust. 1 …" at the start of a sentence: nominative, with a capital
+    const start = m[0] === 'A' && (!before.trim() || /[.!?:;]\s*$/.test(before))
+    const k: Kase = start ? 'nom' : /(?:^|\s)(?:zgodnie|w związku|wraz|stosownie)\s+z\s*$/u.test(before) ? 'inst' : caseAfter(before)
     const n = +num
-    return n >= 1 && n < 200 ? `${ARTYKUL[k]} ${ordinalUpTo199(n, k)}` : `${ARTYKUL[k]} ${num}`
+    const said = n >= 1 && n < 200 ? `${ARTYKUL[k]} ${ordinalUpTo199(n, k)}` : `${ARTYKUL[k]} ${num}`
+    return start ? said[0].toLocaleUpperCase('pl') + said.slice(1) : said
   })
 }
 
@@ -750,7 +753,30 @@ export const sayBrokers = (text: string) =>
 // with a soft "ś" (like the vocative of Asia)
 const AS_WORDS: Record<string, string> = { MAR: 'Mar', PAP: 'Pap', ZUS: 'Zus', GUS: 'Gus', NIK: 'Nik', PIT: 'Pit', CIT: 'Cit', VAT: 'Wat', ASI: 'as i' }
 const AS_WORDS_RE = new RegExp(String.raw`(?<![\p{L}\d])(${Object.keys(AS_WORDS).join('|')})(?![\p{L}\d])`, 'gu')
-export const sayAsWords = (text: string) => text.replace(AS_WORDS_RE, (m) => AS_WORDS[m])
+// Whether the text ends with an article, paragraph or point and what follows it up to here: numbers, ordinals ("siedemnastego"), letters,
+// "i" ("artykułu siedemnastego ustęp 1 i 4"). Token by token from the end, so a long text costs nothing.
+const REFERENCE_WORD = /^(?:artykuł\p{L}*|ustęp\p{L}*|punkt\p{L}*|lit\.)$/iu
+const REFERENCE_PART = /^(?:\d+\p{L}?|\p{L}{1,2}|oraz|lub)[,;]?$/iu
+let ordinalWords: Set<string> | undefined
+const isOrdinalWord = (word: string) => {
+  ordinalWords ??= new Set((['nom', 'gen', 'loc', 'inst'] as Kase[]).flatMap((k) => Array.from({ length: 199 }, (_, i) => ordinalUpTo199(i + 1, k).split(' ')).flat()))
+  return ordinalWords.has(word.toLocaleLowerCase('pl'))
+}
+function endsWithReference(before: string): boolean {
+  const tokens = before.trimEnd().split(/\s+/).slice(-12)
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    if (REFERENCE_WORD.test(tokens[i].replace(/,$/, ''))) return true
+    if (!REFERENCE_PART.test(tokens[i]) && !isOrdinalWord(tokens[i].replace(/[,;]$/, ''))) return false
+  }
+  return false
+}
+// "MAR" after an article, paragraph or point of a regulation is that regulation: "art. 19 ust. 1 MAR" -> "artykułu dziewiętnastego ustęp 1
+// rozporządzenia Mar". Said as "1 Mar" a voice takes it for a date, the first of March.
+export const sayAsWords = (text: string) =>
+  text.replace(AS_WORDS_RE, (m: string, word: string, at: number, all: string) => {
+    const reference = endsWithReference(all.slice(Math.max(0, at - 120), at))
+    return m === 'MAR' && reference && !/rozporządzeni\p{L}*\s+$/iu.test(all.slice(0, at)) ? `rozporządzenia ${AS_WORDS[m]}` : AS_WORDS[m]
+  })
 
 // ── English: said the English way ──
 
