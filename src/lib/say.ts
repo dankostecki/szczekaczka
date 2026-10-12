@@ -460,6 +460,19 @@ export function sayMonthDays(text: string): string {
   })
 }
 
+// A range of days with the month after it: "w dniach 7 - 8 października" -> "w dniach od siódmego do ósmego października", "7-8 października" the same,
+// "30 września - 2 października" -> "od trzydziestego września do drugiego października". The days are written out: left as digits with a dash a voice
+// says "7 minus 8". The first day is the smaller one ("20-19 października" or a result "3-2" is no range of days).
+const MONTHS_GEN = MONTH_NAMES.gen.join('|')
+const DAY_RANGE = new RegExp(String.raw`(?<![\p{L}\d.,/:-])(\d{1,2})(?:\s+(${MONTHS_GEN}))?\s?[-–]\s?(\d{1,2})\s+(${MONTHS_GEN})(?![\p{L}\d])`, 'gu')
+export const sayDayRanges = (text: string) =>
+  text.replace(DAY_RANGE, (m: string, first: string, firstMonth: string | undefined, last: string, month: string, at: number, all: string) => {
+    if (+first < 1 || +first > 31 || +last < 1 || +last > 31 || (!firstMonth && +first >= +last)) return m
+    // "od 9 października - 11 października" has its "od" already
+    const from = /(?:^|\s)od\s+$/iu.test(all.slice(Math.max(0, at - 6), at)) ? '' : 'od '
+    return `${from}${ordinal(+first, 'gen')}${firstMonth ? ` ${firstMonth}` : ''} do ${ordinal(+last, 'gen')} ${month}`
+  })
+
 // "po VIII wyniosły" -> "po sierpniu wyniosły", "do VII" -> "do lipca", "na koniec IX" -> "na koniec września", "od I do VIII" ->
 // "od stycznia do sierpnia", "w okresie I-VIII" -> "w okresie od stycznia do sierpnia". A lone "I", "V" or "X" is a month only after
 // "po" ("I" is also "and", "X" a website); two of them in a range are months after any of the words above.
@@ -967,7 +980,7 @@ export const sayPausedParts = (text: string): string[] => markPauses(text).split
 // ── All of it ──
 
 function sayMarked(text: string): string {
-  let t = sayArticles(sayRoman(sayMonths(sayMonthDays(sayYearRanges(sayYears(sayQuarters(sayCompounds(sayIssueNumbers(sayAddresses(text))))))))))
+  let t = sayArticles(sayRoman(sayMonths(sayDayRanges(sayMonthDays(sayYearRanges(sayYears(sayQuarters(sayCompounds(sayIssueNumbers(sayAddresses(text)))))))))))
   t = sayTerritories(sayHours(sayDirections(sayInstitutions(t))))
   for (const [re, said] of WORDS) t = t.replace(re, said)
   t = saySpelled(sayAsWords(sayEnglish(sayProperNames(sayMarkets(sayBrokers(t))))))
