@@ -100,6 +100,7 @@ const UNITS: Record<string, [string, string, string, string]> = { // one, 2–4,
   'pkt': ['punkt', 'punkty', 'punktów', 'punktu'],
   'pkt proc.': ['punkt procentowy', 'punkty procentowe', 'punktów procentowych', 'punktu procentowego'],
   'pb': ['punkt bazowy', 'punkty bazowe', 'punktów bazowych', 'punktu bazowego'],
+  'mkw': ['metr kwadratowy', 'metry kwadratowe', 'metrów kwadratowych', 'metra kwadratowego'],
   'proc.': ['procent', 'procent', 'procent', 'procent'],
   'godz.': ['godzina', 'godziny', 'godzin', 'godziny'],
   'zł': ['złoty', 'złote', 'złotych', 'złotego'],
@@ -112,7 +113,7 @@ const UNITS: Record<string, [string, string, string, string]> = { // one, 2–4,
 const OF_CURRENCY: Record<string, string> = { 'zł': 'złotych', 'USD': 'dolarów', 'EUR': 'euro', 'CHF': 'franków', 'GBP': 'funtów' }
 // "pkt proc.", "pkt. proc." (a dot after "pkt" too, and none at the end) and "p.p." are the percentage points; "pkt. procentowych"
 // has the dot of "pkt." to drop
-const UNIT = /(\d+(?:,\d+)?)\s*(tys\.|godz\.|pkt\.?\s?proc(?:\.|(?!\p{L}))|p\.\s?p\.|proc\.|pkt\.(?=\s+procentow)|(?:mln|mld|bln|pkt|pb|zł|USD|EUR|CHF|GBP)(?!\p{L}))(\s+brk(?!\p{L}))?(?:\s+(zł|USD|EUR|CHF|GBP)(?!\p{L}))?/gu
+const UNIT = /(\d+(?:,\d+)?)\s*(tys\.|godz\.|pkt\.?\s?proc(?:\.|(?!\p{L}))|p\.\s?p\.|proc\.|pkt\.(?=\s+procentow)|(?:m\s?kw|mkw)\.?(?!\p{L})|m²|m2(?![\p{L}\d])|(?:mln|mld|bln|pkt|pb|zł|USD|EUR|CHF|GBP)(?!\p{L}))(\s+brk(?!\p{L}))?(?:\s+(zł|USD|EUR|CHF|GBP)(?!\p{L}))?/gu
 // "punktów proc." (the word is written out, only the "proc." is short) is "punktów procentowych", in the case of the noun
 const POINT_PERCENT = /(?<!\p{L})(punkt(?:ów|y|u|em|ach|om|ami|owi)?|punkcie)\s+proc\./giu
 const PERCENT_ADJECTIVE: Record<string, string> = {
@@ -149,7 +150,7 @@ export function sayNumbers(text: string): string {
     // "71,0 proc.", "4,00%", "5,0 mld zł": a decimal that is only zeros is the whole number
     .replace(/(?<![\d,.])(\d+),0+(?=\s?%(?![\p{L}\d])|\s*(?:tys\.|godz\.|pkt\s?proc\.|p\.\s?p\.|proc\.|(?:mln|mld|bln|pkt|pb|zł|USD|EUR|CHF|GBP)(?![\p{L}\d])))/gu, '$1')
     .replace(UNIT, (m: string, num: string, written: string, barrels: string | undefined, currency: string | undefined, at: number, all: string) => {
-      const unit = /^p\.\s?p\.$|^pkt\.?\s?proc\.?$/.test(written) ? 'pkt proc.' : written === 'pkt.' ? 'pkt' : written.replace(/\s+/g, ' ')
+      const unit = /^p\.\s?p\.$|^pkt\.?\s?proc\.?$/.test(written) ? 'pkt proc.' : written === 'pkt.' ? 'pkt' : /^(?:m\s?kw\.?|m²|m2)$/.test(written) ? 'mkw' : written.replace(/\s+/g, ' ')
       const forms = UNITS[unit]
       const end = !currency && !barrels && written.endsWith('.') && endsSentence(all.slice(at + m.length))
       const parts = splitUnits(num, unit)
@@ -162,6 +163,10 @@ export function sayNumbers(text: string): string {
       const word = num.includes(',') ? forms[3] : plural(+num, forms[0], forms[1], forms[2])
       return `${num} ${word}${barrels ? ' baryłek' : ''}${currency ? ` ${OF_CURRENCY[currency]}` : ''}${end ? '.' : ''}`
     })
+    // "700 tys. mkw. magazynów" -> "700 tysięcy metrów kwadratowych magazynów": the dot ends the abbreviation, not the sentence
+    .replace(/(tysiąc|tysiące|tysięcy|tysiąca|milion|miliony|milionów|miliona|miliard|miliardy|miliardów|miliarda|bilion|biliony|bilionów|biliona)(\s+)(?:m\s?kw|mkw)(\.?)(?![\p{L}\d])/gu,
+      (m: string, scale: string, space: string, dot: string, at: number, all: string) =>
+        `${scale}${space}metrów kwadratowych${dot && endsSentence(all.slice(at + m.length)) ? '.' : ''}`)
     .replace(POINT_PERCENT, (m: string, noun: string, at: number, all: string) =>
       `${noun} ${PERCENT_ADJECTIVE[noun.toLowerCase()]}${endsSentence(all.slice(at + m.length)) ? '.' : ''}`)
 }
@@ -291,11 +296,14 @@ const ARTYKUL: Record<Kase, string> = { nom: 'artykuł', gen: 'artykułu', loc: 
 // "w trybie art. 19 MAR" -> "w trybie artykułu dziewiętnastego MAR", "zgodnie z art. 17" -> "zgodnie z
 // artykułem siedemnastym", "w art. 69" -> "w artykule sześćdziesiątym dziewiątym"
 export function sayArticles(text: string): string {
-  return text.replace(/(?<!\p{L})art\.\s?(\d{1,3})(?!\d)/gu, (m, num: string, at: number, all: string) => {
+  return text.replace(/(?<!\p{L})[Aa]rt\.\s?(\d{1,3})(?!\d)/gu, (m, num: string, at: number, all: string) => {
     const before = all.slice(0, at)
-    const k: Kase = /(?:^|\s)(?:zgodnie|w związku|wraz|stosownie)\s+z\s*$/u.test(before) ? 'inst' : caseAfter(before)
+    // "Art. 7 ust. 1 …" at the start of a sentence: nominative, with a capital
+    const start = m[0] === 'A' && (!before.trim() || /[.!?:;]\s*$/.test(before))
+    const k: Kase = start ? 'nom' : /(?:^|\s)(?:zgodnie|w związku|wraz|stosownie)\s+z\s*$/u.test(before) ? 'inst' : caseAfter(before)
     const n = +num
-    return n >= 1 && n < 200 ? `${ARTYKUL[k]} ${ordinalUpTo199(n, k)}` : `${ARTYKUL[k]} ${num}`
+    const said = n >= 1 && n < 200 ? `${ARTYKUL[k]} ${ordinalUpTo199(n, k)}` : `${ARTYKUL[k]} ${num}`
+    return start ? said[0].toLocaleUpperCase('pl') + said.slice(1) : said
   })
 }
 
@@ -750,7 +758,30 @@ export const sayBrokers = (text: string) =>
 // with a soft "ś" (like the vocative of Asia)
 const AS_WORDS: Record<string, string> = { MAR: 'Mar', PAP: 'Pap', ZUS: 'Zus', GUS: 'Gus', NIK: 'Nik', PIT: 'Pit', CIT: 'Cit', VAT: 'Wat', ASI: 'as i' }
 const AS_WORDS_RE = new RegExp(String.raw`(?<![\p{L}\d])(${Object.keys(AS_WORDS).join('|')})(?![\p{L}\d])`, 'gu')
-export const sayAsWords = (text: string) => text.replace(AS_WORDS_RE, (m) => AS_WORDS[m])
+// Whether the text ends with an article, paragraph or point and what follows it up to here: numbers, ordinals ("siedemnastego"), letters,
+// "i" ("artykułu siedemnastego ustęp 1 i 4"). Token by token from the end, so a long text costs nothing.
+const REFERENCE_WORD = /^(?:artykuł\p{L}*|ustęp\p{L}*|punkt\p{L}*|lit\.)$/iu
+const REFERENCE_PART = /^(?:\d+\p{L}?|\p{L}{1,2}|oraz|lub)[,;]?$/iu
+let ordinalWords: Set<string> | undefined
+const isOrdinalWord = (word: string) => {
+  ordinalWords ??= new Set((['nom', 'gen', 'loc', 'inst'] as Kase[]).flatMap((k) => Array.from({ length: 199 }, (_, i) => ordinalUpTo199(i + 1, k).split(' ')).flat()))
+  return ordinalWords.has(word.toLocaleLowerCase('pl'))
+}
+function endsWithReference(before: string): boolean {
+  const tokens = before.trimEnd().split(/\s+/).slice(-12)
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    if (REFERENCE_WORD.test(tokens[i].replace(/,$/, ''))) return true
+    if (!REFERENCE_PART.test(tokens[i]) && !isOrdinalWord(tokens[i].replace(/[,;]$/, ''))) return false
+  }
+  return false
+}
+// "MAR" after an article, paragraph or point of a regulation is that regulation: "art. 19 ust. 1 MAR" -> "artykułu dziewiętnastego ustęp 1
+// rozporządzenia Mar". Said as "1 Mar" a voice takes it for a date, the first of March.
+export const sayAsWords = (text: string) =>
+  text.replace(AS_WORDS_RE, (m: string, word: string, at: number, all: string) => {
+    const reference = endsWithReference(all.slice(Math.max(0, at - 120), at))
+    return m === 'MAR' && reference && !/rozporządzeni\p{L}*\s+$/iu.test(all.slice(0, at)) ? `rozporządzenia ${AS_WORDS[m]}` : AS_WORDS[m]
+  })
 
 // ── English: said the English way ──
 
