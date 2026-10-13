@@ -7,6 +7,7 @@ import { type Item, type FeedError, freshItems, keyOf, dayKey, dayLabel, clock, 
 import { connectLive, type LiveStatus } from '@/lib/live'
 import { type Prefs, DEFAULT_PREFS, loadPrefs, savePrefs, loadJson, saveJson, watchMatcher } from '@/lib/prefs'
 import { speechSupported, speak, speakItem, announce, stopSpeaking, onSpeechBlocked } from '@/lib/speech'
+import { unlockChime } from '@/lib/chime'
 import { notifyPermission, requestNotifyPermission, notifyHeadlines, testNotification } from '@/lib/notify'
 import { useWakeLock } from '@/lib/wakeLock'
 import { useNewVersion } from '@/lib/version'
@@ -180,11 +181,13 @@ export default function App() {
     setBlocked(false)
     if (voiceOn) { stopSpeaking(); setVoiceOn(false); return }
     setVoiceOn(true)
+    unlockChime() // the same for the sound before the voice
     speak('Głos włączony.', prefs, voices) // speaking inside the click unlocks speech in strict browsers
   }
   useEffect(() => { onSpeechBlocked(() => setBlocked(true)); return () => onSpeechBlocked(undefined) }, [])
   function unblock() {
     setBlocked(false)
+    unlockChime()
     speak('Głos włączony.', prefs, voices) // inside the tap, as above
   }
   // The speaker on a headline: click to read it, click again to stop

@@ -10,6 +10,7 @@ export interface Prefs {
   voiceURI: string       // '' = the best Polish voice (speech.ts)
   voiceURIEn: string     // '' = the best English voice, for news in English
   rate: number
+  chime: boolean         // a soft sound before the voice starts on new headlines (chime.ts)
   maxPerRefresh: number  // 0: read every new headline; else at most this many per refresh, the rest summed up
   hiddenFeeds: string[]  // channels left off the list, and so not read aloud or notified either ("STOOQ:ŚWIAT")
   speakFeeds: string[]   // channels read aloud ("GPW:PRASA")
@@ -27,6 +28,7 @@ export const DEFAULT_PREFS: Prefs = {
   voiceURI: '',
   voiceURIEn: '',
   rate: 1,
+  chime: true,
   maxPerRefresh: 0,
   hiddenFeeds: [],
   speakFeeds: FEED_KEYS,
