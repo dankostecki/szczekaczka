@@ -16,7 +16,7 @@ export interface Prefs {
   notifyFeeds: string[]  // channels shown as notifications
   leadFeeds: string[]    // channels read with the lead after the title; the others: the title only
   knownFeeds: string[]   // channels that existed when these settings were saved
-  watchlist: string      // ESPI: only these companies are read aloud / notified
+  watchlist: string      // ESPI: with a list, only these companies are read aloud / notified; empty, every report is read aloud (and none notified)
 }
 // Voice on/off is not stored: browsers allow speech only after a click on the page.
 
@@ -93,10 +93,10 @@ export function saveJson(key: string, value: unknown) {
   try { localStorage.setItem(key, JSON.stringify(value)) } catch {}
 }
 
-// "PKN, CD Projekt; KGHM" -> a test for whole words, any case
-export function watchMatcher(list: string): (text: string) => boolean {
+// "PKN, CD Projekt; KGHM" -> a test for whole words, any case. An empty list matches nothing, or everything with `allWhenEmpty`
+export function watchMatcher(list: string, allWhenEmpty = false): (text: string) => boolean {
   const names = list.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean)
-  if (names.length === 0) return () => false
+  if (names.length === 0) return () => allWhenEmpty
   const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')
   const re = new RegExp(`(?<![\\p{L}\\p{N}])(?:${names.map(esc).join('|')})(?![\\p{L}\\p{N}])`, 'iu')
   return (text) => re.test(text)
