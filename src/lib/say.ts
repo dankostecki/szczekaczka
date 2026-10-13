@@ -983,12 +983,6 @@ const NAMES_EN: [RegExp, string][] = [
   // "Pay" in names: "OPay" -> "O pej", "Google Pay" -> "Google pej", "PayPal" -> "PejPal"
   [/(?<=\p{L})Pay(?!\p{Ll})/gu, ' pej'],
   [/(?<!\p{L})Pay(?!\p{Ll})/gu, 'Pej'],
-  // "Co." is "company" ("JPMorgan Chase & Co." -> "... end Kampani"), "Cos." "companies"; the "Co" of a Polish sentence is never capitalised
-  // after another capitalised word, so only there it is the abbreviation (without a full stop too: "JPMorgan Co")
-  [/\s*&\s*Co\.?(?![\p{L}\d])/gu, ' end Kampani'],
-  [/\s*&\s*Cos\.(?![\p{L}\d])/gu, ' end Kampanis'],
-  [/(?<=\p{Lu}[\p{L}\d]*\s+)Co(?:\.|(?![\p{L}\d]))/gu, 'Kampani'],
-  [/(?<=\p{Lu}[\p{L}\d]*\s+)Cos\./gu, 'Kampanis'],
   // English and German legal forms: the letters the English way ("LLC" is "el el si"), "GmbH" by its letters
   [/(?<![\p{L}\d])L\.?L\.?C\.?(?![\p{L}\d])/gu, 'el el si'],
   [/(?<![\p{L}\d])L\.?L\.?P\.?(?![\p{L}\d])/gu, 'el el pi'],
@@ -1041,8 +1035,15 @@ export const sayUsNames = (text: string) =>
     if (!name.inflects || !(name.stem ? US_ENDINGS_FEMININE : US_ENDINGS_MASCULINE).has(ending)) return m
     return `${name.said}${ending}`
   }))
+// "Co.", "Cos.", "Company" and "Companies" at the end of a company's name are not said: "Boeing Co." is "Boeing", "JPMorgan Chase & Co." "JPMorgan Chase". Only
+// after another capitalised word (the "Co" of a Polish sentence is never capitalised there), and "Company" only where the name does not go on ("Company Store").
+// The full stop of the abbreviation stays where it ends a sentence ("Boeing Co. Prezes" -> "Boeing. Prezes").
+const COMPANY_SUFFIX = /(?<=\p{Lu}[\p{L}\d.'’-]*)(?:\s+&)?\s+(?:(Cos?)(\.?)(?![\p{L}\d])|(?:Company|Companies)(?![\p{L}\d]|\s+\p{Lu}))/gu
+const dropCompany = (text: string) =>
+  text.replace(COMPANY_SUFFIX, (m: string, abbreviation: string | undefined, dot: string | undefined, at: number, all: string) =>
+    abbreviation && dot && /^\s+\p{Lu}/u.test(all.slice(at + m.length)) ? '.' : '')
 export function sayEnglish(text: string): string {
-  let t = sayUsNames(sayEnglishInNames(text))
+  let t = dropCompany(sayUsNames(sayEnglishInNames(text)))
   for (const [re, said] of NAMES_EN) t = t.replace(re, said)
   return t.replace(SPELLED_EN_RE, (m) => [...m].map((c) => EN_LETTERS[c]).join(' '))
 }
