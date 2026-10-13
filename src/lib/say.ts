@@ -96,7 +96,46 @@ export function sayNames(text: string): string {
 const plural = (n: number, one: string, few: string, many: string) =>
   n === 1 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? few : many
 
-const UNITS: Record<string, [string, string, string, string]> = { // one, 2–4, 5+, a fraction
+type Forms = readonly [string, string, string, string]
+
+// A currency: its word after a number (one, 2–4, 5+, and the genitive singular that a fraction takes), its gender (it shows in "jedna" and "dwie" before a
+// feminine noun, "jedno" before a neuter one) and the small coin of its decimals ("12,50 USD" is "dwanaście dolarów i pięćdziesiąt centów")
+interface Money { forms: Forms; gender: 'm' | 'f' | 'n'; minor?: Forms }
+const GROSZE: Forms = ['grosz', 'grosze', 'groszy', 'grosza']
+const CENT: Forms = ['cent', 'centy', 'centów', 'centa']
+const crown = (stem: string): Forms => [`korona ${stem}a`, `korony ${stem}ie`, `koron ${stem}ich`, `korony ${stem}iej`]
+const dollar = (stem: string): Forms => [`dolar ${stem}i`, `dolary ${stem}ie`, `dolarów ${stem}ich`, `dolara ${stem}iego`]
+const MONEY: Record<string, Money> = {
+  'zł': { forms: ['złoty', 'złote', 'złotych', 'złotego'], gender: 'm', minor: GROSZE },
+  USD: { forms: ['dolar', 'dolary', 'dolarów', 'dolara'], gender: 'm', minor: CENT },
+  EUR: { forms: ['euro', 'euro', 'euro', 'euro'], gender: 'n', minor: CENT },
+  CHF: { forms: ['frank', 'franki', 'franków', 'franka'], gender: 'm', minor: ['centym', 'centymy', 'centymów', 'centyma'] },
+  GBP: { forms: ['funt', 'funty', 'funtów', 'funta'], gender: 'm', minor: ['pens', 'pensy', 'pensów', 'pensa'] },
+  CZK: { forms: crown('czesk'), gender: 'f', minor: ['halerz', 'halerze', 'halerzy', 'halerza'] },
+  NOK: { forms: crown('norwesk'), gender: 'f' },
+  SEK: { forms: crown('szwedzk'), gender: 'f' },
+  DKK: { forms: crown('duńsk'), gender: 'f' },
+  JPY: { forms: ['jen', 'jeny', 'jenów', 'jena'], gender: 'm' },
+  CNY: { forms: ['juan', 'juany', 'juanów', 'juana'], gender: 'm' },
+  HUF: { forms: ['forint', 'forinty', 'forintów', 'forinta'], gender: 'm' },
+  RON: { forms: ['lej', 'leje', 'lei', 'leja'], gender: 'm' },
+  RUB: { forms: ['rubel', 'ruble', 'rubli', 'rubla'], gender: 'm' },
+  TRY: { forms: ['lira turecka', 'liry tureckie', 'lir tureckich', 'liry tureckiej'], gender: 'f' },
+  UAH: { forms: ['hrywna', 'hrywny', 'hrywien', 'hrywny'], gender: 'f' },
+  CAD: { forms: dollar('kanadyjsk'), gender: 'm', minor: CENT },
+  AUD: { forms: dollar('australijsk'), gender: 'm', minor: CENT },
+  NZD: { forms: dollar('nowozelandzk'), gender: 'm', minor: CENT },
+}
+// What else says a currency: the code PLN, the signs, the word itself ("5.000 złotych", "1,5 mln euro")
+const MONEY_ALIAS: Record<string, string> = {
+  PLN: 'zł', 'US$': 'USD', $: 'USD', '€': 'EUR', '£': 'GBP', euro: 'EUR',
+  złotych: 'zł', złote: 'zł', złoty: 'zł', dolarów: 'USD', dolary: 'USD', dolar: 'USD', franków: 'CHF', franki: 'CHF', frank: 'CHF', funtów: 'GBP', funty: 'GBP', funt: 'GBP',
+}
+const moneyKey = (written: string) => MONEY_ALIAS[written] ?? written
+const MONEY_CODES = ['zł', 'PLN', ...Object.keys(MONEY).filter((code) => code !== 'zł')].join('|')
+const MONEY_WORDS = 'złotych|złote|złoty|dolarów|dolary|dolar|euro|franków|franki|frank|funtów|funty|funt'
+
+const UNITS: Record<string, Forms> = { // one, 2–4, 5+, a fraction
   'tys.': ['tysiąc', 'tysiące', 'tysięcy', 'tysiąca'],
   'mln': ['milion', 'miliony', 'milionów', 'miliona'],
   'mld': ['miliard', 'miliardy', 'miliardów', 'miliarda'],
@@ -107,17 +146,49 @@ const UNITS: Record<string, [string, string, string, string]> = { // one, 2–4,
   'mkw': ['metr kwadratowy', 'metry kwadratowe', 'metrów kwadratowych', 'metra kwadratowego'],
   'proc.': ['procent', 'procent', 'procent', 'procent'],
   'godz.': ['godzina', 'godziny', 'godzin', 'godziny'],
-  'zł': ['złoty', 'złote', 'złotych', 'złotego'],
-  'USD': ['dolar', 'dolary', 'dolarów', 'dolara'],
-  'EUR': ['euro', 'euro', 'euro', 'euro'],
-  'CHF': ['frank', 'franki', 'franków', 'franka'],
-  'GBP': ['funt', 'funty', 'funtów', 'funta'],
+  ...Object.fromEntries(Object.entries(MONEY).map(([code, money]) => [code, money.forms])),
 }
+// The units that are feminine, for the "jedna" and "dwie" of a long number
+const UNIT_GENDER: Record<string, 'f'> = { 'godz.': 'f' }
+const genderOf = (unit: string): 'm' | 'f' | 'n' => MONEY[unit]?.gender ?? UNIT_GENDER[unit] ?? 'm'
 // After "mln", "tys."…: "5 mln zł" is "5 milionów złotych"
-const OF_CURRENCY: Record<string, string> = { 'zł': 'złotych', 'USD': 'dolarów', 'EUR': 'euro', 'CHF': 'franków', 'GBP': 'funtów' }
-// "pkt proc.", "pkt. proc." (a dot after "pkt" too, and none at the end) and "p.p." are the percentage points; "pkt. procentowych"
-// has the dot of "pkt." to drop
-const UNIT = /(?<!\d)(\d{1,3}(?:[ \u00a0]\d{3})+(?:,\d+)?|\d+(?:,\d+)?)\s*(tys\.|godz\.|pkt\.?\s?proc(?:\.|(?!\p{L}))|p\.\s?p\.|proc\.|pkt\.(?=\s+procentow)|(?:m\s?kw|mkw)\.?(?!\p{L})|m²|m2(?![\p{L}\d])|(?:mln|mld|bln|pkt|pb|zł|USD|EUR|CHF|GBP)(?!\p{L}))(\s+brk(?!\p{L}))?(?:\s+(zł|USD|EUR|CHF|GBP)(?!\p{L}))?/gu
+const OF_CURRENCY: Record<string, string> = Object.fromEntries(Object.entries(MONEY).map(([code, money]) => [code, money.forms[2]]))
+// A number as it is written: "5.245.579,82" (Polish, dots between the thousands), "5 245 579,82" (spaces, the narrow and the hard ones too), "5,245,579.82"
+// (English), "5'245'579.82" (Swiss), "5245579,82", "5245579.82" (a dot for the decimals). It does not go on with a digit, or a dot or a comma and a digit
+// ("12.10.2026" and "1.2.3" are no amounts)
+const AMOUNT_NUMBER = String.raw`(?:\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d{1,3}(?:[ \u00a0\u202f\u2009]\d{3})+(?:[.,]\d+)?|\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d{1,3}(?:['’]\d{3})+(?:[.,]\d+)?|\d+(?:[.,]\d+)?)(?!\d|[.,]\d)`
+// The digits of a number as written and its decimals, "5.245.579,82" -> ["5245579", "82"]. A separator that stands once with three digits after it
+// is the thousands one when the other kind (or a space) is not there for the decimals: "1.250" is a thousand two hundred and fifty (not "0.250", a quarter),
+// "5,245" the Polish decimals unless a dollar or a pound stands before it ("$5,245"); two of them in a row ("1.234.567", "1,234,567") are thousands
+function parseNumber(written: string, commaThousands = false): [string, string] {
+  const t = written.replace(/[ \u00a0\u202f\u2009'’]/g, '')
+  const dots = t.split('.').length - 1, commas = t.split(',').length - 1
+  let decimal = ''
+  if (dots && commas) decimal = t.lastIndexOf('.') > t.lastIndexOf(',') ? '.' : ','
+  else if (dots === 1) decimal = t.length !== written.length || !/^[1-9]\d{0,2}\.\d{3}$/.test(t) ? '.' : ''
+  else if (commas === 1) decimal = commaThousands && /^\d{1,3},\d{3}$/.test(t) ? '' : ','
+  const at = decimal ? t.lastIndexOf(decimal) : -1
+  return at < 0 ? [t.replace(/[.,]/g, ''), ''] : [t.slice(0, at).replace(/[.,]/g, ''), t.slice(at + 1)]
+}
+const digitsOf = ([whole, fraction]: [string, string]) => (fraction ? `${whole},${fraction}` : whole)
+// "pkt.", "pkt. proc.", "pkt proc." and "p.p." are the percentage points; "pkt. procentowych" has the dot of "pkt." to drop
+const UNIT_ALTERNATIVES = String.raw`tys\.|godz\.|pkt\.?\s?proc(?:\.|(?!\p{L}))|p\.\s?p\.|proc\.|pkt\.(?=\s+procentow)|(?:m\s?kw|mkw)\.?(?!\p{L})|m²|m2(?![\p{L}\d])|(?:mln|mld|bln|pkt|pb|${MONEY_CODES}|${MONEY_WORDS})(?!\p{L})|[€£$]`
+const CURRENCY_AFTER = String.raw`(?:${MONEY_CODES}|${MONEY_WORDS})(?!\p{L})|[€£$]`
+const UNIT = new RegExp(String.raw`(?<![\d.,])(${AMOUNT_NUMBER})(?:,[-–])?\s*(${UNIT_ALTERNATIVES})(\s+brk(?!\p{L}))?(?:\s+(${CURRENCY_AFTER}))?`, 'gu')
+// A sign or a code before the amount: "$5,245.50", "€1,5 mln", "EUR 5.245.579,82", "PLN 5 000" are said as "5245,50 USD", "1,5 mln EUR", "5245579,82 EUR" (not a rate, "EUR 4,31 zł", which has a currency after it, and not the currency of an amount before it,
+// "5 mln USD 3 proc.")
+const CURRENCY_BEFORE = new RegExp(String.raw`(?<![\p{L}\d$€£])(?<!\d\s*(?:(?:mln|mld|bln|tys\.)\s*)?)(US\$|[€£$]|${MONEY_CODES.replace(/^zł\|/, '')})\s?(${AMOUNT_NUMBER})(?:\s?(mln|mld|bln|tys\.))?(?![\p{L}\d])(?!\s?(?:${MONEY_CODES}|${MONEY_WORDS})(?!\p{L}))`, 'gu')
+// A range of amounts, one of them with a thousand or more: "od 5.000 do 10.000 zł", "z 5.000 do 10.000 zł", "2.500-3.000 zł": the first stands in the genitive and
+// has no unit of its own, the second takes the unit
+const AMOUNT_RANGE = new RegExp(String.raw`(?<![\d.,])(?:(od|z|ze)\s+)?(${AMOUNT_NUMBER})(\s?[-–]\s?|\s+do\s+)(?=(${AMOUNT_NUMBER})\s*(?:${UNIT_ALTERNATIVES}))`, 'giu')
+// A number with no unit after it, written with separators ("1.234.567 akcji", "12 345 osób", "5'245'579"): the separators go, as a voice may read the groups as
+// separate numbers or the dots as points. Spaces are the least sure: not after a digit and a space, not before another group (a phone number is "22 123 45 67"),
+// not for "600 123 456", not after the words of numbers that are no amounts
+const BARE_NUMBER = new RegExp(String.raw`(?<![\p{L}\d.,+§$€£])(?:\d{1,3}(?:\.\d{3})+,\d+|\d{1,3}(?:\.\d{3}){2,}|\d{1,3}(?:,\d{3})+\.\d+|\d{1,3}(?:,\d{3}){2,}|\d{1,3}(?:['’]\d{3})+(?:[.,]\d+)?|\d{1,3}(?:[\u00a0\u202f\u2009]\d{3})+(?:,\d+)?|(\d{1,3}(?: \d{3})+(?:,\d+)?))(?!\d|[.,]\d)`, 'gu')
+const NOT_AN_AMOUNT = /(?:tel|telefon|kom|fax|nr|numer|NIP|KRS|REGON|PESEL|konto|rachunek|IBAN|ISBN|ISIN)\.?:?\s*$/iu
+// "5.000 akcji", "1.250 osób": one dot and three digits, with a word after it, is a thousand and more, except for the numbers of a part of a document or a version
+const SECTION_WORD = /(?:art|ust|pkt|lit|rozdz|par|nr|poz|tab|rys|zał|str|s|ver|wer|wersja|v|iso|rfc|sekcja|punkt|rozdział|załącznik|tabela|rysunek|strona|pozycja|numer|§)\.?\s*$/iu
+const SINGLE_THOUSAND = /(?<![\p{L}\d.,+§$€£\/-])([1-9]\d{0,2}\.\d{3})(?=\s+\p{Ll}|\s*%)(?![\d]|[.,]\d)/gu
 // "punktów proc." (the word is written out, only the "proc." is short) is "punktów procentowych", in the case of the noun
 const POINT_PERCENT = /(?<!\p{L})(punkt(?:ów|y|u|em|ach|om|ami|owi)?|punkcie)\s+proc\./giu
 const PERCENT_ADJECTIVE: Record<string, string> = {
@@ -149,20 +220,32 @@ function splitUnits(num: string, unit: string): [number, string | null][] | unde
 
 // Prepositions (and a few verbs and nouns: "w wysokości", "na poziomie", "rzędu") that ask for the genitive, with the words that only give a size in between ("do około 2 mld zł"): after them the unit is
 // "do 2 miliardów złotych", "od 2 złotych", not "2 miliardy"
-const GENITIVE_BEFORE = /(?:^|[\s(„"])(?:do|od|z|ze|bez|dla|u|wokół|obok|według|wg|spośród|wobec|powyżej|poniżej|zamiast|oprócz|wśród|sprzed|spod|brak|brakuje|brakowało|zabrakło|zabraknie|potrzeba|ciągu|czasie|okresie|przestrzeni|odstępie|wysokości|wartości|kwocie|poziomie|rzędu|okolicach|granicach)\s+(?:(?:około|ok\.|blisko|prawie|niemal|ponad|nawet|aż|zaledwie|ledwie|przynajmniej)\s+)*$/iu
+const GENITIVE_BEFORE = /(?:^|[\s(„"])(?:do|od|z|ze|bez|dla|u|wokół|obok|według|wg|spośród|wobec|powyżej|poniżej|zamiast|oprócz|wśród|sprzed|spod|brak|brakuje|brakowało|zabrakło|zabraknie|potrzeba|ciągu|czasie|okresie|przestrzeni|odstępie|wysokości|wartości|kwocie|kwoty|kwotą|sumy|cenie|ceny|ceną|kursie|kursu|limicie|limitu|równowartość|równowartości|równowartością|poziomie|rzędu|okolicach|granicach)\s+(?:(?:około|ok\.|blisko|prawie|niemal|ponad|nawet|aż|zaledwie|ledwie|przynajmniej)\s+)*$/iu
 // The word after a number: the nominative by the number ("2 miliony", "5 milionów"), the genitive for "do 2 milionów", "do 1 miliona"
 const unitForm = (forms: readonly string[], n: number, genitive: boolean) =>
   genitive ? (n === 1 ? forms[3] : forms[2]) : plural(n, forms[0], forms[1], forms[2])
-const GROSZE = ['grosz', 'grosze', 'groszy', 'grosza']
 
 // What a price is "per": "zł/l" is "złotych za litr"
 const PER_UNIT: Record<string, string> = { l: 'litr', kg: 'kilogram', t: 'tonę', szt: 'sztukę', bbl: 'baryłkę', MWh: 'megawatogodzinę', kWh: 'kilowatogodzinę',
   GJ: 'gigadżul', mkw: 'metr kwadratowy', m2: 'metr kwadratowy', 'm²': 'metr kwadratowy' }
 
-// A number up to 999 in words, in the nominative or the genitive ("sześćset", "sześciuset"); a larger one stays in digits. A voice that
-// reads "10 milionów 600 tysięcy" takes the genitive of "milionów" for the next number ("sześciuset"), so the parts are written out.
+// A number in words, in the nominative or the genitive ("sześćset", "sześciuset"; "pięć milionów dwieście tysięcy", "pięciu milionów dwustu tysięcy"), up to
+// 999 bilionów; a larger one stays in digits. A voice that reads "10 milionów 600 tysięcy" takes the genitive of "milionów" for the next number ("sześciuset"),
+// so the parts are written out. A thousand, a million… of one are said without the "jeden" ("milion dwieście tysięcy").
+const SCALES = ['', 'tys.', 'mln', 'mld', 'bln']
 function numberWords(n: number, genitive: boolean): string {
-  if (!(n > 0 && n < 1000)) return String(n)
+  if (!(n > 0 && n < 1e15) || !Number.isInteger(n)) return String(n)
+  if (n >= 1000) {
+    const parts: string[] = []
+    for (let scale = SCALES.length - 1; scale >= 0; scale--) {
+      const group = Math.floor(n / 1000 ** scale) % 1000
+      if (!group) continue
+      // the last "jeden" of a long number stays in every case ("do stu jeden tysięcy", "do tysiąca jeden złotych")
+      if (!scale) parts.push(group === 1 ? 'jeden' : numberWords(group, genitive))
+      else parts.push(...(group === 1 ? [] : [numberWords(group, genitive)]), unitForm(UNITS[SCALES[scale]], group, genitive))
+    }
+    return parts.join(' ')
+  }
   if (!genitive) return cardinal(n)
   const r = n % 100
   const tail = r < 10 ? [GEN_ONES[r]] : r < 20 ? [GEN_TEENS[r - 10]] : [GEN_TENS[Math.floor(r / 10)], GEN_ONES[r % 10]]
@@ -170,29 +253,59 @@ function numberWords(n: number, genitive: boolean): string {
   // only a lone 1 is declined ("jednego miliona"); at the end of a longer number "jeden" stays ("do czterystu dziewięćdziesięciu jeden miliardów")
   return n > 1 ? words.replace(/ jednego$/, ' jeden') : words
 }
+// A number before a noun that has a gender: "jedna", "dwie" for a feminine one ("dwadzieścia dwie korony", not "dwa"), "jedno" for a neuter one ("jedno euro");
+// the last word of the number is the one that changes, and a lone 1 in the genitive is "jednej" or "jednego"
+function amountWords(n: number, genitive: boolean, gender: 'm' | 'f' | 'n'): string {
+  const words = numberWords(n, genitive).split(' ')
+  const last = words.length - 1
+  if (gender !== 'm' && n === 1) words[last] = genitive ? (gender === 'f' ? 'jednej' : 'jednego') : gender === 'f' ? 'jedna' : 'jedno'
+  else if (gender === 'f' && !genitive && n % 10 === 2 && n % 100 !== 12) words[last] = 'dwie'
+  return words.join(' ')
+}
 // A number with no unit after it that says its gender ("jedna", "dwie" osoby): 1, 2 and the ones ending in them, except the teens
 const hasGender = (n: number) => (n % 10 === 1 || n % 10 === 2) && (n % 100 < 11 || n % 100 > 19)
-// Currencies that are masculine: "dwa złote", "jeden dolar" (not "euro")
-const MASCULINE_CURRENCY = new Set(['zł', 'USD', 'CHF', 'GBP'])
 // "10 mln 600 tys. zł", "5 tys. 200 zł": a number after another with its unit, and one that another follows
 const CHAIN_BEFORE = /(?:(?<![\d,])\d+\s*(?:bln|mld|mln|tys\.)\s+)+$/u
-const CHAIN_AFTER = /^\s+\d+\s*(?:bln|mld|mln|tys\.|zł|USD|EUR|CHF|GBP)(?![\p{L}\d])/u
+const CHAIN_AFTER = new RegExp(String.raw`^\s+\d+\s*(?:bln|mld|mln|tys\.|${MONEY_CODES})(?![\p{L}\d])`, 'u')
 
 // "-41,7 tys." -> "minus 41,7 tysiąca", "-2,1 mln brk" -> "minus 2,1 miliona baryłek", "5 mln zł" -> "5 milionów złotych",
-// "5,483 mld zł" -> "5 miliardów 483 miliony złotych", "13 pkt. proc." -> "13 punktów procentowych" (but "13 proc." -> "13 procent")
+// "5,483 mld zł" -> "5 miliardów 483 miliony złotych", "13 pkt. proc." -> "13 punktów procentowych" (but "13 proc." -> "13 procent"),
+// "5.245.579,82 zł" -> "pięć milionów dwieście czterdzieści pięć tysięcy pięćset siedemdziesiąt dziewięć złotych i osiemdziesiąt dwa grosze". An amount of a thousand
+// and more is said in words, in the case the sentence asks for, whatever way it is written (dots, spaces, commas or an apostrophe between the thousands, a comma or
+// a dot before the decimals, the currency before or after it, as a code, a sign or a word); a voice declines the digits as it likes, and after words it is often wrong
 export function sayNumbers(text: string): string {
   return text
-    .replace(/(^|[\s(])-(?=\d)/g, '$1minus ')
+    .replace(/(^|[\s(])[-\u2212](?=\d)/g, '$1minus ')
+    // "$5,245.50", "€1,5 mln", "EUR 5.245.579,82": the sign or the code after the amount
+    .replace(CURRENCY_BEFORE, (m: string, sign: string, num: string, scale?: string) =>
+      `${digitsOf(parseNumber(num, /^(?:US\$|\$|£)$/.test(sign)))}${scale ? ` ${scale}` : ''} ${moneyKey(sign)}`)
     // "7,06 zł/l" -> "7,06 zł za litr", "70 USD/bbl" -> "70 USD za baryłkę"
-    .replace(/(\d\s?(?:zł|USD|EUR|CHF|GBP))\/(l|kg|t|szt\.?|bbl|MWh|kWh|GJ|mkw|m2|m²)(?![\p{L}\d])/gu,
+    .replace(new RegExp(String.raw`(\d\s?(?:${MONEY_CODES}))\/(l|kg|t|szt\.?|bbl|MWh|kWh|GJ|mkw|m2|m²)(?![\p{L}\d])`, 'gu'),
       (m: string, amount: string, per: string, at: number, all: string) =>
         `${amount} za ${PER_UNIT[per.replace(/\.$/, '')]}${per.endsWith('.') && endsSentence(all.slice(at + m.length)) ? '.' : ''}`)
     // "71,0 proc.", "4,00%", "5,0 mld zł": a decimal that is only zeros is the whole number
-    .replace(/(?<![\d,.])(\d+),0+(?=\s?%(?![\p{L}\d])|\s*(?:tys\.|godz\.|pkt\s?proc\.|p\.\s?p\.|proc\.|(?:mln|mld|bln|pkt|pb|zł|USD|EUR|CHF|GBP)(?![\p{L}\d])))/gu, '$1')
-    .replace(UNIT, (m: string, num: string, written: string, barrels: string | undefined, currency: string | undefined, at: number, all: string) => {
-      const unit = /^p\.\s?p\.$|^pkt\.?\s?proc\.?$/.test(written) ? 'pkt proc.' : written === 'pkt.' ? 'pkt' : /^(?:m\s?kw\.?|m²|m2)$/.test(written) ? 'mkw' : written.replace(/\s+/g, ' ')
+    .replace(new RegExp(String.raw`(?<![\d,.])(\d+),0+(?=\s?%(?![\p{L}\d])|\s*(?:tys\.|godz\.|pkt\s?proc\.|p\.\s?p\.|proc\.|(?:mln|mld|bln|pkt|pb|${MONEY_CODES})(?![\p{L}\d])))`, 'gu'), '$1')
+    // "od 5.000 do 10.000 zł", "2.500-3.000 zł": the first of the two in words ("od pięciu tysięcy do …"), the second is left to its unit
+    .replace(AMOUNT_RANGE, (m: string, lead: string | undefined, first: string, between: string, second: string) => {
+      const [from, to] = [parseNumber(first), parseNumber(second)]
+      const dash = /[-–]/.test(between)
+      if (from[1] || to[1] || from[0].length > 15 || to[0].length > 15 || (!dash && !lead) || +from[0] >= +to[0] || +to[0] < 1000) return m
+      return `${lead ?? 'od'} ${numberWords(+from[0], true)} do `
+    })
+    .replace(UNIT, (m: string, num: string, written: string, barrels: string | undefined, currencyWritten: string | undefined, at: number, all: string) => {
+      const amount = parseNumber(num)
+      // a decimal that is only zeros is the whole number: "5.245,00 zł" is "5245 zł"
+      if (/^0+$/.test(amount[1])) amount[1] = ''
+      const [whole, fraction] = amount
+      const digits = digitsOf(amount)
+      const currency = currencyWritten ? moneyKey(currencyWritten) : undefined
+      const key = moneyKey(written)
+      const unit = /^p\.\s?p\.$|^pkt\.?\s?proc\.?$/.test(key) ? 'pkt proc.' : key === 'pkt.' ? 'pkt' : /^(?:m\s?kw\.?|m²|m2)$/.test(key) ? 'mkw' : key.replace(/\s+/g, ' ')
       const forms = UNITS[unit]
-      const digits = num.replace(/[\s\u00a0]/g, '')
+      const n = whole.length <= 15 ? +whole : NaN
+      const big = n >= 1000 && !fraction
+      // "5 złotych", "10 euro": already in words, and nothing to add to a small number
+      if (key !== written && /^[a-ząćęłńóśźż]+$/.test(written) && !big && !fraction && !currency) return m
       // after "10 mln" the next number is in the case of the first one: the genitive context is the one before the whole chain
       const rest = all.slice(at + m.length)
       const chain = all.slice(Math.max(0, at - 120), at).match(CHAIN_BEFORE)
@@ -201,28 +314,39 @@ export function sayNumbers(text: string): string {
       // "2,5-3,5 mln zł": the first number of a range has no unit of its own, so the second keeps the fraction, as the first has it
       const inRange = /\d[-–]$/.test(all.slice(Math.max(0, at - 2), at))
       const end = !currency && !barrels && written.endsWith('.') && endsSentence(rest)
-      // "7,06 zł" -> "7 złotych i 6 groszy", "0,45 zł" -> "45 groszy", "2,5 zł" -> "2 złote i 50 groszy": one or two decimals are groszy
-      if (unit === 'zł' && !currency && !barrels && !inRange && /^\d+,\d{1,2}$/.test(digits)) {
-        const [zloty, fraction] = digits.split(',')
-        const grosze = +fraction.padEnd(2, '0')
-        return [+zloty ? `${numberWords(+zloty, genitive)} ${unitForm(forms, +zloty, genitive)}` : '', `${numberWords(grosze, genitive)} ${unitForm(GROSZE, grosze, genitive)}`].filter(Boolean).join(' i ')
+      // "7,06 zł" -> "7 złotych i 6 groszy", "0,45 zł" -> "45 groszy", "2,5 zł" -> "2 złote i 50 groszy", "12,50 USD" -> "12 dolarów i 50 centów": one or two
+      // decimals are the small coin
+      const money = MONEY[unit]
+      if (money?.minor && !currency && !barrels && !inRange && fraction && fraction.length <= 2 && n >= 0) {
+        const small = +fraction.padEnd(2, '0')
+        return [n ? `${amountWords(n, genitive, money.gender)} ${unitForm(forms, n, genitive)}` : '', `${numberWords(small, genitive)} ${unitForm(money.minor, small, genitive)}`].filter(Boolean).join(' i ')
       }
-      const parts = inRange ? undefined : splitUnits(digits, unit)
+      const parts = inRange || Number.isNaN(n) ? undefined : splitUnits(digits, unit)
       if (parts) {
-        // a number with a unit is in words; the last one with no unit only when it does not show a gender ("dwie osoby")
-        const said = parts.map(([n, u]) => {
-          const words = u || !hasGender(n) || (currency && MASCULINE_CURRENCY.has(currency)) ? numberWords(n, genitive) : String(n)
-          return u ? `${words} ${unitForm(UNITS[u], n, genitive)}` : words
+        // a number with a unit is in words; the last one with no unit only when it does not show a gender ("dwie osoby"), or when a currency follows it
+        const said = parts.map(([count, u]) => {
+          const words = u || !hasGender(count) || currency ? amountWords(count, genitive, u ? 'm' : currency ? genderOf(currency) : 'm') : String(count)
+          return u ? `${words} ${unitForm(UNITS[u], count, genitive)}` : words
         }).join(' ')
         const [last, lastUnit] = parts[parts.length - 1]
-        const money = currency ? ` ${lastUnit ? OF_CURRENCY[currency] : unitForm(UNITS[currency], last, genitive)}` : ''
-        return `${said}${barrels ? ' baryłek' : ''}${money}${end ? '.' : ''}`
+        const noun = currency ? ` ${lastUnit ? OF_CURRENCY[currency] : unitForm(UNITS[currency], last, genitive)}` : ''
+        return `${said}${barrels ? ' baryłek' : ''}${noun}${end ? '.' : ''}`
       }
-      const word = digits.includes(',') ? forms[3] : unitForm(forms, +digits, genitive)
+      const word = fraction ? forms[3] : unitForm(forms, n, genitive)
       // "10 mln 600 tys. zł": the numbers of such a chain are in words too, when the noun is masculine or the number shows no gender
-      const spoken = (chain || CHAIN_AFTER.test(rest)) && /^\d+$/.test(digits) && (unit in NEXT_UNIT || MASCULINE_CURRENCY.has(unit) || !hasGender(+digits)) ? numberWords(+digits, genitive) : num
+      const chained = (chain || CHAIN_AFTER.test(rest)) && !fraction && !Number.isNaN(n) && (unit in NEXT_UNIT || genderOf(unit) === 'm' || !hasGender(n))
+      const spoken = big || chained ? amountWords(n, genitive, genderOf(unit)) : digits
       return `${spoken} ${word}${barrels ? ' baryłek' : ''}${currency ? ` ${OF_CURRENCY[currency]}` : ''}${end ? '.' : ''}`
     })
+    .replace(BARE_NUMBER, (m: string, spaced: string | undefined, at: number, all: string) => {
+      const before = all.slice(Math.max(0, at - 30), at)
+      if (m.startsWith('0')) return m
+      if (spaced && (/\d\s$/.test(before) || /^\s\d/.test(all.slice(at + m.length)) || /^\d{3} \d{3} \d{3}$/.test(m) || NOT_AN_AMOUNT.test(before))) return m
+      // four groups of an address or a version ("192.168.100.200"): every one up to 255
+      if (/^\d{1,3}(?:\.\d{3}){3}$/.test(m) && m.split('.').every((group) => +group <= 255 && !group.startsWith('0'))) return m
+      return digitsOf(parseNumber(m, true))
+    })
+    .replace(SINGLE_THOUSAND, (m: string, num: string, at: number, all: string) => SECTION_WORD.test(all.slice(Math.max(0, at - 14), at)) ? m : digitsOf(parseNumber(num)))
     // "700 tys. mkw. magazynów" -> "700 tysięcy metrów kwadratowych magazynów": the dot ends the abbreviation, not the sentence
     .replace(/(tysiąc|tysiące|tysięcy|tysiąca|milion|miliony|milionów|miliona|miliard|miliardy|miliardów|miliarda|bilion|biliony|bilionów|biliona)(\s+)(?:m\s?kw|mkw)(\.?)(?![\p{L}\d])/gu,
       (m: string, scale: string, space: string, dot: string, at: number, all: string) =>
@@ -548,6 +672,17 @@ export function sayMonths(text: string): string {
       return `${prep}${space}${month(num, MONTH_CASE[prep.toLocaleLowerCase('pl')])}`
     })
 }
+
+// ── Dates written with digits: "12.10.2026" and "2026-10-12" are "12 października 2026" ──
+
+// The day and the month of a date as a voice would read two numbers with dots between them ("dwanaście kropka dziesięć"): the month is a word, in the genitive, and
+// the year stays for its own rule ("2026 r." is "dwa tysiące dwudziestego szóstego roku"). Only a real day and month; a dotted number of a document is no date.
+const NUMERIC_DATE = /(?<![\d.,/:-])(?:(\d{1,2})\.(\d{1,2})\.((?:19|20)\d{2})|((?:19|20)\d{2})-(\d{2})-(\d{2}))(?!\d|[.,/:-]\d)/g
+export const sayDates = (text: string) =>
+  text.replace(NUMERIC_DATE, (m: string, day1?: string, month1?: string, year1?: string, year2?: string, month2?: string, day2?: string) => {
+    const day = +(day1 ?? day2!), month = +(month1 ?? month2!)
+    return day >= 1 && day <= 31 && month >= 1 && month <= 12 ? `${day} ${MONTH_NAMES.gen[month - 1]} ${year1 ?? year2}` : m
+  })
 
 // ── Years: a range, "2021-27" ──
 
@@ -1216,7 +1351,7 @@ export const sayPausedParts = (text: string): string[] => markPauses(text).split
 // ── All of it ──
 
 function sayMarked(text: string): string {
-  let t = sayParagraphs(sayArticles(sayRoman(sayMonths(sayDayRanges(sayCountRanges(sayMonthDays(sayYearRanges(sayYears(sayQuarters(sayCompounds(sayIssueNumbers(sayAddresses(text)))))))))))))
+  let t = sayParagraphs(sayArticles(sayRoman(sayMonths(sayDayRanges(sayCountRanges(sayMonthDays(sayYearRanges(sayYears(sayQuarters(sayCompounds(sayIssueNumbers(sayAddresses(sayDates(text))))))))))))))
   t = sayTerritories(sayHours(sayDirections(sayInstitutions(t))))
   for (const [re, said] of WORDS) t = t.replace(re, said)
   t = saySpelled(sayAsWords(sayTitles(sayEnglish(sayProperNames(sayMarkets(sayBrokers(t)))))))
