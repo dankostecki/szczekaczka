@@ -7,7 +7,7 @@
 // words ("Archicom", "Di Volio"). Short abbreviations stay in capitals and are spelled, as they
 // should be (PKO, GPW, KGHM, CD); legal forms and a few titles are said in full.
 
-import { US_NAMES } from './names-us'
+import { US_NAMES, US_WORDS } from './names-us'
 
 const FORMS: [RegExp, string][] = [
   [/(?<!\p{L})S\.\s?K\.\s?A\.?(?!\p{L})/gu, 'spółka komandytowo-akcyjna'],
@@ -983,12 +983,17 @@ const NAMES_EN: [RegExp, string][] = [
   // "Pay" in names: "OPay" -> "O pej", "Google Pay" -> "Google pej", "PayPal" -> "PejPal"
   [/(?<=\p{L})Pay(?!\p{Ll})/gu, ' pej'],
   [/(?<!\p{L})Pay(?!\p{Ll})/gu, 'Pej'],
-  // "Co." is "company" ("JPMorgan Chase & Co." -> "... end Kompani"), "Cos." "companies"; the "Co" of a Polish sentence is never capitalised
+  // "Co." is "company" ("JPMorgan Chase & Co." -> "... end Kampani"), "Cos." "companies"; the "Co" of a Polish sentence is never capitalised
   // after another capitalised word, so only there it is the abbreviation (without a full stop too: "JPMorgan Co")
-  [/\s*&\s*Co\.?(?![\p{L}\d])/gu, ' end Kompani'],
+  [/\s*&\s*Co\.?(?![\p{L}\d])/gu, ' end Kampani'],
   [/\s*&\s*Cos\.(?![\p{L}\d])/gu, ' end Kampanis'],
-  [/(?<=\p{Lu}[\p{L}\d]*\s+)Co(?:\.|(?![\p{L}\d]))/gu, 'Kompani'],
+  [/(?<=\p{Lu}[\p{L}\d]*\s+)Co(?:\.|(?![\p{L}\d]))/gu, 'Kampani'],
   [/(?<=\p{Lu}[\p{L}\d]*\s+)Cos\./gu, 'Kampanis'],
+  // English and German legal forms: the letters the English way ("LLC" is "el el si"), "GmbH" by its letters
+  [/(?<![\p{L}\d])L\.?L\.?C\.?(?![\p{L}\d])/gu, 'el el si'],
+  [/(?<![\p{L}\d])L\.?L\.?P\.?(?![\p{L}\d])/gu, 'el el pi'],
+  [/(?<=\p{Lu}[\p{L}\d]*\s+)(?:PLC|plc)(?![\p{L}\d])/gu, 'pi el si'],
+  [/(?<![\p{L}\d])GmbH(?![\p{L}\d])/gu, 'ge em be ha'],
 ]
 const SPELLED_EN_RE = new RegExp(String.raw`(?<![\p{L}\d])(${SPELLED_EN.join('|')})(?![\p{L}\d])`, 'gu')
 // A word of an English name that a Polish voice says as a Polish word: "Asia" is a name for it. Inside an English name,
@@ -1022,14 +1027,20 @@ for (const [written, said, inflects] of US_NAMES) {
 const US_RE = new RegExp(
   String.raw`(?<![\p{L}\d])(${[...US_BY_FORM.keys()].sort((a, b) => b.length - a.length)
     .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, String.raw`\s+`)).join('|')})(['’]?)(\p{Ll}{0,5})(?![\p{L}\d])`, 'gu')
+// The English words in company names, only after another capitalised word ("Foo Technologies"): a sentence in Polish does not have them there
+// ESPI writes a company in capitals ("CELON PHARMA S.A."): the word in capitals is said the same
+const US_WORD_BY_FORM = new Map<string, string>(US_WORDS.flatMap(([written, said]) => [[written, said], [written.toLocaleUpperCase('en'), said]]))
+const US_WORD_RE = new RegExp(
+  String.raw`(?<=\p{Lu}[\p{L}\d&.'’-]*\s+)(${[...US_WORD_BY_FORM.keys()].sort((a, b) => b.length - a.length).map((k) => k.replace(/\./g, '\\.')).join('|')})(?![\p{L}\d])`, 'gu')
+const sayUsWords = (text: string) => text.replace(US_WORD_RE, (m: string, word: string) => US_WORD_BY_FORM.get(word) ?? m)
 export const sayUsNames = (text: string) =>
-  text.replace(US_RE, (m: string, form: string, apostrophe: string, ending: string) => {
+  sayUsWords(text.replace(US_RE, (m: string, form: string, apostrophe: string, ending: string) => {
     const name = US_BY_FORM.get(usKey(form))
     if (!name) return m
     if (!ending) return apostrophe || name.stem ? m : name.said
     if (!name.inflects || !(name.stem ? US_ENDINGS_FEMININE : US_ENDINGS_MASCULINE).has(ending)) return m
     return `${name.said}${ending}`
-  })
+  }))
 export function sayEnglish(text: string): string {
   let t = sayUsNames(sayEnglishInNames(text))
   for (const [re, said] of NAMES_EN) t = t.replace(re, said)
