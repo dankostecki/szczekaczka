@@ -983,6 +983,9 @@ const NAMES_EN: [RegExp, string][] = [
   // "Pay" in names: "OPay" -> "O pej", "Google Pay" -> "Google pej", "PayPal" -> "PejPal"
   [/(?<=\p{L})Pay(?!\p{Ll})/gu, ' pej'],
   [/(?<!\p{L})Pay(?!\p{Ll})/gu, 'Pej'],
+  // the same in capitals, as ESPI writes a company: "OPAY" -> "O pej", "PAYU" -> "Pej ju"
+  [/(?<=\p{Lu})PAY(?![\p{L}\d])/gu, ' pej'],
+  [/(?<![\p{L}\d])PAYU(?![\p{L}\d])/gu, 'Pej ju'],
   // English and German legal forms: the letters the English way ("LLC" is "el el si"), "GmbH" by its letters
   [/(?<![\p{L}\d])L\.?L\.?C\.?(?![\p{L}\d])/gu, 'el el si'],
   [/(?<![\p{L}\d])L\.?L\.?P\.?(?![\p{L}\d])/gu, 'el el pi'],
@@ -1077,10 +1080,14 @@ export function sayMarkets(text: string): string {
 // the name takes in Polish are kept ("Merza" is "Merca", "Merzowi" "Mercowi", "Merzem" "Mercem")
 const SURNAMES: Record<string, string> = { merz: 'Merc', scholz: 'Szolc' }
 const SURNAME_RE = new RegExp(String.raw`(?<![\p{L}\d])(${Object.keys(SURNAMES).join('|')})(a|owi|em|u|owie|ów|om|ami|ach)?(?![\p{L}\d])`, 'giu')
+// "mPay" and "MPAY" (the name in capitals, as ESPI writes a company) are the same: "Empej", the letter "em" and the English "pay" ("pej"), one word like "Embank";
+// the other brands with the "m" are in capitals the same way (MBANK, MLEASING, MOBYWATEL)
+const M_BRANDS = /(?<![\p{L}\d])M(BANK|PAY|LEASING|OBYWATEL)(?![\p{L}\d])/gu
 export const sayProperNames = (text: string) =>
   text
+    .replace(/(?<![\p{L}\d])[mM]Pay(?![\p{L}\d])/gu, 'Empej')
     .replace(/(?<![\p{L}\d])m(\p{Lu})(\p{Ll}+)/gu, (m, first: string, rest: string) => `Em${first.toLocaleLowerCase('pl')}${rest}`)
-    .replace(/(?<![\p{L}\d])MBANK(?![\p{L}\d])/gu, 'Embank') // the name in capitals, as a company is written in ESPI
+    .replace(M_BRANDS, (m, brand: string) => `Em${brand === 'PAY' ? 'pej' : brand.toLowerCase()}`)
     .replace(/(?<![\p{L}\d])PKO\s?(?:BP|Bp|bp)(?![\p{L}\d])/gu, 'Pe ka o be pe')
     .replace(SURNAME_RE, (m, name: string, ending?: string) => `${SURNAMES[name.toLowerCase()]}${(ending ?? '').toLowerCase()}`)
 
