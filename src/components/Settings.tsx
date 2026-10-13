@@ -268,12 +268,12 @@ export default function Settings(p: Props) {
                   onChange={(e) => onChange({ rate: Number(e.target.value) })} />
               </label>
               <label className="setting">
-                <span>Najwyżej newsów naraz</span>
+                <span>Newsów czytanych naraz</span>
                 <select value={prefs.maxPerRefresh} onChange={(e) => onChange({ maxPerRefresh: Number(e.target.value) })}>
-                  {[1, 2, 3, 5, 10].map((n) => <option key={n} value={n}>{n}</option>)}
+                  {[0, 1, 2, 3, 5, 10].map((n) => <option key={n} value={n}>{n === 0 ? 'wszystkie' : n}</option>)}
                 </select>
               </label>
-              <p className="hint">Gdy przyjdzie więcej, czytane są najnowsze, a reszta jest podsumowana.</p>
+              <p className="hint">Domyślnie czytane są wszystkie nowe newsy, czyli te z etykietą NOWE. Przy limicie, gdy przyjdzie więcej, czytane są najnowsze, a reszta jest podsumowana.</p>
               <button className="btn" onClick={() => speak('To jest test głosu Szczekaczki.', prefs, p.voices)}>Przetestuj głos</button>
             </>
           ) : <p className="hint">Ta przeglądarka nie potrafi czytać na głos.</p>}
