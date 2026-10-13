@@ -7,6 +7,8 @@
 // words ("Archicom", "Di Volio"). Short abbreviations stay in capitals and are spelled, as they
 // should be (PKO, GPW, KGHM, CD); legal forms and a few titles are said in full.
 
+import { US_NAMES } from './names-us'
+
 const FORMS: [RegExp, string][] = [
   [/(?<!\p{L})S\.\s?K\.\s?A\.?(?!\p{L})/gu, 'spółka komandytowo-akcyjna'],
   [/(?<![\p{L}.])(?:S\.\s?A\.?|SA)(?!\p{L})/gu, 'spółka akcyjna'],
@@ -1002,8 +1004,34 @@ const sayEnglishInNames = (text: string) =>
       const right = all.slice(at + m.length).match(/^[ \-/](\p{Lu}\p{L}*)/u)?.[1]
       return /^\p{Lu}/u.test(left ?? '') || right ? EN_IN_NAMES[word] : m
     })
+// ── Names of companies and institutions of the United States (names-us.ts): said the English way, written for a Polish voice ──
+// A name as Polish headlines decline it ("kurs Nvidii", "od Microsoftu", "akcje Tesli"): the ending is kept, the name respelled. A name in -a loses
+// its "a" before an ending (Nvidia -> Nvidii, Tesla -> Teslę); the others take the endings of a masculine noun. Only names marked as declined do:
+// "Applebee" is not "Apple" with an ending.
+const US_ENDINGS_MASCULINE = new Set(['a', 'owi', 'em', 'iem', 'u', 'ie', 'owie', 'ów', 'om', 'ami', 'ach'])
+const US_ENDINGS_FEMININE = new Set(['i', 'y', 'ę', 'ą', 'o', 'e', 'ie'])
+const usKey = (form: string) => form.replace(/\s+/g, ' ')
+const US_BY_FORM = new Map<string, { said: string; stem: boolean; inflects: boolean }>()
+for (const [written, said, inflects] of US_NAMES) {
+  const feminine = inflects && written.endsWith('a') && said.endsWith('a')
+  US_BY_FORM.set(usKey(written), { said, stem: false, inflects })
+  // The name in capitals too ("NVIDIA", "JPMORGAN CHASE"), with no endings
+  if (written.length > 3 && /\p{Ll}/u.test(written)) US_BY_FORM.set(usKey(written.toLocaleUpperCase('en')), { said, stem: false, inflects: false })
+  if (feminine) US_BY_FORM.set(usKey(written.slice(0, -1)), { said: said.slice(0, -1), stem: true, inflects })
+}
+const US_RE = new RegExp(
+  String.raw`(?<![\p{L}\d])(${[...US_BY_FORM.keys()].sort((a, b) => b.length - a.length)
+    .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, String.raw`\s+`)).join('|')})(['’]?)(\p{Ll}{0,5})(?![\p{L}\d])`, 'gu')
+export const sayUsNames = (text: string) =>
+  text.replace(US_RE, (m: string, form: string, apostrophe: string, ending: string) => {
+    const name = US_BY_FORM.get(usKey(form))
+    if (!name) return m
+    if (!ending) return apostrophe || name.stem ? m : name.said
+    if (!name.inflects || !(name.stem ? US_ENDINGS_FEMININE : US_ENDINGS_MASCULINE).has(ending)) return m
+    return `${name.said}${ending}`
+  })
 export function sayEnglish(text: string): string {
-  let t = sayEnglishInNames(text)
+  let t = sayUsNames(sayEnglishInNames(text))
   for (const [re, said] of NAMES_EN) t = t.replace(re, said)
   return t.replace(SPELLED_EN_RE, (m) => [...m].map((c) => EN_LETTERS[c]).join(' '))
 }
