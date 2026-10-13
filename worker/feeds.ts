@@ -143,14 +143,17 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
   let listProblem: string | null = null, listDetail = ''
   if (feed.format && section === null) {
     const text = page.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<[^>]+>/gi, ' ').replace(/\s+/g, ' ').trim()
+    // For the logs: what the page is, and what it has where the list used to be
+    const at = page.indexOf('announcements')
     listProblem = `strona bez listy komunikatów: ${pageInfo(page, res, url)}`
-    listDetail = `${res.headers.get('server') ?? ''} ${text.slice(0, 300)}`
+    listDetail = `${res.headers.get('server') ?? ''} ${text.slice(0, 300)} | announcements: ${at < 0 ? 'none' : page.slice(Math.max(0, at - 80), at + 240).replace(/\s+/g, ' ')}`
   }
   const leads = feed.format && leadsUrl ? await fetchLeads(leadsUrl, feed) : null
-  // No list: the RSS's entries rather than nothing, with a note in the red box (from the 3rd time)
-  if (listProblem && !leads) return failed(listProblem, listDetail)
+  // No list: the RSS's entries rather than nothing, with a note in the red box (from the 3rd time); the red box is for the
+  // reader, so it says what they see, and the page's details (listProblem) go to the logs only
+  if (listProblem && !leads) return failed('nie udało się pobrać listy raportów', `${listProblem} | ${listDetail}`)
   const failures = listProblem ? (old.failures ?? 0) + 1 : 0
-  const error = listProblem && (failures >= SHOW_ERROR_AFTER || old.items.length === 0) ? `${listProblem}; są tylko raporty z RSS` : null
+  const error = listProblem && (failures >= SHOW_ERROR_AFTER || old.items.length === 0) ? 'widać tylko część raportów' : null
   const problem = listProblem ? `${listProblem} (raporty z RSS) | ${listDetail}` : undefined
   const hash = await sha1(section === null && !leads ? buf : new TextEncoder().encode(`${section ?? 'rss'}${leads?.body ?? ''}`))
   const meta = { etag: res.headers.get('etag') ?? undefined, lastModified: res.headers.get('last-modified') ?? undefined }
