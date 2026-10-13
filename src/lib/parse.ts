@@ -221,7 +221,8 @@ export function parseFeedXml(xml: string, feed: FeedConfig, limit = Infinity): N
 // Just the list: the rest of the page (about 570 KB) is not worth the CPU, and differs on every
 // visit. null when the page has no list (changed, or an error page).
 export function bankierListSection(html: string): string | null {
-  const start = html.indexOf('m-quotes-announcements-list"')
+  // The list's class, alone or with others added to it (not a style rule), else the first of its rows
+  const start = /class="[^"]*\bm-quotes-announcements-list(?=["\s])/.exec(html)?.index ?? html.indexOf('<li class="m-quotes-announcements-list__item')
   if (start < 0) return null
   const end = html.indexOf('</ul>', start)
   return html.slice(start, end < 0 ? start + 200_000 : end)
@@ -229,7 +230,7 @@ export function bankierListSection(html: string): string | null {
 
 export function parseBankierList(section: string, feed: FeedConfig, limit = Infinity): NewsItem[] {
   const items: NewsItem[] = []
-  for (const [, li] of section.matchAll(/<li class="m-quotes-announcements-list__item">([\s\S]*?)<\/li>/g)) {
+  for (const [, li] of section.matchAll(/<li class="m-quotes-announcements-list__item[^"]*"[^>]*>([\s\S]*?)<\/li>/g)) {
     const a = li.match(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/)
     const title = a ? cleanText(a[2]) : ''
     if (!a || !title) continue
