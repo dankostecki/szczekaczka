@@ -133,12 +133,11 @@ export default function App() {
         const t = Date.now()
         setFreshAt((f) => ({ ...f, ...Object.fromEntries(fresh.map((i) => [i.id, t])) }))
         if (document.visibilityState !== 'visible') setUnseen((u) => u + fresh.length)
-        const watched = watchMatcher(p.watchlist)
-        // ESPI: only companies on the watch list
-        const wanted = (channels: string[]) => (i: Item) =>
-          channels.includes(keyOf(i)) && (i.source !== 'ESPI' || watched(`${i.title} ${i.description}`))
-        if (on) { const s = fresh.filter(wanted(p.speakFeeds)); if (s.length) announce(s, p, vs) }
-        if (p.notify) notifyHeadlines(fresh.filter(wanted(p.notifyFeeds)))
+        // ESPI: with a watch list only those companies; voice reads every report while the list is empty, notifications none
+        const wanted = (channels: string[], onList: (text: string) => boolean) => (i: Item) =>
+          channels.includes(keyOf(i)) && (i.source !== 'ESPI' || onList(`${i.title} ${i.description}`))
+        if (on) { const s = fresh.filter(wanted(p.speakFeeds, watchMatcher(p.watchlist, true))); if (s.length) announce(s, p, vs) }
+        if (p.notify) notifyHeadlines(fresh.filter(wanted(p.notifyFeeds, watchMatcher(p.watchlist))))
       }
     }
     seen.current = new Set([...(prev ?? []), ...fetched.map((i) => i.id)])
