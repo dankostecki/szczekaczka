@@ -8,6 +8,7 @@
 // should be (PKO, GPW, KGHM, CD); legal forms and a few titles are said in full.
 
 import { US_NAMES, US_WORDS } from './names-us'
+import { TITLES, FEMININE_NAMES } from './titles-pl'
 
 const FORMS: [RegExp, string][] = [
   [/(?<!\p{L})S\.\s?K\.\s?A\.?(?!\p{L})/gu, 'spółka komandytowo-akcyjna'],
@@ -1091,6 +1092,59 @@ export const sayProperNames = (text: string) =>
     .replace(/(?<![\p{L}\d])PKO\s?(?:BP|Bp|bp)(?![\p{L}\d])/gu, 'Pe ka o be pe')
     .replace(SURNAME_RE, (m, name: string, ending?: string) => `${SURNAMES[name.toLowerCase()]}${(ending ?? '').toLowerCase()}`)
 
+// ── Titles before a name: "prof.", "dr hab.", "gen. dyw.", "ks." ──
+// Said in full, in the case the sentence needs: "od prof. Kowalskiego" -> "od profesora Kowalskiego", "z mgr. inż. Nowakiem" -> "z magistrem inżynierem
+// Nowakiem". The case is the one the name after the title shows (Kowalskiego is the genitive, Kowalskiemu the dative, Nowakiem the instrumental), the
+// word before it settles what the ending leaves open. A woman's name leaves the title as it is, in the nominative ("od prof. Anny Kowalskiej" is
+// "od profesor Anny Kowalskiej"), as Polish does. Only before a capitalised word (a name), never before a digit or a lower-case word.
+const TITLE_FORMS = new Map<string, { kind: string; forms: readonly string[] }>()
+const titleParts = (abbreviation: string) => abbreviation.split(/[.\s]+/).filter(Boolean)
+const titleKey = (abbreviation: string) => titleParts(abbreviation).join(' ').toLocaleLowerCase('pl')
+for (const [abbreviations, kind, forms] of TITLES) for (const a of abbreviations) TITLE_FORMS.set(titleKey(a), { kind, forms })
+// The first letter in either case ("Prof." at the start of a sentence), a dot after each part optional
+const titlePattern = (key: string) => key.split(' ').map((w) => `[${w[0].toLocaleLowerCase('pl')}${w[0].toLocaleUpperCase('pl')}]${w.slice(1).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).join('\\.?\\s*') + '\\.?'
+const TITLE_TOKEN = `(?:${[...TITLE_FORMS.keys()].sort((a, b) => b.length - a.length).map(titlePattern).join('|')})(?![\\p{L}\\d])`
+const TITLE_CHAIN = new RegExp(String.raw`(?<![\p{L}\d])(${TITLE_TOKEN}(?:\s+${TITLE_TOKEN})*)\s+(?=\p{Lu}\p{L})`, 'gu')
+const TITLE_TOKEN_RE = new RegExp(TITLE_TOKEN.replace(/\(\?!\[\\p\{L\}\\d\]\)$/, ''), 'gu')
+const FEMININE = new Set(FEMININE_NAMES.map((n) => n.toLocaleLowerCase('pl')))
+const TITLE_CASES = { nom: 0, gen: 1, dat: 2, inst: 3, loc: 4 } as const
+// A woman's name: a name from the list in any case ("Anna", "Anny", "Annie", "Annę", "Anną"; "Marii"), or a surname in -ska, -ckiej, -dzką
+function feminineName(w: string): boolean {
+  const l = w.toLocaleLowerCase('pl')
+  if (/(?:sk|ck|dzk)(?:a|iej|ą)$/u.test(l)) return true
+  return [l, l.replace(/y$/u, 'a'), l.replace(/ii$/u, 'ia'), l.replace(/ię$/u, 'ia'), l.replace(/ią$/u, 'ia'), l.replace(/ie$/u, 'a'),
+    l.replace(/[ęą]$/u, 'a')].some((c) => FEMININE.has(c))
+}
+const NOT_ENDINGS = /^(?:joachim|maksym|ibrahim|salim|kim|wim|tim|jim|hiacynt)$/u
+const TITLE_GENITIVE_BEFORE = /(?:^|[\s(„"])(?:do|od|z|ze|bez|dla|u|wokół|obok|według|wg|zdaniem|spośród|wobec|oprócz|zamiast|wśród|sprzed|spod|podczas|ws|wypowiedź|wypowiedzi|komentarz|komentarza|opinia|opinii|słowa|słów|analiza|analizy|raport|raportu|rekomendacja|książka|książki|badania|badań|apel|apelu|list|listu|wizyta|wizyty|śmierć|śmierci|pogrzeb|pogrzebu|odejście|nominacja|nominacji|rezygnacja|rezygnacji|wykład|wykładu|wystąpienie|wystąpienia|oświadczenie|oświadczenia|stanowisko|stanowiska|zdanie|zdania|ocena|oceny|teza|tezy|pogląd|poglądu|wniosek|wniosku|decyzja|decyzji|wywiad|wywiadu)\s*$/iu
+const TITLE_INSTRUMENTAL_BEFORE = /(?:^|[\s(„"])(?:z|ze|za|przed|nad|pod|między|poza)\s*$/iu
+// The case of the title: from the last word of the name, then from the word before the title
+function titleCase(before: string, name: string[]): keyof typeof TITLE_CASES {
+  const last = name[name.length - 1].split('-').pop()!.toLocaleLowerCase('pl')
+  if (name.some(feminineName)) return 'nom'
+  if (/ego$/u.test(last)) return 'gen'
+  if (/(?:emu|owi)$/u.test(last)) return 'dat'
+  if (/(?:[yi]m)$/u.test(last) && !NOT_ENDINGS.test(last)) return TITLE_INSTRUMENTAL_BEFORE.test(before) ? 'inst' : /(?:^|[\s(„"])(?:o|w|we|na|po|przy)\s*$/iu.test(before) ? 'loc' : 'inst'
+  if (/iem$/u.test(last) || /[^aeiouyąęó]em$/u.test(last)) return 'inst'
+  if (/[^aeiouyąęó]u$/u.test(last) && /(?:^|[\s(„"])(?:o|w|we|na|po|przy)\s*$/iu.test(before)) return 'loc'
+  if (/a$/u.test(last) && TITLE_GENITIVE_BEFORE.test(before)) return 'gen'
+  return 'nom'
+}
+export function sayTitles(text: string): string {
+  return text.replace(TITLE_CHAIN, (m: string, chain: string, at: number, all: string) => {
+    const tokens = [...chain.matchAll(TITLE_TOKEN_RE)].map((t) => t[0])
+    const found = tokens.map((t) => TITLE_FORMS.get(titleKey(t)))
+    if (found.some((f) => !f) || found[0]!.kind === 'i') return m
+    const name = [...all.slice(at + m.length).matchAll(/\p{Lu}[\p{L}'’-]*/gu)].map((x) => x[0]).slice(0, 3)
+    const after = all.slice(at + m.length)
+    // The name ends where the next word is not capitalised: "prof. Jan Kowalski z UW"
+    const words = after.match(/^\p{Lu}[\p{L}'’-]*(?:\s+\p{Lu}[\p{L}'’-]*){0,2}/u)?.[0].split(/\s+/) ?? name.slice(0, 1)
+    const kase = TITLE_CASES[titleCase(all.slice(0, at), words)]
+    const said = found.map((f) => f!.forms[kase]).join(' ')
+    return `${tokens[0][0] === tokens[0][0].toLocaleUpperCase('pl') && tokens[0][0] !== tokens[0][0].toLocaleLowerCase('pl') ? said[0].toLocaleUpperCase('pl') + said.slice(1) : said} `
+  })
+}
+
 // ── Pauses ──
 
 // A colon after a word is said as the end of a sentence, a short pause: "Błaszczak: PiS składa" ->
@@ -1123,7 +1177,7 @@ function sayMarked(text: string): string {
   let t = sayParagraphs(sayArticles(sayRoman(sayMonths(sayDayRanges(sayCountRanges(sayMonthDays(sayYearRanges(sayYears(sayQuarters(sayCompounds(sayIssueNumbers(sayAddresses(text)))))))))))))
   t = sayTerritories(sayHours(sayDirections(sayInstitutions(t))))
   for (const [re, said] of WORDS) t = t.replace(re, said)
-  t = saySpelled(sayAsWords(sayEnglish(sayProperNames(sayMarkets(sayBrokers(t))))))
+  t = saySpelled(sayAsWords(sayTitles(sayEnglish(sayProperNames(sayMarkets(sayBrokers(t)))))))
   return markPauses(sayNumbers(sayNames(t)))
 }
 
