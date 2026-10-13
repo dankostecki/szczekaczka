@@ -6,6 +6,7 @@ import { feedKey, type Lang } from './sources'
 import { itemLang } from './lang'
 import { sayMacroTitle } from './macronext'
 import { sayAloudParts, sayPausedParts } from './say'
+import { playChime } from './chime'
 
 export const speechSupported = () =>
   typeof window !== 'undefined' && 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window
@@ -172,7 +173,10 @@ export function speak(text: string, prefs: Prefs, voices: SpeechSynthesisVoice[]
   })
 }
 
+// Raised by every stop: what waited for the chime before it is not read after it
+let stopped = 0
 export function stopSpeaking() {
+  stopped++
   if (speechSupported()) cancelAll(window.speechSynthesis)
 }
 
@@ -224,13 +228,29 @@ export function speakItem(it: Item, prefs: Prefs, voices: SpeechSynthesisVoice[]
   parts.forEach((part, i) => speak(part, prefs, voices, i === parts.length - 1 ? onEnd : undefined, lang))
 }
 
+// While a chime plays, what comes after waits for it, in order
+let chiming: Promise<void> | undefined
+
 // `fresh` is oldest first. Every one of them is read (they all carry the NOWE badge); with a limit set (maxPerRefresh above 0), over it the
-// newest ones are read and the rest summed up
+// newest ones are read and the rest summed up. Where the voice has been silent, a soft chime goes first (chime.ts), once for the whole batch; while the
+// voice is reading, the new ones are queued after it with no chime, and a stop (the voice switched off) cancels what waited for it.
 export function announce(fresh: Item[], prefs: Prefs, voices: SpeechSynthesisVoice[]) {
-  const head = prefs.maxPerRefresh > 0 ? fresh.slice(-prefs.maxPerRefresh) : fresh
-  for (const it of head) speakItem(it, prefs, voices)
-  const rest = fresh.length - head.length
-  if (rest > 0) speak(`I jeszcze ${rest} ${plural(rest)}.`, prefs, voices)
+  const epoch = stopped
+  const read = () => {
+    if (epoch !== stopped) return
+    const head = prefs.maxPerRefresh > 0 ? fresh.slice(-prefs.maxPerRefresh) : fresh
+    for (const it of head) speakItem(it, prefs, voices)
+    const rest = fresh.length - head.length
+    if (rest > 0) speak(`I jeszcze ${rest} ${plural(rest)}.`, prefs, voices)
+  }
+  const later = (after: Promise<void>) => {
+    const next = after.then(read, read)
+    chiming = next
+    void next.then(() => { if (chiming === next) chiming = undefined })
+  }
+  if (chiming) { later(chiming); return }
+  if (!prefs.chime || !speechSupported() || busy(window.speechSynthesis)) { read(); return }
+  later(playChime())
 }
 
 export function plural(n: number): string {

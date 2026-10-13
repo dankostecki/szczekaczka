@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { FEEDS, SOURCES, HAS_ENGLISH, feedKey, type Source } from '@/lib/sources'
 import type { Prefs, Theme } from '@/lib/prefs'
 import { polishVoices, voicesFor, pickVoice, speak, stopSpeaking, voiceLabel, isAppleMobile } from '@/lib/speech'
+import { playChime, unlockChime, chimeSupported } from '@/lib/chime'
 import { AUTHOR, STORAGE_PREFIX } from '@/lib/site'
 import { isInstalledApp, promptInstall, useCanInstall } from '@/lib/install'
 import type { AwakeState } from '@/lib/wakeLock'
@@ -274,7 +275,14 @@ export default function Settings(p: Props) {
                 </select>
               </label>
               <p className="hint">Domyślnie czytane są wszystkie nowe newsy, czyli te z etykietą NOWE. Przy limicie, gdy przyjdzie więcej, czytane są najnowsze, a reszta jest podsumowana.</p>
-              <button className="btn" onClick={() => speak('To jest test głosu Szczekaczki.', prefs, p.voices)}>Przetestuj głos</button>
+              {chimeSupported() && (<>
+                <Switch label="Dźwięk przed czytaniem" checked={prefs.chime} onChange={() => onChange({ chime: !prefs.chime })} />
+                <p className="hint">Cichy, krótki sygnał, zanim lektor zacznie czytać nowe newsy. Nie gra między kolejnymi newsami, tylko gdy lektor milczał.</p>
+              </>)}
+              <div className="row-buttons">
+                <button className="btn" onClick={() => speak('To jest test głosu Szczekaczki.', prefs, p.voices)}>Przetestuj głos</button>
+                {chimeSupported() && <button className="btn" onClick={() => { unlockChime(); void playChime() }}>Przetestuj dźwięk</button>}
+              </div>
             </>
           ) : <p className="hint">Ta przeglądarka nie potrafi czytać na głos.</p>}
         </section>
