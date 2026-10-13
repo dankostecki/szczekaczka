@@ -8,6 +8,7 @@
 // should be (PKO, GPW, KGHM, CD); legal forms and a few titles are said in full.
 
 import { US_NAMES, US_WORDS } from './names-us'
+import { TITLES, FEMININE_NAMES, BIBLICAL_BOOKS } from './titles-pl'
 
 const FORMS: [RegExp, string][] = [
   [/(?<!\p{L})S\.\s?K\.\s?A\.?(?!\p{L})/gu, 'spółka komandytowo-akcyjna'],
@@ -21,9 +22,6 @@ const FORMS: [RegExp, string][] = [
   [/(?<![\p{L}\d])(?:Ltd|LTD)\.?(?![\p{L}\d])/gu, 'limitid'],
   // "EQUNICO SE": after a name in capitals only, SE is a European company
   [/(?<=\p{Lu}{2}\s)SE(?!\p{L})/gu, 'spółka europejska'],
-  // "Bp Ważny" (PAP): a bishop
-  [/(?<!\p{L})Abp(?=\s\p{Lu})/gu, 'arcybiskup'],
-  [/(?<!\p{L})Bp(?=\s\p{Lu})/gu, 'biskup'],
 ]
 
 // Abbreviations of four letters and more that are spelled, not said as a word
@@ -1091,6 +1089,104 @@ export const sayProperNames = (text: string) =>
     .replace(/(?<![\p{L}\d])PKO\s?(?:BP|Bp|bp)(?![\p{L}\d])/gu, 'Pe ka o be pe')
     .replace(SURNAME_RE, (m, name: string, ending?: string) => `${SURNAMES[name.toLowerCase()]}${(ending ?? '').toLowerCase()}`)
 
+// ── Titles before a name: "prof.", "dr hab.", "gen. dyw.", "st. sierż. szt.", "ks." (titles-pl.ts) ──
+// Said in full, in the case the sentence needs: "od prof. Kowalskiego" -> "od profesora Kowalskiego", "z mgr. inż. Nowakiem" -> "z magistrem inżynierem
+// Nowakiem", "dla gen. dyw. Kukuły" -> "dla generała dywizji Kukuły". The case is the one the name after the title shows (Kowalskiego is the genitive,
+// Kowalskiemu the dative, Nowakiem the instrumental); the word before the title settles what an ending leaves open ("od ... Nowaka"). A woman's name leaves the
+// title as it is, in the nominative ("od prof. Anny Kowalskiej" is "od profesor Anny Kowalskiej"), as Polish does. Only before a capitalised word (a name), never
+// before a digit or a lower-case word, and the words that stand after a title (hab., szt., pil.) only after one has begun.
+interface TitleToken { kind: string; forms: readonly string[]; flags: string }
+const TITLE_BY_KEY = new Map<string, TitleToken>()
+// "n. med." -> "n med": the key has no dots, so a variant with and without a dot is the same title
+const titleKey = (text: string) => text.toLocaleLowerCase('pl').replace(/\./g, ' ').replace(/\s+/g, ' ').trim()
+const escapeRe = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+// A variant as a pattern: the first letter in either case ("Prof." at the start of a sentence) unless the title is only in lower case, a space is any white space
+const titleVariant = (variant: string, lowerOnly: boolean) => variant.split(/\s+/).map((part, i) => {
+  const first = part[0]
+  const head = i === 0 && lowerOnly ? escapeRe(first) : first.toLocaleLowerCase('pl') === first.toLocaleUpperCase('pl') ? escapeRe(first) : `[${first.toLocaleLowerCase('pl')}${first.toLocaleUpperCase('pl')}]`
+  return head + escapeRe(part.slice(1))
+}).join('\\s*')
+const TITLE_VARIANTS: Record<string, string[]> = { p: [], n: [], a: [], i: [] }
+for (const [variants, kind, forms, flags] of TITLES) {
+  for (const v of variants) {
+    TITLE_BY_KEY.set(titleKey(v), { kind, forms, flags })
+    TITLE_VARIANTS[kind].push(titleVariant(v, flags.includes('L')))
+  }
+}
+const titleAlternatives = (kinds: string) => `(?:${kinds.split('').flatMap((k) => TITLE_VARIANTS[k]).sort((a, b) => b.length - a.length).join('|')})(?![\\p{L}\\d])`
+const TITLE_PREFIX = titleAlternatives('p'), TITLE_HEAD = titleAlternatives('n'), TITLE_NEXT = titleAlternatives('nai')
+const TITLE_CHAIN = new RegExp(String.raw`(?<![\p{L}\d])((?:${TITLE_PREFIX}\s+)*${TITLE_HEAD}(?:\s+${TITLE_NEXT})*)\s+(?=\p{Lu}\p{L}|\p{Lu}\.\s*\p{Lu})`, 'gu')
+const TITLE_ANY = new RegExp(titleAlternatives('pnai'), 'y')
+const FEMININE = new Set(FEMININE_NAMES.map((n) => n.toLocaleLowerCase('pl')))
+const BIBLICAL = new Set(BIBLICAL_BOOKS.map((n) => n.toLocaleLowerCase('pl')))
+const TITLE_CASES = { nom: 0, gen: 1, dat: 2, inst: 3, loc: 4 } as const
+// A woman's name: a name from the list in any case ("Anna", "Anny", "Annie", "Annę", "Anną"; "Marii"), or a surname in -ska, -ckiej, -dzką
+function feminineName(w: string): boolean {
+  const l = w.replace(/\.$/, '').toLocaleLowerCase('pl')
+  if (/(?:sk|ck|dzk)(?:a|iej|ą)$/u.test(l)) return true
+  return [l, l.replace(/y$/u, 'a'), l.replace(/ii$/u, 'ia'), l.replace(/ię$/u, 'ia'), l.replace(/ią$/u, 'ia'), l.replace(/ie$/u, 'a'),
+    l.replace(/[ęą]$/u, 'a')].some((c) => FEMININE.has(c))
+}
+const NOT_ENDINGS = /^(?:joachim|maksym|ibrahim|salim|kim|wim|tim|jim|hiacynt)$/u
+const TITLE_GENITIVE_BEFORE = /(?:^|[\s(„"])(?:do|od|z|ze|bez|dla|u|wokół|obok|według|wg|zdaniem|spośród|wobec|oprócz|zamiast|wśród|sprzed|spod|podczas|ws|wypowiedź|wypowiedzi|komentarz|komentarza|opinia|opinii|słowa|słów|analiza|analizy|raport|raportu|rekomendacja|książka|książki|badania|badań|apel|apelu|list|listu|wizyta|wizyty|śmierć|śmierci|pogrzeb|pogrzebu|odejście|nominacja|nominacji|rezygnacja|rezygnacji|wykład|wykładu|wystąpienie|wystąpienia|oświadczenie|oświadczenia|stanowisko|stanowiska|zdanie|zdania|ocena|oceny|teza|tezy|pogląd|poglądu|wniosek|wniosku|decyzja|decyzji|wywiad|wywiadu|rozkaz|rozkazu|dowództwo|dowództwa|zastępca|zastępcy|następca|następcy|poprzednik|poprzednika)\s*$/iu
+const TITLE_GENITIVE_ONLY = /(?:^|[\s(„"])(?:do|od|dla|u|bez|według|wg|zdaniem|obok|wobec|oprócz|zamiast|wśród|spośród|sprzed|spod|wokół)\s*$/iu
+const TITLE_INSTRUMENTAL_BEFORE = /(?:^|[\s(„"])(?:z|ze|za|przed|nad|pod|między|poza)\s*$/iu
+const TITLE_LOCATIVE_BEFORE = /(?:^|[\s(„"])(?:o|w|we|na|po|przy)\s*$/iu
+// The case of the title: from the last word of the name, then from the word before the title
+function titleCase(before: string, name: string[]): keyof typeof TITLE_CASES {
+  const last = name[name.length - 1].replace(/\.$/, '').split('-').pop()!.toLocaleLowerCase('pl')
+  if (name.some(feminineName)) return 'nom'
+  if (/ego$/u.test(last)) return 'gen'
+  if (/(?:emu|owi)$/u.test(last)) return 'dat'
+  if (/[yi]m$/u.test(last) && !NOT_ENDINGS.test(last)) return TITLE_INSTRUMENTAL_BEFORE.test(before) ? 'inst' : TITLE_LOCATIVE_BEFORE.test(before) ? 'loc' : 'inst'
+  if (/iem$/u.test(last) || /[^aeiouyąęó]em$/u.test(last)) return 'inst'
+  if (/[^aeiouyąęó]u$/u.test(last) && TITLE_LOCATIVE_BEFORE.test(before)) return 'loc'
+  if (/a$/u.test(last) && TITLE_GENITIVE_BEFORE.test(before)) return 'gen'
+  // "dla gen. dyw. Kukuły": nothing in the ending, but after "dla", "od", "do" ... a name that is not a nominative adjective ("Kowalski") is in the genitive
+  if (TITLE_GENITIVE_ONLY.test(before) && !/(?:sk|ck|dzk|[nń]sk)i$/u.test(last) && /[yi]$/u.test(last)) return 'gen'
+  return 'nom'
+}
+const FIRE_SERVICE = /\bPSP\b|Straż\p{L}*\s+Pożarn|strażak|strażac|pożar/iu
+export function sayTitles(text: string): string {
+  return text.replace(TITLE_CHAIN, (m: string, chain: string, at: number, all: string) => {
+    const tokens: { text: string; token: TitleToken; key: string }[] = []
+    TITLE_ANY.lastIndex = 0
+    for (let pos = 0; pos < chain.length;) {
+      while (/\s/.test(chain[pos] ?? '')) pos++
+      TITLE_ANY.lastIndex = pos
+      const hit = TITLE_ANY.exec(chain)
+      if (!hit) return m
+      const key = titleKey(hit[0])
+      const token = TITLE_BY_KEY.get(key)
+      if (!token) return m
+      tokens.push({ text: hit[0], token, key })
+      pos += hit[0].length
+    }
+    const before = all.slice(0, at)
+    // Never after a digit ("10 bryg. Kawalerii", "25 bp Rada"), and "z o. o." is a company
+    if (/\d\s*$/.test(before)) return m
+    const head = tokens.find((t) => t.token.kind === 'n')!
+    const flags = head.token.flags
+    const after = all.slice(at + m.length)
+    // The name: up to three capitalised words, an initial with its dot ("J. Nowak"); a full stop after a word ends the sentence
+    const name = after.match(/^(?:\p{Lu}\.|\p{Lu}[\p{L}'’-]+)(?:\s+(?:\p{Lu}\.|\p{Lu}[\p{L}'’-]+)){0,2}/u)?.[0].split(/\s+/) ?? []
+    if (name.length === 0) return m
+    if (flags.includes('O') && (/(?:^|[\s.])o\.\s*$/iu.test(before) || tokens.some((t, i) => i > 0 && t.key === 'o'))) return m
+    if (flags.includes('B') && (BIBLICAL.has(name[0].toLocaleLowerCase('pl')) || /(?:sk|ck|dzk)ie$/u.test(name[0]))) return m
+    if (flags.includes('Y') && /^\s*[(,]?\s*(?:\(?(?:19|20)\d{2}|s\.|ss\.|art\.)/u.test(after.slice(name.join(' ').length))) return m
+    if (flags.includes('M') && name.some(feminineName)) return m
+    const kase = TITLE_CASES[titleCase(before, name)]
+    // "gen. bryg." is "generał brygady" (an army general), but in the fire service (the same sentence says so) "generał brygadier" (a rank that declines)
+    const fire = FIRE_SERVICE.test(`${before.match(/[^.;!?]*$/)![0]}${chain} ${after.match(/^[^.;!?]*/)![0]}`)
+    const said = tokens.map((t, i) => {
+      if (t.key === 'bryg' && tokens[i - 1]?.key === 'gen' && !fire) return 'brygady'
+      return t.token.kind === 'i' ? t.token.forms[0] : t.token.forms[kase]
+    }).join(' ')
+    const upper = tokens[0].text[0] !== tokens[0].text[0].toLocaleLowerCase('pl')
+    return `${upper ? said[0].toLocaleUpperCase('pl') + said.slice(1) : said} `
+  })
+}
+
 // ── Pauses ──
 
 // A colon after a word is said as the end of a sentence, a short pause: "Błaszczak: PiS składa" ->
@@ -1123,7 +1219,7 @@ function sayMarked(text: string): string {
   let t = sayParagraphs(sayArticles(sayRoman(sayMonths(sayDayRanges(sayCountRanges(sayMonthDays(sayYearRanges(sayYears(sayQuarters(sayCompounds(sayIssueNumbers(sayAddresses(text)))))))))))))
   t = sayTerritories(sayHours(sayDirections(sayInstitutions(t))))
   for (const [re, said] of WORDS) t = t.replace(re, said)
-  t = saySpelled(sayAsWords(sayEnglish(sayProperNames(sayMarkets(sayBrokers(t))))))
+  t = saySpelled(sayAsWords(sayTitles(sayEnglish(sayProperNames(sayMarkets(sayBrokers(t)))))))
   return markPauses(sayNumbers(sayNames(t)))
 }
 
