@@ -710,6 +710,9 @@ const named = (head: Record<InstCase, string>, name: string) =>
 // "ON" is the diesel (olej napędowy), but only where it stands among fuels: next to petrol, fuel prices, litres, stations
 INSTITUTIONS.ON = { nom: 'olej napędowy', gen: 'oleju napędowego', dat: 'olejowi napędowemu', acc: 'olej napędowy', inst: 'olejem napędowym', loc: 'oleju napędowym' }
 const FUEL_CONTEXT = /Pb\s?9[58]|benzyn\p{L}*|paliw\p{L}*|LPG|zł\/l|za litr|diesel|olej\p{L}*\s+napędow|stacj\p{L}*\s+(?:paliw|benzyn)|ceny?\s+maksymaln/iu
+// "NYSE" is the New York Stock Exchange; said as "nowojorska giełda" in the case the sentence needs ("Dziś na NYSE przed sesją" -> "Dziś na
+// nowojorskiej giełdzie przed sesją"): the English words are no good for a Polish voice, and the abbreviation spelled out is a string of letters
+INSTITUTIONS.NYSE = { nom: 'nowojorska giełda', gen: 'nowojorskiej giełdy', dat: 'nowojorskiej giełdzie', acc: 'nowojorską giełdę', inst: 'nowojorską giełdą', loc: 'nowojorskiej giełdzie' }
 INSTITUTIONS.RN = { nom: 'Rada nadzorcza', gen: 'Rady nadzorczej', dat: 'Radzie nadzorczej', acc: 'Radę nadzorczą', inst: 'Radą nadzorczą', loc: 'Radzie nadzorczej' }
 INSTITUTIONS.MFiPR = named(MINISTRY, 'Funduszy i Polityki Regionalnej')
 INSTITUTIONS.MRPiPS = named(MINISTRY, 'Rodziny i Polityki Społecznej')
@@ -767,6 +770,8 @@ function caseBefore(before: string, withCase: InstCase): InstCase {
   if (/(?:ym|im)$/.test(word)) return prev && (PREP_CASE[prev] === 'inst' || prev === 'z' || prev === 'ze') ? 'inst' : 'loc'
   return 'gen'
 }
+// Verbs and nouns of going onto an exchange: "na" after them asks for the accusative
+const ONTO_EXCHANGE = /(?:^|\s)(?:wchodz\p{L}*|wejd\p{L}*|wejś\p{L}*|weszł\p{L}*|wszedł|wprowadz\p{L}*|wprowadź\p{L}*|trafi\p{L}*|wróc\p{L}*|wrac\p{L}*|powrót|powrotu|przen\p{L}*(?:\s+się)?)\s+na\s*$/iu
 // Several in a row ("zwołanie WZ i NWZ") are in the same case
 const LIST_BETWEEN = /^\s*(?:,|\s(?:i|oraz|lub|albo))\s*$/u
 export function sayInstitutions(text: string): string {
@@ -775,8 +780,17 @@ export function sayInstitutions(text: string): string {
     if (institution === 'ON' && !FUEL_CONTEXT.test(all.slice(Math.max(0, at - 120), at + 120))) return m
     // "Pb95 podrożała o 45 groszy, ON o 1,50 zł": the diesel with a verb or "o 1,50" after it is the subject, whatever stands before it
     const subject = institution === 'ON' && !/(?:^|\s)(?:i|oraz|lub|albo)\s+$/iu.test(all.slice(0, at)) && /^\s+(?:o\s+\d|\p{L}+(?:ł|ła|ło|li|ły)(?![\p{L}])|wynosi|wynoszą|kosztuje|kosztują|jest|są)/u.test(all.slice(at + m.length))
-    const kase: InstCase = subject ? 'nom' : last && LIST_BETWEEN.test(all.slice(last.end, at)) ? last.kase : caseBefore(all.slice(0, at), institution ? 'inst' : 'gen')
+    // "NYSE American", "NYSE Arca" are other markets of it, not the exchange itself
+    if (institution === 'NYSE' && /^\s+(?:American|Arca|Texas|Chicago|National)(?![\p{L}\d])/u.test(all.slice(at + m.length))) return m
+    let kase: InstCase = subject ? 'nom' : last && LIST_BETWEEN.test(all.slice(last.end, at)) ? last.kase : caseBefore(all.slice(0, at), institution && institution !== 'NYSE' ? 'inst' : 'gen')
+    // "wchodzi na NYSE" is onto the exchange (the accusative), "notowana na NYSE" is on it (the locative)
+    if (institution === 'NYSE' && kase === 'loc' && ONTO_EXCHANGE.test(all.slice(0, at))) kase = 'acc'
     last = { end: at + m.length, kase }
+    // "z NYSE" is "from" the exchange (the data, the news), the case of "with" is rare; at the start of a sentence the name has a capital letter
+    if (institution === 'NYSE') {
+      const said = INSTITUTIONS.NYSE[kase]
+      return /(?:^|[.!?:]\s+)$/.test(all.slice(0, at)) ? said[0].toLocaleUpperCase('pl') + said.slice(1) : said
+    }
     if (institution) return INSTITUTIONS[institution][kase]
     const stem = kind === 'N' ? 'nadzwyczajn' : kind === 'Z' ? 'zwyczajn' : ''
     const said = `${stem ? `${stem}${MEETING_ENDING[kase]} ` : ''}${MEETING[kase]}${shareholders ? ' akcjonariuszy' : ''}`
@@ -967,6 +981,12 @@ const NAMES_EN: [RegExp, string][] = [
   // "Pay" in names: "OPay" -> "O pej", "Google Pay" -> "Google pej", "PayPal" -> "PejPal"
   [/(?<=\p{L})Pay(?!\p{Ll})/gu, ' pej'],
   [/(?<!\p{L})Pay(?!\p{Ll})/gu, 'Pej'],
+  // "Co." is "company" ("JPMorgan Chase & Co." -> "... end Kompani"), "Cos." "companies"; the "Co" of a Polish sentence is never capitalised
+  // after another capitalised word, so only there it is the abbreviation (without a full stop too: "JPMorgan Co")
+  [/\s*&\s*Co\.?(?![\p{L}\d])/gu, ' end Kompani'],
+  [/\s*&\s*Cos\.(?![\p{L}\d])/gu, ' end Kampanis'],
+  [/(?<=\p{Lu}[\p{L}\d]*\s+)Co(?:\.|(?![\p{L}\d]))/gu, 'Kompani'],
+  [/(?<=\p{Lu}[\p{L}\d]*\s+)Cos\./gu, 'Kampanis'],
 ]
 const SPELLED_EN_RE = new RegExp(String.raw`(?<![\p{L}\d])(${SPELLED_EN.join('|')})(?![\p{L}\d])`, 'gu')
 // A word of an English name that a Polish voice says as a Polish word: "Asia" is a name for it. Inside an English name,
