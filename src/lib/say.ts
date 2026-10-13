@@ -10,6 +10,7 @@
 import { US_NAMES, US_WORDS } from './names-us'
 import { TITLES, FEMININE_NAMES, BIBLICAL_BOOKS } from './titles-pl'
 import { sayParticiples } from './agree-pl'
+import { EU_INSTITUTIONS, type EuGender } from './institutions-eu'
 
 const FORMS: [RegExp, string][] = [
   [/(?<!\p{L})S\.\s?K\.\s?A\.?(?!\p{L})/gu, 'spółka komandytowo-akcyjna'],
@@ -864,7 +865,21 @@ INSTITUTIONS.MON = named(MINISTRY, 'Obrony Narodowej')
 INSTITUTIONS.MF = named(MINISTRY, 'Finansów')
 INSTITUTIONS.UKE = named(OFFICE, 'Komunikacji Elektronicznej')
 INSTITUTIONS.UOKiK = INSTITUTIONS.UOKIK = named(OFFICE, 'Ochrony Konkurencji i Konsumentów')
-const INSTITUTION_RE = new RegExp(String.raw`(?<![\p{L}\d]|\p{Ll}-)(?:([NZ]?)WZ(A?)|(${Object.keys(INSTITUTIONS).join('|')}))(?![\p{L}\d]|-\d|-\p{Ll})`, 'gu')
+// The European institutions and organisations of institutions-eu.ts: each abbreviation to the forms of its name, the gender of the name and the guard for the letters
+// that mean something else too
+const INSTITUTION_GENDER: Record<string, EuGender> = {}
+const INSTITUTION_GUARD: Record<string, string> = {}
+for (const [abbreviations, forms, gender, guard] of EU_INSTITUTIONS) {
+  for (const abbreviation of abbreviations) {
+    const key = abbreviation.replace(/\s+/g, '')
+    INSTITUTIONS[key] = { nom: forms[0], gen: forms[1], dat: forms[2], acc: forms[3], inst: forms[4], loc: forms[5] }
+    INSTITUTION_GENDER[key] = gender
+    if (guard) INSTITUTION_GUARD[key] = guard
+  }
+}
+// "TS UE" is written with a space too, and must go before "UE" ("Wyrok TS UE" is not "TS Unii Europejskiej")
+const INSTITUTION_KEYS = [...Object.keys(INSTITUTIONS).filter((key) => key !== 'TSUE'), 'TS\\s?UE', 'TSUE'].sort((a, b) => b.length - a.length)
+const INSTITUTION_RE = new RegExp(String.raw`(?<![\p{L}\d]|\p{Ll}-)(?:([NZ]?)WZ(A?)|(${INSTITUTION_KEYS.join('|')}))(?![\p{L}\d]|-\d|-\p{Ll})`, 'gu')
 const PREP_CASE: Record<string, InstCase> = {
   na: 'loc', w: 'loc', we: 'loc', o: 'loc', po: 'loc', przy: 'loc',
   przed: 'inst', nad: 'inst', pod: 'inst', między: 'inst', poza: 'inst',
@@ -879,7 +894,7 @@ const NOM_BEFORE = /^(?:zwołuje|zwołują|zwołał[aoy]?|zwołać|zwołano|zwo�
 // …and the endings of such verbs (not "ał": "udział", "kapitał" are nouns)
 const VERB_ENDING = /(?:uje|ują|ił|ył|iła|yła|iło|yło|ili|yli|ała|ało|ały)$/u
 // What is "from" an institution, not "with" it
-const FROM_NOUN = /^(?:fundusz\p{L}*|środk\p{L}*|dotacj\p{L}*|dofinansowan\p{L}*|pieniąd\p{L}*|pieniędz\p{L}*|dane|danych|komunikat\p{L}*|informacj\p{L}*|pism\p{L}*|decyzj\p{L}*|wytyczn\p{L}*|rozporządzen\p{L}*|import\p{L}*|eksport\p{L}*|dostaw\p{L}*|kraj\p{L}*|państw\p{L}*|wsparci\p{L}*|pożyczk\p{L}*|grant\p{L}*|płatnośc\p{L}*|wpływ\p{L}*|wypłat\p{L}*|transfer\p{L}*|pochodz\p{L}*|wynik\p{L}*|wyjści\p{L}*|wyjść|wyjdzie|wyjdą|wychodzi|wystąpien\p{L}*|wystąpić|wycofa\p{L}*)$/u
+const FROM_NOUN = /^(?:fundusz\p{L}*|środk\p{L}*|dotacj\p{L}*|dofinansowan\p{L}*|pieniąd\p{L}*|pieniędz\p{L}*|dane|danych|komunikat\p{L}*|informacj\p{L}*|pism\p{L}*|decyzj\p{L}*|wytyczn\p{L}*|rozporządzen\p{L}*|import\p{L}*|eksport\p{L}*|dostaw\p{L}*|kraj\p{L}*|państw\p{L}*|wsparci\p{L}*|pożyczk\p{L}*|grant\p{L}*|płatnośc\p{L}*|wpływ\p{L}*|wypłat\p{L}*|transfer\p{L}*|pochodz\p{L}*|wynik\p{L}*|wyjści\p{L}*|wyjść|wyjdzie|wyjdą|wychodzi|wystąpien\p{L}*|wystąpić|wycofa\p{L}*|kredyt\p{L}*|finansowan\p{L}*|gwarancj\p{L}*|lini[aeięą]|linii|transz\p{L}*|raport\p{L}*|opini\p{L}*|zaleceni\p{L}*|zalecenia|ostrzeżeni\p{L}*|zatwierdzeni\p{L}*|dopuszczeni\p{L}*|zezwoleni\p{L}*)$/u
 // "z" is "from" before a meeting ("protokół z WZ") and "with" before an institution ("rozmowy z MFW")
 function caseBefore(before: string, withCase: InstCase): InstCase {
   const tail = before.trimEnd()
@@ -910,17 +925,74 @@ function caseBefore(before: string, withCase: InstCase): InstCase {
 const ONTO_EXCHANGE = /(?:^|\s)(?:wchodz\p{L}*|wejd\p{L}*|wejś\p{L}*|weszł\p{L}*|wszedł|wprowadz\p{L}*|wprowadź\p{L}*|trafi\p{L}*|wróc\p{L}*|wrac\p{L}*|powrót|powrotu|przen\p{L}*(?:\s+się)?)\s+na\s*$/iu
 // Several in a row ("zwołanie WZ i NWZ") are in the same case
 const LIST_BETWEEN = /^\s*(?:,|\s(?:i|oraz|lub|albo))\s*$/u
+// Where the letters of an abbreviation mean something else in business news too, the words round it say which: the name is said only where they fit
+// (institutions-eu.ts names the guard of an entry)
+const EU_CUE = /europarlament|europose[łl]|eurodeputowan|Strasbur|Bruksel|Parlament\p{L}*\s+Europejsk|Komisj\p{L}*\s+Europejsk|unijn|Rad\p{L}*\s+(?:UE|Unii)|rezolucj|eurosceptyk/iu
+const EU_CAPS = /(?<![\p{L}\d])(?:KE|UE)(?![\p{L}\d])/u
+// what stands next to the parliament's own abbreviation: "uchwała PE", "PE przyjął", "głosowanie w PE", "posłowie do PE"
+const PE_CUE = /(?:uchwał|rezolucj|głosowani|posiedzeni|komisj|przewodnicząc|posł|poseł|delegacj|sprawozdawc)\p{L}*\s+(?:(?:do|w|na)\s+)?PE(?![\p{L}\d])|(?<![\p{L}\d])PE\s+(?:przyjął|zagłosował|poparł|odrzucił|zatwierdził|uchwalił|wezwał|domaga|poparł)/iu
+const EU_GUARDS: Record<string, (around: string, before: string) => boolean> = {
+  // Parlament Europejski, not polyethylene or private equity
+  PE: (around) => (EU_CUE.test(around) || EU_CAPS.test(around) || PE_CUE.test(around)) && !/polietylen|PE-?(?:HD|LD|X|RT|100)|\bPE\s*\/\s*VC|private\s+equity|P\/E|\bVC\b|tworzyw|granulat|Peru|fundusz\p{L}*\s+PE|rynek\s+PE|sektor\s+PE/iu.test(around),
+  // the central bank, not a unit of the colour of beer ("200 EBC") and not the monetary context of nothing
+  EBC: (around, before) => !/\d\s*$/.test(before),
+  // Europejski Bank Inwestycyjny; EBI is also the Elektroniczna Baza Informacji of the exchange ("raport EBI", ESPI/EBI, NewConnect): said only round a loan, a bank, the EU
+  EBI: (around) => !/ESPI|NewConnect|Elektroniczn\p{L}*\s+Baz|raport\p{L}*\s+(?:bieżąc\p{L}*\s+)?EBI|EBI\s+nr/iu.test(around)
+    && (/bank|kredyt|pożyczk|finansowan|gwarancj|inwestycj|EIB|Luksemburg|unijn|Komisj\p{L}*\s+Europejsk/iu.test(around) || EU_CAPS.test(around)),
+  // Europejska Agencja Leków, not the moving average of a chart ("EMA 200")
+  EMA: (around) => /leków|\blek\b|szczepionk|rejestracj|CHMP|farmac|biotech|terapi|Pfizer|Moderna|Novo\s+Nordisk|Roche/iu.test(around)
+    && !/\bEMA\s*\d|\bEMA\d|średni|kroczą|wskaźnik|RSI|MACD|\bSMA\b|analiz\p{L}*\s+techniczn/iu.test(around),
+  // Europejska Agencja Kosmiczna, not the European System of Accounts ("ESA 2010")
+  ESA: (around) => /kosmi|rakiet|satelit|astronaut|Ariane|sond[aęy]|Księż/iu.test(around),
+  // Grupa Wyszehradzka, not the engine
+  V4: (around) => /państw|krajów|Grup\p{L}*\s+Wyszehradz|Wyszehrad|Węgr|Słowacj|Czech|szczyt|premier|Orb[aá]n|Tusk|Polsk/iu.test(around) && !/silnik|cylindr|Lamborghini|Ferrari|\bKM\b/iu.test(around),
+}
+// "Komisja Europejska (KE)": the abbreviation in brackets after the name is not said again
+const NAME_IN_BRACKETS = new RegExp(String.raw`\s*\(\s*(${INSTITUTION_KEYS.join('|')})\s*\)`, 'gu')
+const nameStands = (before: string, key: string) => {
+  const forms = INSTITUTIONS[key.replace(/\s+/g, '')]
+  const tail = before.trimEnd().toLocaleLowerCase('pl')
+  return !!forms && Object.values(forms).some((form) => tail.endsWith(form.toLocaleLowerCase('pl')))
+}
+// The gender of a past tense verb ("opublikowała"), for the name that is its subject: a name that does not agree with it is left as the abbreviation (the writer had another noun in mind)
+const verbGender = (word: string): EuGender | undefined =>
+  /^(?:kapitał|materiał|sygnał|finał|ideał|kanał|dział|udział|zakład|skład|wkład|wydział|oddział|zapał|artykuł|protokół)$/u.test(word) ? undefined
+    : /ła$/u.test(word) ? 'f' : /ło$/u.test(word) ? 'n' : /(?:ły|li)$/u.test(word) ? 'pl' : /ł$/u.test(word) ? 'm' : undefined
+// A report to the institution: "Polska poinformowała KE", "zawiadomiła KE" are the accusative ("Komisję Europejską"), not the subject
+const OBJECT_VERB = /^(?:(?:poinformowa|powiadomi|zawiadomi|wezwa|pozwa|zaskarży|oskarży|przekona|zapyta|poprosi|uprzedzi|ostrzeg)(?:ł|ła|ło|li|ły)|informuj(?:e|ą)|(?:powiadamia|zawiadamia|wzywa|pozywa|ostrzega|oskarża|zaskarża)(?:ją)?)$/iu
+const CLAUSE_START = /^(?:jak|co|gdy|gdyż|że|bo|ponieważ|który|która|które|aby|żeby|czy|ale|i|a|oraz|lub|albo|natomiast|także|też)$/iu
 export function sayInstitutions(text: string): string {
   let last: { end: number; kase: InstCase } | null = null
-  return text.replace(INSTITUTION_RE, (m, kind: string | undefined, shareholders: string | undefined, institution: string | undefined, at: number, all: string) => {
+  return text.replace(NAME_IN_BRACKETS, (m: string, written: string, at: number, all: string) => (nameStands(all.slice(Math.max(0, at - 160), at), written) ? '' : m))
+    .replace(INSTITUTION_RE, (m, kind: string | undefined, shareholders: string | undefined, matched: string | undefined, at: number, all: string) => {
+    const institution = matched?.replace(/\s+/g, '')
     if (institution === 'ON' && !FUEL_CONTEXT.test(all.slice(Math.max(0, at - 120), at + 120))) return m
+    // "Kimball Electronics (KE)": in brackets after a name with a capital letter that is not its own it is the abbreviation or the ticker of that company (its own name in front is dropped above)
+    if (institution && INSTITUTION_GENDER[institution] && /\(\s*$/.test(all.slice(Math.max(0, at - 6), at)) && /^\s*\)/.test(all.slice(at + m.length, at + m.length + 6))
+      && /\p{Lu}[\p{L}.&-]*\s*\(\s*$/u.test(all.slice(Math.max(0, at - 60), at))) return m
+    const guard = institution && INSTITUTION_GUARD[institution]
+    if (guard && !EU_GUARDS[guard](all.slice(Math.max(0, at - 140), at + m.length + 140), all.slice(Math.max(0, at - 30), at))) return m
     // "Pb95 podrożała o 45 groszy, ON o 1,50 zł": the diesel with a verb or "o 1,50" after it is the subject, whatever stands before it
     const subject = institution === 'ON' && !/(?:^|\s)(?:i|oraz|lub|albo)\s+$/iu.test(all.slice(0, at)) && /^\s+(?:o\s+\d|\p{L}+(?:ł|ła|ło|li|ły)(?![\p{L}])|wynosi|wynoszą|kosztuje|kosztują|jest|są)/u.test(all.slice(at + m.length))
     // "NYSE American", "NYSE Arca" are other markets of it, not the exchange itself
     if (institution === 'NYSE' && /^\s+(?:American|Arca|Texas|Chicago|National)(?![\p{L}\d])/u.test(all.slice(at + m.length))) return m
-    let kase: InstCase = subject ? 'nom' : last && LIST_BETWEEN.test(all.slice(last.end, at)) ? last.kase : caseBefore(all.slice(0, at), institution && institution !== 'NYSE' ? 'inst' : 'gen')
+    const before = all.slice(0, at)
+    let kase: InstCase = subject ? 'nom' : last && LIST_BETWEEN.test(all.slice(last.end, at)) ? last.kase : caseBefore(before, institution && institution !== 'NYSE' ? 'inst' : 'gen')
     // "wchodzi na NYSE" is onto the exchange (the accusative), "notowana na NYSE" is on it (the locative)
     if (institution === 'NYSE' && kase === 'loc' && ONTO_EXCHANGE.test(all.slice(0, at))) kase = 'acc'
+    // "naciska na KE", "liczy na UE", "wpływ na MFW": "na" before an institution asks for the accusative, not the locative of a place ("na giełdzie", "na WZ")
+    if (institution && kase === 'loc' && !['NYSE', 'ON', 'RN'].includes(institution) && /(?:^|\s)na\s*$/iu.test(before)) kase = 'acc'
+    // "Polska poinformowała KE": a verb of reporting before it, with a subject before the verb, makes it the object
+    if (institution && kase === 'nom') {
+      const reported = before.match(/(?:^|[\s(„"])(\p{L}[\p{L}-]*)\s+(\p{L}+)\s*$/u)
+      if (reported && OBJECT_VERB.test(reported[2]) && !CLAUSE_START.test(reported[1])) kase = 'acc'
+    }
+    // the name is the subject and the verb after it has another gender: "EBA opublikowała" stays the abbreviation
+    if (institution && kase === 'nom' && INSTITUTION_GENDER[institution]) {
+      const next = all.slice(at + m.length).match(/^\s+(\p{L}+)/u)?.[1]
+      const gender = next && verbGender(next)
+      if (gender && gender !== INSTITUTION_GENDER[institution]) return m
+    }
     last = { end: at + m.length, kase }
     // "z NYSE" is "from" the exchange (the data, the news), the case of "with" is rare; at the start of a sentence the name has a capital letter
     if (institution === 'NYSE') {
@@ -1028,7 +1100,7 @@ export const sayTerritories = (text: string) =>
 
 // Abbreviations said letter by letter with the Polish names of the letters, so a voice does not read them as a word:
 // "OECD" is "o e ce de"
-const SPELLED_PL = ['OECD']
+const SPELLED_PL = ['OECD', 'CBAM', 'ESRS']
 const SPELLED_PL_RE = new RegExp(String.raw`(?<![\p{L}\d])(${SPELLED_PL.join('|')})(?![\p{L}\d])`, 'gu')
 export const saySpelled = (text: string) => text.replace(SPELLED_PL_RE, (m) => spell(m))
 
@@ -1044,7 +1116,10 @@ export const sayBrokers = (text: string) =>
 // Abbreviations said as words, not spelled ("rozporządzenia MAR" -> "mar", "dla PAP" -> "pap").
 // ASI (alternatywna spółka inwestycyjna) is "as" and "i" run together: written "Asi" a voice makes it a name
 // with a soft "ś" (like the vocative of Asia)
-const AS_WORDS: Record<string, string> = { MAR: 'Mar', PAP: 'Pap', ZUS: 'Zus', GUS: 'Gus', NIK: 'Nik', PIT: 'Pit', CIT: 'Cit', VAT: 'Wat', ASI: 'as i', BOŚ: 'Boś', FIZ: 'Fiz' }
+const AS_WORDS: Record<string, string> = { MAR: 'Mar', PAP: 'Pap', ZUS: 'Zus', GUS: 'Gus', NIK: 'Nik', PIT: 'Pit', CIT: 'Cit', VAT: 'Wat', ASI: 'as i', BOŚ: 'Boś', FIZ: 'Fiz',
+  // Names with a "c" that a Polish voice reads "ts" ("Opec" as "Opets", "Ecofin" as "Etsofin") or letters it cannot say, written as they sound
+  OPEC: 'Opek', BRICS: 'Briks', MiCA: 'Mika', MICA: 'Mika', EUROCONTROL: 'Eurokontrol', Eurocontrol: 'Eurokontrol', HELCOM: 'Helkom', CENELEC: 'Cenelek',
+  Ecofin: 'Ekofin', ECOFIN: 'Ekofin', Coreper: 'Koreper', COREPER: 'Koreper', AGRIFISH: 'Agrifisz', SAFE: 'Sejf', MREL: 'Emrel' }
 const AS_WORDS_RE = new RegExp(String.raw`(?<![\p{L}\d])(${Object.keys(AS_WORDS).join('|')})(?![\p{L}\d])`, 'gu')
 // Whether the text ends with an article, paragraph or point and what follows it up to here: numbers, ordinals ("siedemnastego"), letters,
 // "i" ("artykułu siedemnastego ustęp 1 i 4"). Token by token from the end, so a long text costs nothing.
