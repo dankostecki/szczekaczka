@@ -224,9 +224,10 @@ export function speakItem(it: Item, prefs: Prefs, voices: SpeechSynthesisVoice[]
   parts.forEach((part, i) => speak(part, prefs, voices, i === parts.length - 1 ? onEnd : undefined, lang))
 }
 
-// `fresh` is oldest first. Over the limit: read the newest ones, sum up the rest.
+// `fresh` is oldest first. Every one of them is read (they all carry the NOWE badge); with a limit set (maxPerRefresh above 0), over it the
+// newest ones are read and the rest summed up
 export function announce(fresh: Item[], prefs: Prefs, voices: SpeechSynthesisVoice[]) {
-  const head = fresh.slice(-prefs.maxPerRefresh)
+  const head = prefs.maxPerRefresh > 0 ? fresh.slice(-prefs.maxPerRefresh) : fresh
   for (const it of head) speakItem(it, prefs, voices)
   const rest = fresh.length - head.length
   if (rest > 0) speak(`I jeszcze ${rest} ${plural(rest)}.`, prefs, voices)

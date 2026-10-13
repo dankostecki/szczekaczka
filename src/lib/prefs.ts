@@ -10,7 +10,7 @@ export interface Prefs {
   voiceURI: string       // '' = the best Polish voice (speech.ts)
   voiceURIEn: string     // '' = the best English voice, for news in English
   rate: number
-  maxPerRefresh: number  // read at most this many headlines per refresh, sum up the rest
+  maxPerRefresh: number  // 0: read every new headline; else at most this many per refresh, the rest summed up
   hiddenFeeds: string[]  // channels left off the list, and so not read aloud or notified either ("STOOQ:ŚWIAT")
   speakFeeds: string[]   // channels read aloud ("GPW:PRASA")
   notifyFeeds: string[]  // channels shown as notifications
@@ -27,7 +27,7 @@ export const DEFAULT_PREFS: Prefs = {
   voiceURI: '',
   voiceURIEn: '',
   rate: 1,
-  maxPerRefresh: 3,
+  maxPerRefresh: 0,
   hiddenFeeds: [],
   speakFeeds: FEED_KEYS,
   notifyFeeds: FEED_KEYS,
@@ -52,6 +52,8 @@ export function loadPrefs(): Prefs {
     // and "GPW:" before GPW headlines (now always said)
     const old = 'readLead' in saved || 'sayGpw' in saved
     delete saved.readLead; delete saved.sayGpw
+    // 3 was the default limit, and left every headline beyond the newest three only summed up (with its NOWE badge): now the default is to read all
+    if (saved.maxPerRefresh === 3) delete saved.maxPerRefresh
     // A renamed channel keeps its settings ("ESPI:ESPI/EBI" is now "ESPI:BANKIER")
     const LISTS = ['hiddenFeeds', 'speakFeeds', 'notifyFeeds', 'leadFeeds', 'knownFeeds'] as const
     const renamed = LISTS.some((k) => saved[k]?.some((key) => renamedKey(key) !== key))
