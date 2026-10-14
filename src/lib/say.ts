@@ -619,6 +619,45 @@ export const sayCountRanges = (text: string) =>
     return `${countWords(a, kase, gender)} ${countWords(b, kase, gender)} ${noun}`
   })
 
+// Months and weeks written short: "po 8 m-cach" is "po ośmiu miesiącach", "w ciągu 12 m-cy" "w ciągu dwunastu miesięcy", "za 3 m-ce" "za trzy miesiące", "1 m-c"
+// "jeden miesiąc", "po 5 mies." "po pięciu miesiącach", "przez 3 tyg." "przez trzy tygodnie". The ending of the short form says the case and the number of the noun; a
+// number is put in words in the case the noun asks (the locative "ośmiu", the genitive after "do", "od", "w ciągu"). Left as "8 m-cach" a voice says the letters. Where the
+// number is a fraction or the ending is the instrumental or the dative, only the noun is written out. "mies." and "tyg." have no ending: the preposition before the number
+// says it (w, po, przy: the locative; do, od, w ciągu…: the genitive; else the nominative).
+type SpanNoun = Record<'nom' | 'gen' | 'loc' | 'inst' | 'dat', string>
+const SPAN_NOUNS: Record<'miesiąc' | 'tydzień', Record<'sg' | 'pl', SpanNoun>> = {
+  miesiąc: { sg: { nom: 'miesiąc', gen: 'miesiąca', loc: 'miesiącu', inst: 'miesiącem', dat: 'miesiącowi' }, pl: { nom: 'miesiące', gen: 'miesięcy', loc: 'miesiącach', inst: 'miesiącami', dat: 'miesiącom' } },
+  tydzień: { sg: { nom: 'tydzień', gen: 'tygodnia', loc: 'tygodniu', inst: 'tygodniem', dat: 'tygodniowi' }, pl: { nom: 'tygodnie', gen: 'tygodni', loc: 'tygodniach', inst: 'tygodniami', dat: 'tygodniom' } },
+}
+const SPAN_WRITTEN: Record<string, readonly ['miesiąc', 'sg' | 'pl', keyof SpanNoun]> = {
+  'm-c': ['miesiąc', 'sg', 'nom'], 'm-ca': ['miesiąc', 'sg', 'gen'], 'm-cu': ['miesiąc', 'sg', 'loc'], 'm-cem': ['miesiąc', 'sg', 'inst'],
+  'm-ce': ['miesiąc', 'pl', 'nom'], 'm-cy': ['miesiąc', 'pl', 'gen'], 'm-cach': ['miesiąc', 'pl', 'loc'], 'm-cami': ['miesiąc', 'pl', 'inst'], 'm-com': ['miesiąc', 'pl', 'dat'],
+}
+const SPAN_RE = new RegExp(String.raw`(?:(?<![\p{L}\d.,/:-])(\d{1,3})\s+)?(?<![\p{L}\d-])(m-cach|m-cami|m-cem|m-com|m-ca|m-ce|m-cu|m-cy|m-c|mies\.|tyg\.)(?![\p{L}\d-])`, 'gu')
+export const sayMonthSpans = (text: string) =>
+  text.replace(SPAN_RE, (m: string, num: string | undefined, written: string, at: number, all: string) => {
+    const dynamic = written === 'mies.' || written === 'tyg.'
+    if (dynamic && num === undefined) return m
+    const n = num === undefined ? undefined : +num
+    if (n !== undefined && n < 1) return m
+    const before = all.slice(Math.max(0, at - 80), at)
+    const noun = dynamic ? (written === 'mies.' ? 'miesiąc' : 'tydzień') : SPAN_WRITTEN[written][0]
+    const stop = written.endsWith('.') && endsSentence(all.slice(at + m.length)) ? '.' : ''
+    if (!dynamic) {
+      const [, number, kase] = SPAN_WRITTEN[written]
+      const said = SPAN_NOUNS[noun][number][kase]
+      if (n === undefined || kase === 'inst' || kase === 'dat') return `${num === undefined ? '' : `${num} `}${said}`
+      const genitiveBefore = GENITIVE_BEFORE.test(before)
+      const numeral: 'nom' | 'gen' | 'loc' = kase === 'loc' ? 'loc' : kase === 'nom' ? 'nom' : number === 'sg' || genitiveBefore || FEW(n) ? 'gen' : 'nom'
+      return `${countWords(n, numeral, 'm')} ${said}`
+    }
+    const kase: 'nom' | 'gen' | 'loc' = /(?:^|\s)(?:w|we|po|przy)\s+$/iu.test(before) ? 'loc' : GENITIVE_BEFORE.test(before) ? 'gen' : 'nom'
+    const number = n === 1 ? 'sg' : 'pl'
+    // after 5 and more the nominative is followed by the genitive plural ("osiem miesięcy"), after 2-4 by the nominative plural ("trzy miesiące")
+    const form: keyof SpanNoun = kase === 'nom' && number === 'pl' && !FEW(n!) ? 'gen' : kase
+    return `${countWords(n!, kase, 'm')} ${SPAN_NOUNS[noun][number][form]}${stop}`
+  })
+
 // A range of days with the month after it: "w dniach 7 - 8 października" -> "w dniach od siódmego do ósmego października", "7-8 października" the same,
 // "30 września - 2 października" -> "od trzydziestego września do drugiego października". The days are written out: left as digits with a dash a voice
 // says "7 minus 8". The first day is the smaller one ("20-19 października" or a result "3-2" is no range of days).
@@ -1709,7 +1748,7 @@ export const sayPausedParts = (text: string): string[] => markPauses(text).split
 // ── All of it ──
 
 function sayMarked(text: string): string {
-  let t = sayRoman(sayMonths(sayDayRanges(sayCountRanges(sayMonthDays(sayYearRanges(sayYears(sayQuarters(sayCompounds(sayIssueNumbers(sayAddresses(sayDates(sayParticiples(sayProvisions(text))))))))))))))
+  let t = sayRoman(sayMonths(sayDayRanges(sayCountRanges(sayMonthSpans(sayMonthDays(sayYearRanges(sayYears(sayQuarters(sayCompounds(sayIssueNumbers(sayAddresses(sayDates(sayParticiples(sayProvisions(text)))))))))))))))
   t = sayTerritories(sayHours(sayDirections(sayInstitutions(sayCodes(t)))))
   for (const [re, said] of WORDS) t = t.replace(re, said)
   t = saySpelled(sayAsWords(sayTitles(sayEnglish(sayProperNames(sayMarkets(sayBrokers(t)))))))
