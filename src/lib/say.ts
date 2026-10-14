@@ -9,6 +9,7 @@
 
 import { US_NAMES, US_WORDS } from './names-us'
 import { FIRM_NAMES } from './names-firms'
+import { CODES, type CodeEntry, type CodeMode } from './codes-pl'
 import { TITLES, FEMININE_NAMES, BIBLICAL_BOOKS } from './titles-pl'
 import { sayParticiples } from './agree-pl'
 import { EU_INSTITUTIONS, type EuGender } from './institutions-eu'
@@ -484,32 +485,6 @@ const fullYear = (yy: string) => (yy.length === 4 ? +yy : +yy >= 80 ? 1900 + +yy
 
 // 160 -> "sto sześćdziesiątego"; bigger numbers stay as they are
 const ordinalUpTo199 = (n: number, k: Kase) => (n < 100 ? ordinal(n, k) : n === 100 ? ord('setn', k) : n < 200 ? `sto ${ordinal(n - 100, k)}` : String(n))
-const ARTYKUL: Record<Kase, string> = { nom: 'artykuł', gen: 'artykułu', loc: 'artykule', inst: 'artykułem' }
-// "w trybie art. 19 MAR" -> "w trybie artykułu dziewiętnastego MAR", "zgodnie z art. 17" -> "zgodnie z
-// artykułem siedemnastym", "w art. 69" -> "w artykule sześćdziesiątym dziewiątym"
-export function sayArticles(text: string): string {
-  return text.replace(/(?<!\p{L})[Aa]rt\.\s?(\d{1,3})(?!\d)/gu, (m, num: string, at: number, all: string) => {
-    const before = all.slice(0, at)
-    // "Art. 7 ust. 1 …" at the start of a sentence: nominative, with a capital
-    const start = m[0] === 'A' && (!before.trim() || /[.!?:;]\s*$/.test(before))
-    const k: Kase = start ? 'nom' : /(?:^|\s)(?:zgodnie|w związku|wraz|stosownie)\s+z\s*$/iu.test(before) ? 'inst' : caseAfter(before)
-    const n = +num
-    const said = n >= 1 && n < 200 ? `${ARTYKUL[k]} ${ordinalUpTo199(n, k)}` : `${ARTYKUL[k]} ${num}`
-    return start ? said[0].toLocaleUpperCase('pl') + said.slice(1) : said
-  })
-}
-
-// "ust. 1", "pkt 2", "ust. 1 i 4": the paragraph and the point are said as the ordinals they are, in the nominative as the abbreviations are
-// ("w trybie artykułu dziewiętnastego ustęp pierwszy rozporządzenia MAR"). Left as digits after "artykułu dziewiętnastego" a voice declines them too
-// and says "ustępu pierwszego". A range ("ust. 1-3") stays.
-const PARAGRAPH = /(?<![\p{L}\d])(ust\.|ustęp|pkt\.?|punkt)\s*(\d{1,3}[a-z]?(?:(?:,\s+|\s+(?:i|oraz|lub|albo)\s+)\d{1,3}[a-z]?)*)(?![\p{L}\d]|[-–]\d)/giu
-export const sayParagraphs = (text: string) =>
-  text.replace(PARAGRAPH, (m: string, word: string, list: string) => {
-    const noun = /^u/i.test(word) ? 'ustęp' : 'punkt'
-    const said = list.replace(/(\d{1,3})([a-z]?)/g, (_, n: string, letter: string) => (+n >= 1 && +n < 200 ? ordinalUpTo199(+n, 'nom') : n) + (letter ? ` ${letter}` : ''))
-    return `${word[0] === word[0].toLocaleUpperCase('pl') ? noun[0].toLocaleUpperCase('pl') + noun.slice(1) : noun} ${said}`
-  })
-
 // "XXI" -> 21, up to 39; anything else NaN
 const ROMAN_DIGIT: Record<string, number> = { I: 1, V: 5, X: 10 }
 function roman(s: string): number {
@@ -661,7 +636,8 @@ export const sayDayRanges = (text: string) =>
 // "od stycznia do sierpnia", "w okresie I-VIII" -> "w okresie od stycznia do sierpnia". A lone "I", "V" or "X" is a month only after
 // "po" ("I" is also "and", "X" a website); two of them in a range are months after any of the words above.
 export function sayMonths(text: string): string {
-  const month = (n: string, k: Kase) => MONTH_NAMES[k][roman(n) - 1]
+  // a numeral in small letters (the conjunction "i" after "do") is not a month
+  const month = (n: string, k: Kase) => MONTH_NAMES[k][roman(n) - 1] ?? n
   return text
     .replace(MONTH_FROM_TO, (m, from: string, s1: string, a: string, mid: string, b: string, at: number, all: string) =>
       monthStays(all.slice(at + m.length)) ? m : `${from}${s1}${month(a, 'gen')}${mid}${month(b, 'gen')}`)
@@ -807,6 +783,13 @@ const WORDS: [RegExp, string][] = [
   [/(?<!\p{L})ws\.(?=\s)/gu, 'w sprawie'],
   [/(?<!\p{L})m\.in\.(?=\s)/gu, 'między innymi'],
   [/(?<!\p{L})tj\.(?=\s)/gu, 'to jest'],
+  // the law: "t.j. Dz.U. …", "z późn. zm.", "ze zm.", "w zw. z art. …", "zob. art. …", "por. art. …"
+  [/(?<![\p{L}\d])t\.\s?j\.(?=\s)/gu, 'tekst jednolity'],
+  [/(?<![\p{L}\d])z\s+późn\.\s?zm\.(?![\p{L}\d])/gu, 'z późniejszymi zmianami'],
+  [/(?<![\p{L}\d])ze\s+zm\.(?![\p{L}\d])/gu, 'ze zmianami'],
+  [/(?<![\p{L}\d])([Ww])\s+zw\.\s+z(?![\p{L}\d])/gu, '$1 związku z'],
+  [/(?<![\p{L}\d])([Zz])ob\.(?=\s)/gu, '$1obacz'],
+  [/(?<![\p{L}\d])([Pp])or\.(?=\s+(?:art|§|ust|pkt|artykuł|paragraf|ustęp|punkt|\d))/gu, '$1orównaj'],
   [/(?<!\p{L})r\/r(?!\p{L})/gu, 'rok do roku'],
   [/(?<!\p{L})m\/m(?!\p{L})/gu, 'miesiąc do miesiąca'],
   [/(?<!\p{L})k\/k(?!\p{L})/gu, 'kwartał do kwartału'],
@@ -894,7 +877,7 @@ const PREP_CASE: Record<string, InstCase> = {
 }
 // Verbs and adjectives that stand right before the abbreviation itself (it is the subject or the object): "odbędzie się
 // WZ", "jak podaje MFW"
-const NOM_BEFORE = /^(?:zwołuje|zwołują|zwołał[aoy]?|zwołać|zwołano|zwoła|zwołane|odwołuje|odwołują|odwołał[aoy]?|odwołać|odwołano|odwołane|odbędzie|odbyło|odbyły|odbywa|ogłasza|ogłosił[aoy]?|ogłoszono|się|jest|zostało|zostanie|będzie|było|planuje|zapowiada|przesuwa|przekłada|przenosi|zakończyło|rozpoczęło|zgłasza|kolejne|następne|najbliższe|coroczne|doroczne|przyszłe|ostatnie|pierwsze|drugie|trzecie|to|owe|takie|wspomniane|zaplanowane|planowane|przerwane|odroczone|a|ale|że|gdy|jeśli|ponieważ|bo|aby|żeby|gdyż|natomiast|podaje|podają|szacuje|szacują|prognozuje|wskazuje|informuje|ostrzega|ocenia|twierdzi|mówi|uważa|zakłada|sądzi|wylicza|oblicza|przewiduje|podkreśla|wyjaśnia|alarmuje|apeluje|radzi|zaleca|proponuje|sugeruje|pokazuje|wynika|stwierdza|podał|szacował|oszacował|prognozował|ostrzegał|informował|poinformował|twierdził|wskazał|powiedział|zapowiedział|podniósł|przewidział|przewidywał|rekomendował|przekazał|zrewidował)$/u
+const NOM_BEFORE = /^(?:zwołuje|zwołują|zwołał[aoy]?|zwołać|zwołano|zwoła|zwołane|odwołuje|odwołują|odwołał[aoy]?|odwołać|odwołano|odwołane|odbędzie|odbyło|odbyły|odbywa|ogłasza|ogłosił[aoy]?|ogłoszono|się|jest|zostało|zostanie|będzie|było|planuje|zapowiada|przesuwa|przekłada|przenosi|zakończyło|rozpoczęło|zgłasza|kolejne|następne|najbliższe|coroczne|doroczne|przyszłe|ostatnie|pierwsze|drugie|trzecie|to|owe|takie|wspomniane|zaplanowane|planowane|przerwane|odroczone|a|ale|że|gdy|jeśli|ponieważ|bo|aby|żeby|gdyż|natomiast|jednak|lecz|więc|zatem|tymczasem|podaje|podają|szacuje|szacują|prognozuje|wskazuje|informuje|ostrzega|ocenia|twierdzi|mówi|uważa|zakłada|sądzi|wylicza|oblicza|przewiduje|podkreśla|wyjaśnia|alarmuje|apeluje|radzi|zaleca|proponuje|sugeruje|pokazuje|wynika|stwierdza|podał|szacował|oszacował|prognozował|ostrzegał|informował|poinformował|twierdził|wskazał|powiedział|zapowiedział|podniósł|przewidział|przewidywał|rekomendował|przekazał|zrewidował)$/u
 // …and the endings of such verbs (not "ał": "udział", "kapitał" are nouns)
 const VERB_ENDING = /(?:uje|ują|ił|ył|iła|yła|iło|yło|ili|yli|ała|ało|ały)$/u
 // What is "from" an institution, not "with" it
@@ -1042,6 +1025,267 @@ export function sayInstitutions(text: string): string {
     const said = `${stem ? `${stem}${MEETING_ENDING[kase]} ` : ''}${MEETING[kase]}${shareholders ? ' akcjonariuszy' : ''}`
     return said[0].toLocaleUpperCase('pl') + said.slice(1)
   }).replace(/\s*\u0000/g, '')
+}
+
+// ── References to provisions of law, the journals they are cited from, and the codes (codes-pl.ts) ──
+// "zgodnie z art. 506 § 1 kc" -> "zgodnie z artykułem pięćset sześć paragraf pierwszy kodeksu cywilnego". Only the first element of a reference (the article, or
+// the paragraph or point a reference begins with) is declined, in the case the words before it ask for; the rest stands in the nominative, as lawyers say it
+// ("na podstawie artykułu piątego ustęp drugi punkt trzeci"). A number up to 99 is an ordinal, from 100 it is a cardinal that is not declined ("artykułem pięćset
+// sześć"); a number with a letter ("56a") is a cardinal and the name of the letter ("pięćdziesiąt sześć a"). docs/zapisy-prawne.md has the reasons and the sources.
+type Six = readonly [string, string, string, string, string, string]
+const CASE_INDEX: Record<InstCase, number> = { nom: 0, gen: 1, dat: 2, acc: 3, inst: 4, loc: 5 }
+type UnitKey = 'art' | 'par' | 'ust' | 'pkt' | 'lit' | 'zd' | 'tir' | 'rozdz' | 'dz' | 'oddz' | 'tyt' | 'cz' | 'ks' | 'zal' | 'poz'
+interface ProvisionUnit { one: Six; many: Six; gender: 'm' | 'f' | 'n'; values: 'number' | 'letter' | 'roman'; rank: number }
+// rank: what may follow what in a reference (the book, the part, the title, the division, the chapter, the section, then the article, the paragraph, the paragraph of an article, the point, the letter, the sentence, the dash); 0 stands on its own
+const PROVISION_UNITS: Record<UnitKey, ProvisionUnit> = {
+  art: { gender: 'm', values: 'number', rank: 1, one: ['artykuł', 'artykułu', 'artykułowi', 'artykuł', 'artykułem', 'artykule'], many: ['artykuły', 'artykułów', 'artykułom', 'artykuły', 'artykułami', 'artykułach'] },
+  par: { gender: 'm', values: 'number', rank: 2, one: ['paragraf', 'paragrafu', 'paragrafowi', 'paragraf', 'paragrafem', 'paragrafie'], many: ['paragrafy', 'paragrafów', 'paragrafom', 'paragrafy', 'paragrafami', 'paragrafach'] },
+  ust: { gender: 'm', values: 'number', rank: 3, one: ['ustęp', 'ustępu', 'ustępowi', 'ustęp', 'ustępem', 'ustępie'], many: ['ustępy', 'ustępów', 'ustępom', 'ustępy', 'ustępami', 'ustępach'] },
+  pkt: { gender: 'm', values: 'number', rank: 4, one: ['punkt', 'punktu', 'punktowi', 'punkt', 'punktem', 'punkcie'], many: ['punkty', 'punktów', 'punktom', 'punkty', 'punktami', 'punktach'] },
+  lit: { gender: 'f', values: 'letter', rank: 5, one: ['litera', 'litery', 'literze', 'literę', 'literą', 'literze'], many: ['litery', 'liter', 'literom', 'litery', 'literami', 'literach'] },
+  zd: { gender: 'n', values: 'number', rank: 6, one: ['zdanie', 'zdania', 'zdaniu', 'zdanie', 'zdaniem', 'zdaniu'], many: ['zdania', 'zdań', 'zdaniom', 'zdania', 'zdaniami', 'zdaniach'] },
+  tir: { gender: 'n', values: 'number', rank: 7, one: ['tiret', 'tiret', 'tiret', 'tiret', 'tiret', 'tiret'], many: ['tiret', 'tiret', 'tiret', 'tiret', 'tiret', 'tiret'] },
+  rozdz: { gender: 'm', values: 'roman', rank: 0.5, one: ['rozdział', 'rozdziału', 'rozdziałowi', 'rozdział', 'rozdziałem', 'rozdziale'], many: ['rozdziały', 'rozdziałów', 'rozdziałom', 'rozdziały', 'rozdziałami', 'rozdziałach'] },
+  dz: { gender: 'm', values: 'roman', rank: 0.4, one: ['dział', 'działu', 'działowi', 'dział', 'działem', 'dziale'], many: ['działy', 'działów', 'działom', 'działy', 'działami', 'działach'] },
+  oddz: { gender: 'm', values: 'roman', rank: 0.6, one: ['oddział', 'oddziału', 'oddziałowi', 'oddział', 'oddziałem', 'oddziale'], many: ['oddziały', 'oddziałów', 'oddziałom', 'oddziały', 'oddziałami', 'oddziałach'] },
+  tyt: { gender: 'm', values: 'roman', rank: 0.3, one: ['tytuł', 'tytułu', 'tytułowi', 'tytuł', 'tytułem', 'tytule'], many: ['tytuły', 'tytułów', 'tytułom', 'tytuły', 'tytułami', 'tytułach'] },
+  cz: { gender: 'f', values: 'roman', rank: 0.2, one: ['część', 'części', 'części', 'część', 'częścią', 'części'], many: ['części', 'części', 'częściom', 'części', 'częściami', 'częściach'] },
+  ks: { gender: 'f', values: 'roman', rank: 0.1, one: ['księga', 'księgi', 'księdze', 'księgę', 'księgą', 'księdze'], many: ['księgi', 'ksiąg', 'księgom', 'księgi', 'księgami', 'księgach'] },
+  zal: { gender: 'm', values: 'number', rank: 0, one: ['załącznik', 'załącznika', 'załącznikowi', 'załącznik', 'załącznikiem', 'załączniku'], many: ['załączniki', 'załączników', 'załącznikom', 'załączniki', 'załącznikami', 'załącznikach'] },
+  poz: { gender: 'f', values: 'number', rank: 0, one: ['pozycja', 'pozycji', 'pozycji', 'pozycję', 'pozycją', 'pozycji'], many: ['pozycje', 'pozycji', 'pozycjom', 'pozycje', 'pozycjami', 'pozycjach'] },
+}
+// The endings of an ordinal that goes with the noun of a gender in a case ("pierwszy", "pierwszej", "pierwsze")
+const ORDINAL_ENDS: Record<'m' | 'f' | 'n', Record<InstCase, string>> = {
+  m: { nom: 'y', gen: 'ego', dat: 'emu', acc: 'y', inst: 'ym', loc: 'ym' },
+  f: { nom: 'a', gen: 'ej', dat: 'ej', acc: 'ą', inst: 'ą', loc: 'ej' },
+  n: { nom: 'e', gen: 'ego', dat: 'emu', acc: 'e', inst: 'ym', loc: 'ym' },
+}
+const ABBREVIATION_UNIT: Record<string, UnitKey> = {
+  art: 'art', '§': 'par', '§§': 'par', ust: 'ust', pkt: 'pkt', zd: 'zd', tir: 'tir', tiret: 'tir', zał: 'zal', poz: 'poz', lit: 'lit', rozdz: 'rozdz', dz: 'dz', oddz: 'oddz', tyt: 'tyt',
+}
+// The nouns written out, in the case they are in
+const FULL_UNIT = new Map<string, { key: UnitKey; kase: InstCase; plural: boolean }>()
+for (const key of ['art', 'par', 'ust', 'pkt', 'zal', 'rozdz', 'dz', 'oddz', 'tyt', 'cz', 'ks'] as const) {
+  for (const [forms, plural] of [[PROVISION_UNITS[key].one, false], [PROVISION_UNITS[key].many, true]] as const) {
+    forms.forEach((form, i) => { if (!FULL_UNIT.has(form)) FULL_UNIT.set(form, { key, kase: (Object.keys(CASE_INDEX) as InstCase[])[i], plural }) })
+  }
+}
+FULL_UNIT.set('tiret', { key: 'tir', kase: 'nom', plural: false })
+const fullWords = (values: 'number' | 'roman') =>
+  [...FULL_UNIT.entries()].filter(([, { key }]) => (PROVISION_UNITS[key].values === 'roman') === (values === 'roman')).map(([form]) => capitalised(form)).join('|')
+const capitalised = (word: string) => `[${word[0].toLocaleUpperCase('pl')}${word[0]}]${word.slice(1)}`
+const NUMBER_ITEM = String.raw`\d{1,4}(?:[a-z]{1,3}\d{0,2}|[¹²³⁴⁵⁶⁷⁸⁹⁰]+|\(\d{1,2}\))?(?:\.\d{1,3}){0,3}(?![\p{L}\d]|,\d|\.\d)`
+const LETTER_ITEM = String.raw`[a-zA-Z]\)?(?![\p{L}\d])`
+const ROMAN_ITEM = String.raw`(?:[IVXLC]{1,6}|\d{1,3})(?![\p{L}\d]|,\d)`
+const itemList = (item: string) => String.raw`${item}(?:(?:\s*[-–—]\s*|,\s*|\s+(?:i|oraz|lub|albo)\s+)${item})*`
+const WRITING_CLASS = (writing: string): 'dot' | 'word' | 'plain' | 'caps' =>
+  /^\p{L}\.\s?\p{L}/u.test(writing) ? 'dot' : /[.\s]/.test(writing) ? 'word' : writing.slice(1) === writing.slice(1).toLocaleLowerCase('pl') ? 'plain' : 'caps'
+const writingKey = (writing: string) => writing.toLocaleLowerCase('pl').replace(/[.\s]/g, '')
+// A writing in capitals and the same in small letters are two (Kc and KC differ in the mode), a dotted one is the same with or without its spaces and dots
+const classKey = (writing: string) => { const cls = WRITING_CLASS(writing); return `${cls}:${cls === 'dot' || cls === 'word' ? writingKey(writing) : writing}` }
+// The ways a code is written, as regular expressions: the letters of "k.s.h." with the dots and spaces that may be left out, in either case
+const writingSource = (writing: string) => {
+  const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  if (WRITING_CLASS(writing) === 'dot') return writing.split('.').filter(Boolean).map((part) => `[${part[0].toLocaleUpperCase('pl')}${part[0]}]${escape(part.slice(1))}`).join(String.raw`\.\s?`) + String.raw`\.?`
+  if (WRITING_CLASS(writing) === 'word') return writing.split(/\.\s?/).map(escape).join(String.raw`\.\s?`).replace(/\\s\?$/, '')
+  return escape(writing)
+}
+interface CodeWriting { entry: CodeEntry; mode: CodeMode; class: 'dot' | 'word' | 'plain' | 'caps' }
+const CODE_BY_KEY = new Map<string, CodeWriting>()
+const CODE_BY_CLASS = new Map<string, CodeWriting>()
+const CODE_SOURCES: string[] = []
+for (const entry of CODES) {
+  for (const [writing, mode] of entry[3]) {
+    const cls = WRITING_CLASS(writing)
+    if (!CODE_BY_KEY.has(writingKey(writing))) CODE_BY_KEY.set(writingKey(writing), { entry, mode, class: cls })
+    CODE_BY_CLASS.set(classKey(writing), { entry, mode, class: cls })
+    CODE_SOURCES.push(writingSource(writing))
+  }
+}
+const CODE_ALTERNATIVES = [...new Set(CODE_SOURCES)].sort((a, b) => b.length - a.length).join('|')
+const REFERENCE_RE = new RegExp(
+  String.raw`(?<![\p{L}\d§.])(?<element>` +
+  String.raw`(?:(?<nAbbr>[Aa]rt\.|ART\.|§§?|[Uu]st\.|UST\.|[Pp]kt\.?|PKT\.?|[Zz]d\.|[Tt]ir\.|[Zz]ał\.|[Pp]oz\.)\s*|(?<nWord>${fullWords('number')})\s+)(?:(?<nNr>[Nn]r)\.?\s*)?(?<nList>${itemList(NUMBER_ITEM)})` +
+  String.raw`|(?<lAbbr>[Ll]it\.|LIT\.)\s*(?<lList>${itemList(LETTER_ITEM)})` +
+  String.raw`|(?:(?<rAbbr>[Rr]ozdz\.|dz\.|[Oo]ddz\.|[Tt]yt\.|[Pp]kt\.?)\s*|(?<rWord>${fullWords('roman')})\s+)(?<rList>${itemList(ROMAN_ITEM)})` +
+  String.raw`)(?:[\s,]*(?<code>MAR|${CODE_ALTERNATIVES})(?![\p{L}\d]|-\p{L}))?`, 'gu')
+
+interface Label { n: number; letters: string; index: string; parts: number[]; letter?: boolean }
+const SUPERSCRIPT: Record<string, string> = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9' }
+function parseLabel(raw: string, unit: ProvisionUnit, article: boolean): Label | null {
+  const value = unit.values === 'letter' ? raw.replace(/\)$/, '') : raw
+  if (unit.values === 'letter') return /^[a-zA-Z]$/.test(value) ? { n: 0, letters: value, index: '', parts: [], letter: true } : null
+  if (/^[IVXLC]+$/.test(value)) { const n = roman(value); return n > 0 ? { n, letters: '', index: '', parts: [] } : null }
+  const m = value.match(/^(\d{1,4})([a-z]{1,3})?(\d{1,2}|[¹²³⁴⁵⁶⁷⁸⁹⁰]+|\(\d{1,2}\))?((?:\.\d{1,3}){0,3})$/)
+  if (!m) return null
+  let n = +m[1], index = (m[3] ?? '').replace(/[()]/g, '').replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/g, (c) => SUPERSCRIPT[c])
+  if (!n) return null
+  // an index that lost its raised position ("art. 4021" for 402¹): no article of a Polish code is numbered over 1300
+  if (article && !m[2] && !index && m[1].length === 4 && n > 1300) { index = m[1].slice(3); n = +m[1].slice(0, 3) }
+  return { n, letters: m[2] ?? '', index, parts: m[4] ? m[4].split('.').slice(1).map(Number) : [] }
+}
+const hasLabel = (l: Label) => !!(l.letters || l.index || l.parts.length)
+function labelWords(l: Label, ordinalStyle: boolean, gender: 'm' | 'f' | 'n', kase: InstCase): string {
+  if (l.letter) return PL_LETTERS[l.letters.toLocaleUpperCase('pl')] ?? l.letters
+  let words = l.parts.length ? [l.n, ...l.parts].map((n) => numberWords(n, false)).join(' kropka ')
+    : ordinalStyle && !hasLabel(l) && l.n < 100 ? ordinalAs(l.n, ORDINAL_ENDS[gender][kase]) : numberWords(l.n, false)
+  if (l.letters) words += ` ${[...l.letters].map((c) => PL_LETTERS[c.toLocaleUpperCase('pl')] ?? c).join(' ')}`
+  if (l.index) words += ` indeks górny ${+l.index ? numberWords(+l.index, false) : 'zero'}`
+  return words
+}
+
+// The case the words before a reference ask for; the nominative where a sentence or a list begins, the genitive where nothing says otherwise ("na podstawie art. 5")
+const REFERENCE_PREP: Record<string, InstCase> = {
+  w: 'loc', we: 'loc', po: 'loc', przy: 'loc', o: 'acc', na: 'acc', za: 'acc', przez: 'acc',
+  przed: 'inst', nad: 'inst', pod: 'inst', między: 'inst', poza: 'inst',
+  wbrew: 'dat', dzięki: 'dat', ku: 'dat', przeciw: 'dat', przeciwko: 'dat',
+}
+const REFERENCE_WITH = /(?:^|[\s(])(?:zgodnie|w\s+związku|w\s+zw\.|łącznie|wraz|razem|zgodny|zgodna|zgodne|zgodni|niezgodny|niezgodna|niezgodne|niezgodnie|sprzeczny|sprzeczna|sprzeczne|sprzecznie|zgodność|niezgodność|zgodności|niezgodności)\s+(?:z|ze)$/iu
+const REFERENCE_VERB = /(?:ono|ano|ęto|uje|ują|ił|ył|iła|yła|iło|yło|ili|yli|ała|ało|ały|ęła|ęło|ęli|ęły|ął)$/u
+const REFERENCE_SUBJECT = /^(?:jest|są|było|będzie|był|była|stanowi)$/u
+const REFERENCE_OBJECT = /^(?:dodaj\p{L}*|dodan\p{L}*|dodał\p{L}*|dodano|dodać|uchyla|uchylić|zmienia|zmienić|narusza|naruszyć|wprowadza|wprowadzić|skreśla|skreślić|stosować|zastosować|się|zob|zobacz|por|porównaj)$/u
+const sentenceStart = (before: string) => { const tail = before.trimEnd(); return !tail || /(?:\p{L}{4,}|\d|[)\]"”])[.!?]$/u.test(tail) }
+function referenceCase(before: string): InstCase {
+  const tail = before.trimEnd()
+  // after a full stop, a colon, a comma, a closing bracket or a dash nothing governs it: it is a clause or a list item of its own
+  if (!tail || /[.!?:;,)\]”"]$|\s[-–—]$/.test(tail)) return 'nom'
+  if (REFERENCE_WITH.test(tail)) return 'inst'
+  const word = tail.match(/(\p{L}+)$/u)?.[1]?.toLocaleLowerCase('pl') ?? ''
+  if (word === 'na' && /(?:opier|opart|oparci|bazuj|polega)\p{L}*\s+(?:się\s+)?na$/iu.test(tail)) return 'loc'
+  return REFERENCE_PREP[word] ?? (REFERENCE_SUBJECT.test(word) || NOM_BEFORE.test(word) ? 'nom' : REFERENCE_OBJECT.test(word) || REFERENCE_VERB.test(word) ? 'acc' : 'gen')
+}
+
+// The journals: "Dz.U. z 2024 r. poz. 1234" -> "Dziennik Ustaw z dwa tysiące dwudziestego czwartego roku, pozycja tysiąc dwieście trzydzieści cztery". A position is a
+// number of the register, so a cardinal at any size. "M.P." stands only with a year, a number or a position after it (it is the initials of a person too).
+const JOURNAL_NAMES: Record<string, Six> = {
+  'Dz.U.': ['Dziennik Ustaw', 'Dziennika Ustaw', 'Dziennikowi Ustaw', 'Dziennik Ustaw', 'Dziennikiem Ustaw', 'Dzienniku Ustaw'],
+  'M.P.': ['Monitor Polski', 'Monitora Polskiego', 'Monitorowi Polskiemu', 'Monitor Polski', 'Monitorem Polskim', 'Monitorze Polskim'],
+  'Dz.Urz.': ['Dziennik Urzędowy', 'Dziennika Urzędowego', 'Dziennikowi Urzędowemu', 'Dziennik Urzędowy', 'Dziennikiem Urzędowym', 'Dzienniku Urzędowym'],
+  'Dz.Urz.UE': ['Dziennik Urzędowy Unii Europejskiej', 'Dziennika Urzędowego Unii Europejskiej', 'Dziennikowi Urzędowemu Unii Europejskiej', 'Dziennik Urzędowy Unii Europejskiej',
+    'Dziennikiem Urzędowym Unii Europejskiej', 'Dzienniku Urzędowym Unii Europejskiej'],
+}
+const JOURNAL_RE = new RegExp(
+  String.raw`(?<![\p{L}\d])(Dz\.\s?U\.|M\.\s?P\.|Dz\.\s?Urz\.\s?UE|Dz\.\s?Urz\.(?=\s+\p{Lu}))(?<org>(?<=Urz\.)\s+\p{Lu}\p{L}{1,6})?` +
+  String.raw`(?:\s*(?:,\s*)?(?:z\s+)?(?<year>(?:19|20)\d{2})(?:\s*r\.?)?)?(?:\s*,?\s*(?:Nr|nr)\s*(?<nr>\d{1,4}))?(?:(?:\s*,?\s*poz\.\s*|(?<=\d)\.)(?<poz>\d{1,5}))?`, 'gu')
+function sayJournals(text: string): string {
+  return text.replace(JOURNAL_RE, (m: string, ...args: unknown[]) => {
+    const g = args[args.length - 1] as { org?: string; year?: string; nr?: string; poz?: string }
+    const at = args[args.length - 3] as number, all = args[args.length - 2] as string
+    const name = JOURNAL_NAMES[(args[0] as string).replace(/\s/g, '')]
+    if (name === JOURNAL_NAMES['M.P.'] && !g.year && !g.nr && !g.poz) return m
+    const before = all.slice(Math.max(0, at - 40), at).trimEnd()
+    const word = before.match(/(\p{L}+)$/u)?.[1]?.toLocaleLowerCase('pl') ?? ''
+    const kase: InstCase = REFERENCE_WITH.test(before) ? 'inst' : word === 'w' || word === 'we' || word === 'po' ? 'loc' : ['z', 'ze', 'do', 'od', 'według', 'wg', 'dla', 'bez'].includes(word) ? 'gen' : 'nom'
+    const details = [g.year && `z ${yearWords(+g.year, 'gen')}`, g.nr && `numer ${numberWords(+g.nr, false)}`, g.poz && `pozycja ${numberWords(+g.poz, false)}`].filter(Boolean)
+    const said = `${name[CASE_INDEX[kase]]}${g.org ?? ''}${details.map((d, i) => (i && !(i === 1 && g.year && g.nr && !g.poz) ? ', ' : ' ') + d).join('')}`
+    // "z 2024 r." that ends the sentence keeps its full stop
+    return /r\.$/.test(m) && !g.poz && !g.nr && !/^\s*[\p{Ll}\d,;)]/u.test(all.slice(at + m.length)) ? `${said}.` : said
+  })
+}
+
+interface Chain { end: number; rank: number; kase: InstCase; head: InstCase }
+const LIST_PART = /(\s*[-–—]\s*|,\s*|\s+(?:i|oraz|lub|albo)\s+)/u
+const ENGLISH_AFTER = /^\s+(?:of|the|and|to|in|under)(?![\p{L}])/iu
+export function sayProvisions(text: string): string {
+  let chain: Chain | null = null
+  return sayJournals(text).replace(REFERENCE_RE, (m: string, ...args: unknown[]) => {
+    const g = args[args.length - 1] as Record<string, string | undefined>
+    const at = args[args.length - 3] as number, all = args[args.length - 2] as string
+    const previous = chain
+    chain = null
+    const token = g.nAbbr ?? g.nWord ?? g.lAbbr ?? g.rAbbr ?? g.rWord!
+    const list = (g.nList ?? g.lList ?? g.rList)!
+    const bare = token.toLocaleLowerCase('pl').replace(/\.$/, '')
+    const full = FULL_UNIT.get(bare)
+    const key = full?.key ?? ABBREVIATION_UNIT[bare]
+    if (!key) return m
+    const unit = PROVISION_UNITS[key]
+    const before = all.slice(Math.max(0, at - 160), at)
+    const elementEnd = at + g.element!.length
+    // English: "Art. 5 of the Directive" is left to the English reader
+    if (ENGLISH_AFTER.test(all.slice(elementEnd))) return m
+    const continues = !!previous && !full?.plural && unit.rank > previous.rank && unit.rank > 0 && /^[\s,;(]*$/.test(all.slice(previous.end, at))
+    // "o 25 pkt 3": the point of a provision follows no quantity ("ust. 2 pkt 3" is the chain, which is taken above)
+    if (!continues && key === 'pkt' && !full && /\d\s*$/.test(before)) return m
+    // "w art. 5 ust. 2 i art. 7": the second article is in the case of the first
+    const listed = !continues && !!previous && /^\s*(?:,|i|oraz|lub|albo)\s*$/.test(all.slice(previous.end, at))
+    const kase: InstCase = full ? full.kase : continues ? 'nom' : listed ? previous!.head : referenceCase(before)
+    // the items: single labels and ranges
+    const parts = list.split(LIST_PART)
+    const items: (Label | [Label, Label])[] = []
+    for (let i = 0; i < parts.length; i += 2) {
+      const label = parseLabel(parts[i], unit, key === 'art')
+      if (!label) return m
+      const separator = parts[i - 1]
+      if (i && /^\s*[-–—]\s*$/.test(separator)) { const first = items.pop()!; if (Array.isArray(first)) return m; items.push([first, label]) } else items.push(label)
+    }
+    const labels = items.flat()
+    const ordinalStyle = !g.nNr && (unit.values !== 'number' || !labels.some((l) => hasLabel(l) || l.n >= 100))
+    const ranged = items.some(Array.isArray)
+    const plural = full ? full.plural : token === '§§' || ranged || (!continues && items.length > 1)
+    const noun = (plural ? unit.many : unit.one)[CASE_INDEX[kase]]
+    const said = items.map((item) =>
+      Array.isArray(item) ? `od ${labelWords(item[0], ordinalStyle, unit.gender, 'gen')} do ${labelWords(item[1], ordinalStyle, unit.gender, 'gen')}` : labelWords(item, ordinalStyle, unit.gender, kase))
+    const listWords = said.length > 1 ? `${said.slice(0, -1).join(', ')} i ${said[said.length - 1]}` : said[0]
+    let out = `${noun} ${g.nNr ? 'numer ' : ''}${listWords}`
+    if (!continues && (sentenceStart(before) || (/^\p{Lu}/u.test(token) && kase === 'nom'))) out = out[0].toLocaleUpperCase('pl') + out.slice(1)
+    if (unit.rank > 0 && !g.code) chain = { end: at + m.length, rank: unit.rank, kase: continues ? 'nom' : kase, head: continues ? previous!.head : kase }
+    // a code after the reference is the code in the genitive; its full stop (of "k.c.") ends the sentence where one begins after it
+    if (g.code) {
+      const code = g.code === 'MAR' ? undefined : CODE_BY_KEY.get(writingKey(g.code))
+      if (g.code !== 'MAR' && !code) return m
+      const dot = g.code.endsWith('.') && !/^\s*[\p{Ll}\d,;)]/u.test(all.slice(at + m.length)) ? '.' : ''
+      out += ` ${code ? code.entry[2][1] : 'rozporządzenia Mar'}${dot}`
+    }
+    return out
+  })
+}
+
+// A code on its own, where nothing but the words round it says it is the code: "zmiany w Kc" -> "zmiany w kodeksie cywilnym", "przepisy KSH" -> "przepisy
+// kodeksu spółek handlowych". A writing that is used for something else too is said only where the words of the law stand round it (the mode C), and those
+// of two letters (KC, KK, KP, KW, KM) only after a reference, where they are said above.
+const LEGAL_CUE = /przepis|ustaw|nowelizac|noweliz|kodeks|artyku|paragraf|\bart\b|zgodnie z|na podstawie|\bsąd|prawn|prawo |uchwał|wykrocz|przestępst|pracodawc|pracownik|umow|karn|cywiln|spółk|akcjonar|zarząd/iu
+const CODE_ITEM = String.raw`(?:${CODE_ALTERNATIVES})(?![\p{L}\d]|-\p{L})`
+// One code or several in a row ("kc i ksh", "Kc/KSH"): they stand in the same case, and one that may be said on its own makes the others said too
+const CODE_LIST_RE = new RegExp(String.raw`(?<![\p{L}\d]|\p{Ll}-)${CODE_ITEM}(?:(?:\s*(?:,|/)\s*|\s+(?:i|oraz|lub|albo)\s+)${CODE_ITEM})*`, 'gu')
+const CODE_LIST_PART = /(\s*(?:,|\/)\s*|\s+(?:i|oraz|lub|albo)\s+)/u
+const CODE_NAME_IN_BRACKETS = new RegExp(String.raw`\s*\(\s*(?:(?:zwan\p{L}+\s+)?dalej(?:\s+jako)?\s*:?\s*|zwan\p{L}+\s*:?\s*)?[„"“]?(${CODE_ALTERNATIVES})[”"”]?\s*\)`, 'gu')
+const CODE_ADJECTIVE = /(?:^(?:ten|ów|polski|obecny|nowy|stary|dawny|aktualny|poprzedni)|(?:ny|ty|wy|ski|ący)|(?:ąca|ąc|ące))$/u
+// What follows a code that is the subject of a sentence: "Kc przewiduje", "KSH nie dopuszcza", "Kpc wszedł"
+const CODE_SUBJECT_AHEAD = /^\s+(?:nie\s+)?(?:stanowi|przewiduje|przewidują|reguluje|regulują|wymaga|wymagają|dopuszcza|dopuszczają|zakazuje|nakazuje|określa|określają|pozwala|przyznaje|uznaje|głosi|nakłada|ustanawia|zawiera|wskazuje|obowiązuje|obowiązują|wchodzi|zmienia|mówi|\p{L}{3,}(?:ł|ła|ło|li|ły))(?![\p{L}])/u
+const CODE_NOT = new Map<string, RegExp>()
+const codeNot = (source: string) => { let re = CODE_NOT.get(source); if (!re) CODE_NOT.set(source, (re = new RegExp(source, 'iu'))); return re }
+export function sayCodes(text: string): string {
+  return text
+    // "kodeks spółek handlowych (dalej: KSH)": the abbreviation after the name is not said again
+    .replace(CODE_NAME_IN_BRACKETS, (m: string, writing: string, at: number, all: string) => {
+      const code = CODE_BY_KEY.get(writingKey(writing))
+      const tail = all.slice(Math.max(0, at - 90), at).toLocaleLowerCase('pl')
+      return code && code.entry[2].some((form) => tail.endsWith(form)) ? '' : m
+    })
+    .replace(CODE_LIST_RE, (m: string, at: number, all: string) => {
+      const before = all.slice(Math.max(0, at - 200), at)
+      if (/\d\s*$/.test(before)) return m
+      const around = all.slice(Math.max(0, at - 120), at + m.length + 120)
+      const parts = m.split(CODE_LIST_PART)
+      const codes = parts.filter((_, i) => i % 2 === 0).map((writing) => CODE_BY_CLASS.get(classKey(writing)))
+      if (codes.some((code) => !code)) return m
+      const said = (code: CodeWriting | undefined) => !!code && !(code.entry[4] && codeNot(code.entry[4]).test(around)) && (code.mode === 'F' || (code.mode === 'C' && LEGAL_CUE.test(around)))
+      if (!codes.some(said)) return m
+      const word = before.match(/(\p{L}+)\s+$/u)?.[1]?.toLocaleLowerCase('pl') ?? ''
+      // the subject of a clause by what the analysts or the court say ("zdaniem sądu Kc nie dopuszcza"); after a noun ("przepisy KSH nie przewidują") it is its attribute
+      const subject = CODE_SUBJECT_AHEAD.test(all.slice(at + m.length)) && /(?:zdaniem|według|wg)\s+\p{L}+\s+$/iu.test(before)
+      // in brackets after a word it stands beside it: "ustawa o ofercie (u.o.p.)"
+      const kase: InstCase = subject || /\(\s*$/.test(before) ? 'nom' : CODE_ADJECTIVE.test(word) && !(word in PREP_CASE) ? (/ąc$/.test(word) ? 'acc' : 'nom') : caseBefore(before, 'inst')
+      const names = parts.map((part, i) => {
+        if (i % 2) return /\//.test(part) ? ' i ' : part
+        const name = codes[i / 2]!.entry[2][CASE_INDEX[kase]]
+        return i === 0 && sentenceStart(before) ? name[0].toLocaleUpperCase('pl') + name.slice(1) : name
+      })
+      const last = parts[parts.length - 1]
+      const dot = last.endsWith('.') && !/^\s*[\p{Ll}\d,;)]/u.test(all.slice(at + m.length)) ? '.' : ''
+      return names.join('') + dot
+    })
 }
 
 // "Płd." and "Płn." are "południowy" and "północny" in the gender and case of the name they belong to: "Korea Płd." ->
@@ -1465,8 +1709,8 @@ export const sayPausedParts = (text: string): string[] => markPauses(text).split
 // ── All of it ──
 
 function sayMarked(text: string): string {
-  let t = sayParagraphs(sayArticles(sayRoman(sayMonths(sayDayRanges(sayCountRanges(sayMonthDays(sayYearRanges(sayYears(sayQuarters(sayCompounds(sayIssueNumbers(sayAddresses(sayDates(sayParticiples(text)))))))))))))))
-  t = sayTerritories(sayHours(sayDirections(sayInstitutions(t))))
+  let t = sayRoman(sayMonths(sayDayRanges(sayCountRanges(sayMonthDays(sayYearRanges(sayYears(sayQuarters(sayCompounds(sayIssueNumbers(sayAddresses(sayDates(sayParticiples(sayProvisions(text))))))))))))))
+  t = sayTerritories(sayHours(sayDirections(sayInstitutions(sayCodes(t)))))
   for (const [re, said] of WORDS) t = t.replace(re, said)
   t = saySpelled(sayAsWords(sayTitles(sayEnglish(sayProperNames(sayMarkets(sayBrokers(t)))))))
   return markPauses(sayNumbers(sayNames(t)))
