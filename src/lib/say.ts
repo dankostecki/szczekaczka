@@ -8,6 +8,7 @@
 // should be (PKO, GPW, KGHM, CD); legal forms and a few titles are said in full.
 
 import { US_NAMES, US_WORDS } from './names-us'
+import { FIRM_NAMES } from './names-firms'
 import { TITLES, FEMININE_NAMES, BIBLICAL_BOOKS } from './titles-pl'
 import { sayParticiples } from './agree-pl'
 import { EU_INSTITUTIONS, type EuGender } from './institutions-eu'
@@ -1252,7 +1253,7 @@ const sayEnglishInNames = (text: string) =>
       const right = all.slice(at + m.length).match(/^[ \-/](\p{Lu}\p{L}*)/u)?.[1]
       return /^\p{Lu}/u.test(left ?? '') || right ? EN_IN_NAMES[word] : m
     })
-// ── Names of companies and institutions of the United States (names-us.ts): said the English way, written for a Polish voice ──
+// ── Names of companies and institutions of the United States (names-us.ts) and of audit, consulting and law firms (names-firms.ts): said the English way, written for a Polish voice ──
 // A name as Polish headlines decline it ("kurs Nvidii", "od Microsoftu", "akcje Tesli"): the ending is kept, the name respelled. A name in -a loses
 // its "a" before an ending (Nvidia -> Nvidii, Tesla -> Teslę); the others take the endings of a masculine noun. Only names marked as declined do:
 // "Applebee" is not "Apple" with an ending.
@@ -1260,7 +1261,7 @@ const US_ENDINGS_MASCULINE = new Set(['a', 'owi', 'em', 'iem', 'u', 'ie', 'owie'
 const US_ENDINGS_FEMININE = new Set(['i', 'y', 'ę', 'ą', 'o', 'e', 'ie'])
 const usKey = (form: string) => form.replace(/\s+/g, ' ')
 const US_BY_FORM = new Map<string, { said: string; stem: boolean; inflects: boolean }>()
-for (const [written, said, inflects] of US_NAMES) {
+for (const [written, said, inflects] of [...US_NAMES, ...FIRM_NAMES]) {
   const feminine = inflects && written.endsWith('a') && said.endsWith('a')
   US_BY_FORM.set(usKey(written), { said, stem: false, inflects })
   // The name in capitals too ("NVIDIA", "JPMORGAN CHASE"), with no endings
