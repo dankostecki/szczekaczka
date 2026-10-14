@@ -10,6 +10,7 @@
 import { US_NAMES, US_WORDS } from './names-us'
 import { FIRM_NAMES } from './names-firms'
 import { CODES, type CodeEntry, type CodeMode } from './codes-pl'
+import { POLISH_BANKS } from './banks-pl'
 import { TITLES, FEMININE_NAMES, BIBLICAL_BOOKS } from './titles-pl'
 import { sayParticiples } from './agree-pl'
 import { EU_INSTITUTIONS, type EuGender } from './institutions-eu'
@@ -889,13 +890,13 @@ INSTITUTIONS.MON = named(MINISTRY, 'Obrony Narodowej')
 INSTITUTIONS.MF = named(MINISTRY, 'Finansów')
 INSTITUTIONS.UKE = named(OFFICE, 'Komunikacji Elektronicznej')
 INSTITUTIONS.UOKiK = INSTITUTIONS.UOKIK = named(OFFICE, 'Ochrony Konkurencji i Konsumentów')
-// The European institutions and organisations of institutions-eu.ts: each abbreviation to the forms of its name, the gender of the name and the guard for the letters
+// The Polish banks of banks-pl.ts, the European institutions and organisations of institutions-eu.ts and the central banks of central-banks.ts: each abbreviation to the forms of its name, the gender of the name and the guard for the letters
 // that mean something else too
 const INSTITUTION_GENDER: Record<string, EuGender> = {}
 const INSTITUTION_GUARD: Record<string, string> = {}
 // Written with a space in it ("TS UE", "NY Fed"): the space may be missing too
 const INSTITUTION_SPACED: string[] = []
-for (const [abbreviations, forms, gender, guard] of [...EU_INSTITUTIONS, ...CENTRAL_BANKS]) {
+for (const [abbreviations, forms, gender, guard] of [...EU_INSTITUTIONS, ...CENTRAL_BANKS, ...POLISH_BANKS]) {
   for (const abbreviation of abbreviations) {
     if (/\s/.test(abbreviation)) INSTITUTION_SPACED.push(abbreviation.split(/\s+/).join('\\s?'))
     const key = abbreviation.replace(/\s+/g, '')

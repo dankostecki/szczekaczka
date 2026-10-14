@@ -1,4 +1,4 @@
-// Names of audit, consulting, research and law firms as a Polish voice should say them (say.ts, sayUsNames, which reads this list beside names-us.ts): the
+// Names of audit, consulting, research and law firms (and of the bank ING, whose name a Polish bank carries) as a Polish voice should say them (say.ts, sayUsNames, which reads this list beside names-us.ts): the
 // written form, how it is said (the English way, written with Polish letters; the letters of an abbreviation one by one, as Polish financial newsreaders
 // say them) and whether Polish headlines decline the name ("raportu Deloitte'a"). "&" is said "end", as in names-us.ts. Names whose plain Polish reading is
 // already right (Mazars, Kroll, Dentons, Gartner, Roland Berger) are not here. The respellings were put together without hearing them: a name that sounds
@@ -37,6 +37,8 @@ export const FIRM_NAMES: readonly (readonly [written: string, said: string, infl
   ['Cognizant', 'Kognizant', false],
   ['IDC', 'Aj Di Si', false],
   ['GfK', 'Ge Ef Ka', false],
+  // the bank (the Polish ING Bank Śląski is in banks-pl.ts)
+  ['ING', 'I En Gie', false],
   // law firms
   ['Baker McKenzie', 'Bejker Makenzi', false],
   ['DLA Piper', 'Di El Ej Pajper', false],
