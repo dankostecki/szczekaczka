@@ -3,6 +3,7 @@
 import { memo } from 'react'
 import { type Item, tagOf, clock, ago, fullDate } from '@/lib/news'
 import { itemLang } from '@/lib/lang'
+import { linkOf } from '@/lib/sources'
 import { Star, Speaker } from './Icons'
 
 interface Props {
@@ -21,6 +22,7 @@ interface Props {
 function NewsRow({ item, now, read, saved, fresh, watched, onRead, onSave, onSpeak, speaking = false }: Props) {
   const since = ago(item.time, now)
   const lang = itemLang(item)
+  const link = linkOf(item)
 
   return (
     <article className={`row${read ? ' read' : ''}${fresh ? ' fresh' : ''}${watched ? ' watched' : ''}${speaking ? ' speaking' : ''}`}
@@ -43,8 +45,8 @@ function NewsRow({ item, now, read, saved, fresh, watched, onRead, onSave, onSpe
           </button>
         </span>
       </div>
-      {item.link
-        ? <a className="title" href={item.link} target="_blank" rel="noopener noreferrer"
+      {link
+        ? <a className="title" href={link} target="_blank" rel="noopener noreferrer"
             lang={lang === 'pl' ? undefined : lang} onClick={() => onRead(item.id)} onAuxClick={() => onRead(item.id)}>{item.title}</a>
         : <span className="title" lang={lang === 'pl' ? undefined : lang} onClick={() => onRead(item.id)}>{item.title}</span>}
       {item.description && <p className={`desc${item.source === 'MACRONEXT' ? ' whole' : ''}`} lang={lang === 'pl' ? undefined : lang}>{item.description}</p>}
