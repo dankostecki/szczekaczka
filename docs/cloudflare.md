@@ -11,7 +11,7 @@
 
 ```
   Bankier (lista komunikatów + RSS), GPW, Stooq, PAP (RSS), Telegram (Walter Bloomberg), MacroNext (kalendarium na dziś)
-            │  co 2 min (w nocy co 5 min), jeden kanał na raz
+            │  co 1–2 min (w nocy i w weekendy co 5 min), jeden kanał na raz
             ▼
   ┌───────────────────┐      zmiany (delta)      ┌──────────────┐
   │ Poller            │ ───────────────────────▶ │ Hub 0..3     │ ──WebSocket──▶ przeglądarki
@@ -25,7 +25,7 @@
 
 - **`worker/poller.ts` (Poller)**: jeden obiekt na całą stronę. Budzi się alarmem, sprawdza **jeden** kanał, który najdłużej czeka, i ustawia następny alarm. Pyta źródło z `If-None-Match`/`If-Modified-Since`, a gdy treść jest ta sama (304 albo ten sam skrót sha1), niczego nie parsuje. Zmiany zapisuje w SQLite obiektu i nadaje numer wersji (`v`).
 - **Ostatnie 24 godziny:** kanały trzymają tylko swoje ostatnie wpisy, więc Poller łączy to, co jest w kanale, z wpisami, które z niego wypadły w ciągu ostatnich 24 h od publikacji (najwyżej 500 na kanał); starsze kasuje. Nic innego nie jest przechowywane (żadnego archiwum, KV ani D1), więc SQLite Pollera ma stały rozmiar, około 1–2 MB. Do stron idą tylko nowe i poprawione wpisy oraz identyfikatory tych, które się zestarzały. Cała lista jest przez to większa (przy pełnym dniu ESPI około 1 MB JSON, po kompresji kilkaset KB), ale pobiera się ją tylko przy otwarciu strony; transfer na Cloudflare jest darmowy. Poller trzyma gotowy JSON każdego kanału osobno i po zmianie składa na nowo tylko jeden kanał.
-- **Częstotliwość**: każdy kanał co 2 min od 7:00 do północy i co 5 min od północy do 7:00 (czas polski, codziennie; `src/lib/sources.ts`, `src/lib/schedule.ts`). Wyjątek: komunikaty prasowe i aktualności GPW co 10 min. Kanał Waltera Bloomberga to publiczny podgląd kanału na Telegramie (strona HTML z ostatnimi około 20 wiadomościami); porównywane są odczytane wiadomości, bo liczniki wyświetleń zmieniają się przy każdym pobraniu. MacroNext: kalendarium (strony dziś i jutro, po około 70 KB, czytana tylko tabela) o 0:30 i 6:30 czasu polskiego, po nieudanej próbie ponownie po 1, 2, 4, 8, 15 min; zapowiedzi wychodzą o czasie, przed innymi kanałami, a wydarzenia bez godziny razem o 6:40 (`worker/macro.ts`).
+- **Częstotliwość**: w dni robocze od 7:00 do północy (czas polski) ESPI co minutę, pozostałe kanały co 2 min; w nocy (0:00–7:00) i w weekendy wszystkie co 5 min (`src/lib/sources.ts`: `every`, `CHECK_SECONDS`, `QUIET_CHECK_SECONDS`; `src/lib/schedule.ts`). Wyjątek: komunikaty prasowe i aktualności GPW zawsze co 10 min. Kanał Waltera Bloomberga to publiczny podgląd kanału na Telegramie (strona HTML z ostatnimi około 20 wiadomościami); porównywane są odczytane wiadomości, bo liczniki wyświetleń zmieniają się przy każdym pobraniu. MacroNext: kalendarium (strony dziś i jutro, po około 70 KB, czytana tylko tabela) o 0:30 i 6:30 czasu polskiego, po nieudanej próbie ponownie po 1, 2, 4, 8, 15 min; zapowiedzi wychodzą o czasie, przed innymi kanałami, a wydarzenia bez godziny razem o 6:40 (`worker/macro.ts`).
 - **`worker/hub.ts` (Hub 0–3)**: trzymają połączenia WebSocket przeglądarek (cztery, żeby rozłożyć ruch). Używają WebSocket Hibernation: między wiadomościami obiekt znika z pamięci i nic nie kosztuje, a połączenia zostają otwarte. Wiadomości wychodzące do przeglądarek są darmowe.
 - **Protokół** (`src/lib/protocol.ts`, klient w `src/lib/live.ts`):
   - wejście na stronę: `GET /api/news` (cała lista z wersją `v`), równolegle WebSocket `/ws`;
@@ -46,7 +46,7 @@ Założenie: 1000 użytkowników, każdy średnio 10 połączeń dziennie (otwar
 | Limit dzienny (plan Free) | Na co idzie | Zużycie / dzień | Wykorzystanie |
 |---|---|---|---|
 | Workers: 100 tys. zapytań | `/ws` (10 tys.) + `/api/news` (około 10 tys.) | około 20 tys. | około 20% |
-| Durable Objects: 100 tys. zapytań | połączenia (10 tys.), listy (10 tys.), alarmy Pollera (około 6 tys. przy 13 kanałach: 11 kanałów po około 510 sprawdzeń w dzień i 84 w nocy, prasa i aktualności GPW mniej; dwa kanały MacroNext dodają kilkanaście na dobę), rozsyłanie do hubów (około 9 tys.) | około 35 tys. | około 35% |
+| Durable Objects: 100 tys. zapytań | połączenia (10 tys.), listy (10 tys.), alarmy Pollera (w dzień roboczy około 6 tys. przy 13 kanałach: ESPI około 1100 sprawdzeń, 8 kanałów po około 590, prasa i aktualności GPW po 144; w weekend około 3 tys.; dwa kanały MacroNext dodają kilkanaście na dobę), rozsyłanie do hubów (około 9 tys.) | około 35 tys. | około 35% |
 | Durable Objects: 100 tys. zapisanych wierszy | alarmy (około 6 tys.), zmiany kanałów (około 5 tys.) | około 11 tys. | około 11% |
 | Durable Objects: 13 tys. GB-s | Poller czeka na źródło przy każdym sprawdzeniu, huby tylko chwilę przy rozsyłaniu | poniżej 1 tys. | poniżej 10% |
 | Pliki statyczne | strona, regulamin, polityka, źródła | dowolnie dużo | bez limitu |
