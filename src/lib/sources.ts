@@ -1,9 +1,9 @@
 // News sources. Fetched on the server (/api/news): browsers cannot read these feeds directly (CORS).
 
-export type Source = 'ESPI' | 'GPW' | 'STOOQ' | 'PAP' | 'MACRONEXT'
+export type Source = 'ESPI' | 'GPW' | 'STOOQ' | 'WALTER' | 'PAP' | 'MACRONEXT'
 
 // In this order: the tabs, the channels in settings and the sources on the about page
-export const SOURCES: Source[] = ['ESPI', 'STOOQ', 'MACRONEXT', 'PAP', 'GPW']
+export const SOURCES: Source[] = ['ESPI', 'STOOQ', 'WALTER', 'MACRONEXT', 'PAP', 'GPW']
 
 // Language of a feed: read aloud with a voice for it
 export type Lang = 'pl' | 'en'
@@ -15,8 +15,9 @@ export interface FeedConfig {
   minAge?: number // seconds: a feed that rarely changes is checked at most this often (never more often than usual)
   lang?: Lang     // 'pl' when not given
   // Not RSS. 'bankier-list': Bankier's web page with the list of company reports (parse.ts);
+  // 'telegram': the public web preview of a Telegram channel, t.me/s/<channel> (parse.ts);
   // 'macronext': MacroNext's calendar of macro data, announced before each release (worker/macro.ts)
-  format?: 'bankier-list' | 'macronext' | 'macronext-gielda'
+  format?: 'bankier-list' | 'telegram' | 'macronext' | 'macronext-gielda'
   leads?: string           // an RSS feed with leads for some of the entries (matched by link)
 }
 
@@ -25,15 +26,18 @@ export const FEEDS: FeedConfig[] = [
   // the reports come from Bankier's list page, which has them all; leads from the RSS
   { source: 'ESPI',  label: 'BANKIER',     url: 'https://www.bankier.pl/gielda/wiadomosci/komunikaty-spolek',
     format: 'bankier-list', leads: 'https://www.bankier.pl/rss/espi.xml' },
-  { source: 'GPW',   label: 'KOMUNIKATY',  url: 'https://www.gpw.pl/rss_komunikaty',             minAge: 120 },
+  { source: 'GPW',   label: 'KOMUNIKATY',  url: 'https://www.gpw.pl/rss_komunikaty' },
   { source: 'GPW',   label: 'PRASA',       url: 'https://www.gpw.pl/rss_komunikaty_prasowe',     minAge: 600 },
   { source: 'GPW',   label: 'AKTUALNOŚCI', url: 'https://www.gpw.pl/rss_aktualnosci',           minAge: 600 },
   { source: 'STOOQ', label: 'BIZNES',      url: 'https://static.stooq.pl/rss/pl/b.rss' },
   { source: 'STOOQ', label: 'KRAJ',        url: 'https://static.stooq.pl/rss/pl/c.rss' },
   { source: 'STOOQ', label: 'ŚWIAT',       url: 'https://static.stooq.pl/rss/pl/w.rss' },
-  { source: 'PAP',   label: 'BIZNES',      url: 'https://pap-mediaroom.pl/kategoria/biznes-i-finanse/rss.xml',         minAge: 120 },
-  { source: 'PAP',   label: 'NAUKA',       url: 'https://pap-mediaroom.pl/kategoria/nauka-i-technologie/rss.xml',      minAge: 120 },
-  { source: 'PAP',   label: 'POLITYKA',    url: 'https://pap-mediaroom.pl/kategoria/polityka-i-społeczenstwo/rss.xml', minAge: 120 },
+  // Walter Bloomberg (@DeItaone on X): short market headlines in English. The channel has no RSS; its
+  // public preview on Telegram shows the latest ~20 posts
+  { source: 'WALTER', label: 'TELEGRAM',   url: 'https://t.me/s/WalterBloomberg', format: 'telegram', lang: 'en' },
+  { source: 'PAP',   label: 'BIZNES',      url: 'https://pap-mediaroom.pl/kategoria/biznes-i-finanse/rss.xml' },
+  { source: 'PAP',   label: 'NAUKA',       url: 'https://pap-mediaroom.pl/kategoria/nauka-i-technologie/rss.xml' },
+  { source: 'PAP',   label: 'POLITYKA',    url: 'https://pap-mediaroom.pl/kategoria/polityka-i-społeczenstwo/rss.xml' },
   // Not news but announcements made by this site from MacroNext's pages for today: 10 minutes
   // before each macro release, and the stock market before the sessions
   { source: 'MACRONEXT', label: 'MAKRO',  url: 'https://macronext.pl/pl/kalendarium-dzis', format: 'macronext' },
@@ -85,6 +89,12 @@ export const SOURCE_INFO: Record<Source, { name: string; publisher: string; site
     site: 'https://stooq.pl',
     about: 'Wiadomości z kraju, ze świata i z biznesu z kanałów RSS serwisu Stooq.',
   },
+  WALTER: {
+    name: 'Walter Bloomberg na Telegramie',
+    publisher: 'Walter Bloomberg (@DeItaone)',
+    site: 'https://t.me/s/WalterBloomberg',
+    about: 'Krótkie wiadomości z rynków na świecie, po angielsku, z publicznego kanału Walter Bloomberg na Telegramie (ten sam autor co @DeItaone w serwisie X). Czytane angielskim głosem. To niezależny kanał, niezwiązany z agencją Bloomberg.',
+  },
   PAP: {
     name: 'PAP MediaRoom',
     publisher: 'Polska Agencja Prasowa S.A.',
@@ -100,9 +110,9 @@ export const SOURCE_INFO: Record<Source, { name: string; publisher: string; site
 }
 
 // How often the server checks a feed (seconds); feeds with `minAge` use that instead.
-// At night and at weekends (schedule.ts) almost nothing is published, so less often.
-export const CHECK_SECONDS = 60
-export const QUIET_CHECK_SECONDS = 180
+// At night (0:00–7:00, schedule.ts) almost nothing is published, so less often.
+export const CHECK_SECONDS = 120
+export const NIGHT_CHECK_SECONDS = 300
 // Browsers are connected to one of this many hubs (Durable Objects), so that sending a
 // change to everybody stays well under the 10 ms of CPU a free Cloudflare call may use
 export const HUBS = 4

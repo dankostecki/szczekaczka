@@ -6,7 +6,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Szczekaczka',
-  description: 'Komunikaty ESPI, GPW, newsy Stooq, komunikaty PAP MediaRoom oraz zapowiedzi danych makro i wydarzeń giełdowych w jednym miejscu, czytane na głos.',
+  description: 'Komunikaty ESPI, GPW, newsy Stooq, wiadomości Waltera Bloomberga, komunikaty PAP MediaRoom oraz zapowiedzi danych makro i wydarzeń giełdowych w jednym miejscu, czytane na głos.',
   // Not for search engines or archives: the other copy of the page (GitHub Pages) cannot have a robots.txt of its own
   robots: { index: false, follow: false, noarchive: true },
   applicationName: 'Szczekaczka',
