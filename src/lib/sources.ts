@@ -20,6 +20,9 @@ export interface FeedConfig {
   // 'macronext': MacroNext's calendar of macro data, announced before each release (worker/macro.ts)
   format?: 'bankier-list' | 'telegram' | 'macronext' | 'macronext-gielda'
   leads?: string           // an RSS feed with leads for some of the entries (matched by link)
+  // Every entry of the channel links here (the author's profile) instead of to its own address, which stays the entry's
+  // `link` and id: the same link for all would make them one (parse.ts, finalizeItems). The page swaps it (linkOf).
+  linkTo?: string
 }
 
 export const FEEDS: FeedConfig[] = [
@@ -35,7 +38,8 @@ export const FEEDS: FeedConfig[] = [
   { source: 'STOOQ', label: 'ŚWIAT',       url: 'https://static.stooq.pl/rss/pl/w.rss' },
   // Walter Bloomberg (@DeItaone on X): short market headlines in English. The channel has no RSS; its
   // public preview on Telegram shows the latest ~20 posts
-  { source: 'WALTER', label: 'TELEGRAM',   url: 'https://t.me/s/WalterBloomberg', format: 'telegram', lang: 'en' },
+  { source: 'WALTER', label: 'TELEGRAM',   url: 'https://t.me/s/WalterBloomberg', format: 'telegram', lang: 'en',
+    linkTo: 'https://x.com/DeItaone' },
   { source: 'PAP',   label: 'BIZNES',      url: 'https://pap-mediaroom.pl/kategoria/biznes-i-finanse/rss.xml' },
   { source: 'PAP',   label: 'NAUKA',       url: 'https://pap-mediaroom.pl/kategoria/nauka-i-technologie/rss.xml' },
   { source: 'PAP',   label: 'POLITYKA',    url: 'https://pap-mediaroom.pl/kategoria/polityka-i-społeczenstwo/rss.xml' },
@@ -68,6 +72,10 @@ const FEED_LANG = new Map(FEEDS.map((f) => [feedKey(f.source, f.label), f.lang ?
 export const HAS_ENGLISH = true
 export const langOf = (source: string, label: string): Lang => FEED_LANG.get(feedKey(source, label)) ?? 'pl'
 
+// Where an entry leads when clicked: its own address, or the page set for its channel (linkTo)
+const LINK_TO = new Map(FEEDS.flatMap((f) => (f.linkTo ? [[feedKey(f.source, f.label), f.linkTo] as const] : [])))
+export const linkOf = (it: { source: string; label: string; link: string }): string => LINK_TO.get(feedKey(it.source, it.label)) ?? it.link
+
 export const labelsOf = (source: Source) => FEEDS.filter((f) => f.source === source).map((f) => f.label)
 
 // Who publishes each source, for the "O stronie i źródła" page
@@ -94,7 +102,7 @@ export const SOURCE_INFO: Record<Source, { name: string; publisher: string; site
     name: 'Walter Bloomberg na Telegramie',
     publisher: 'Walter Bloomberg (@DeItaone)',
     site: 'https://t.me/s/WalterBloomberg',
-    about: 'Krótkie wiadomości z rynków na świecie, po angielsku, z publicznego kanału Walter Bloomberg na Telegramie (ten sam autor co @DeItaone w serwisie X). Czytane angielskim głosem. To niezależny kanał, niezwiązany z agencją Bloomberg.',
+    about: 'Krótkie wiadomości z rynków na świecie, po angielsku, z publicznego kanału Walter Bloomberg na Telegramie (ten sam autor co @DeItaone w serwisie X). Czytane angielskim głosem. Każda wiadomość prowadzi do profilu autora w serwisie X (x.com/DeItaone). To niezależny kanał, niezwiązany z agencją Bloomberg.',
   },
   PAP: {
     name: 'PAP MediaRoom',

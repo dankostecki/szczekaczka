@@ -153,8 +153,9 @@ export default function PrivacyPolicy() {
       <h3>Źródła newsów: Bankier.pl, GPW, Stooq, Walter Bloomberg (Telegram), PAP MediaRoom, MacroNext</h3>
       <p>
         Kanały RSS, listę komunikatów Bankier.pl, kanał Walter Bloomberg na Telegramie i kalendarium MacroNext pobiera serwer Serwisu, a nie Twoja przeglądarka, więc serwisy źródłowe nie dostają Twojego adresu IP.
-        Gdy klikniesz w news, przechodzisz na stronę źródła i od tej chwili obowiązuje polityka prywatności tamtego
-        serwisu. Tak samo jest z linkiem do profilu autora w serwisie X.
+        Gdy klikniesz w news, przechodzisz na stronę źródła (newsy Waltera Bloomberga prowadzą do profilu jego autora
+        w serwisie X) i od tej chwili obowiązuje polityka prywatności tamtego serwisu. Tak samo jest z linkiem do profilu
+        autora Szczekaczki w serwisie X.
       </p>
 
       <h3>Czytanie na głos (funkcja przeglądarki)</h3>

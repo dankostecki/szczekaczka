@@ -3,6 +3,7 @@
 import { type Item, tagOf } from './news'
 import { plural } from './speech'
 import { BASE_PATH } from './site'
+import { linkOf } from './sources'
 
 const MAX_PER_REFRESH = 3
 
@@ -49,7 +50,7 @@ export function testNotification() {
 export function notifyHeadlines(fresh: Item[]) {
   if (!notifySupported() || Notification.permission !== 'granted' || fresh.length === 0) return
   const head = fresh.slice(-MAX_PER_REFRESH)
-  for (const it of head) show(tagOf(it), it.title, it.id, it.link || undefined)
+  for (const it of head) show(tagOf(it), it.title, it.id, linkOf(it) || undefined)
   const rest = fresh.length - head.length
   if (rest > 0) show('Szczekaczka', `I jeszcze ${rest} ${plural(rest)}`, `more-${Date.now()}`)
 }
