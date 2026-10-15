@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import LegalPage, { Contact } from '@/components/LegalPage'
-import { FEEDS, SOURCES, SOURCE_INFO, CHECK_SECONDS, NIGHT_CHECK_SECONDS } from '@/lib/sources'
-import { NIGHT_UNTIL } from '@/lib/schedule'
+import { FEEDS, SOURCES, SOURCE_INFO, CHECK_SECONDS, QUIET_CHECK_SECONDS } from '@/lib/sources'
+import { DAY_FROM } from '@/lib/schedule'
 import { fetchTimesText } from '@/lib/macronext'
 import { AUTHOR } from '@/lib/site'
 
@@ -60,7 +60,7 @@ export default function About() {
                       <a href={f.url} target="_blank" rel="noopener noreferrer" className="feed-url">{f.url}</a>
                       {f.format === 'telegram' && ' (kanał na Telegramie, nie RSS)'}
                     </td>
-                    <td>{f.minAge ? `co ${f.minAge / 60} min` : `co ${CHECK_SECONDS / 60} min, w nocy co ${NIGHT_CHECK_SECONDS / 60} min`}</td>
+                    <td>{f.minAge ? `co ${f.minAge / 60} min` : `co ${(f.every ?? CHECK_SECONDS) / 60} min, w nocy i w weekendy co ${QUIET_CHECK_SECONDS / 60} min`}</td>
                   </tr>
                 ))}
               </tbody>
@@ -79,9 +79,10 @@ export default function About() {
       <h2>Jak newsy trafiają na stronę</h2>
       <ul>
         <li>
-          Serwer sam sprawdza kanały: każdy co około {CHECK_SECONDS / 60} minuty, a komunikaty prasowe i aktualności GPW,
-          które zmieniają się rzadziej, co 10 minut (tabele wyżej). W nocy (0:00–{NIGHT_UNTIL}:00) co {NIGHT_CHECK_SECONDS / 60} minut,
-          bo wtedy prawie nic nie jest publikowane.
+          Serwer sam sprawdza kanały: w dni robocze od {DAY_FROM}:00 do północy raporty ESPI co minutę, pozostałe kanały co
+          {CHECK_SECONDS / 60} minuty, a komunikaty prasowe i aktualności GPW, które zmieniają się rzadziej, co 10 minut (tabele
+          wyżej). W nocy (0:00–{DAY_FROM}:00) i w weekendy wszystkie co {QUIET_CHECK_SECONDS / 60} minut, bo wtedy prawie nic
+          nie jest publikowane.
         </li>
         <li>
           Gdy w kanale pojawi się coś nowego, serwer od razu wysyła to do wszystkich otwartych stron przez stałe
@@ -93,7 +94,7 @@ export default function About() {
         </li>
         <li>
           News pojawia się więc z opóźnieniem: tyle, ile wydawca potrzebuje na aktualizację swojego kanału, plus do
-          około {CHECK_SECONDS / 60} minut (w nocy do {NIGHT_CHECK_SECONDS / 60}), zanim serwer go sprawdzi.
+          około {CHECK_SECONDS / 60} minut (ESPI do minuty, w nocy i w weekendy do {QUIET_CHECK_SECONDS / 60}), zanim serwer go sprawdzi.
         </li>
         <li>Godziny są w czasie polskim, według dat podanych w kanałach.</li>
       </ul>

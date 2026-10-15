@@ -13,6 +13,7 @@ export interface FeedConfig {
   label: string
   url: string
   minAge?: number // seconds: a feed that rarely changes is checked at most this often (never more often than usual)
+  every?: number  // seconds: on weekdays by day checked this often instead of CHECK_SECONDS (ESPI: every minute)
   lang?: Lang     // 'pl' when not given
   // Not RSS. 'bankier-list': Bankier's web page with the list of company reports (parse.ts);
   // 'telegram': the public web preview of a Telegram channel, t.me/s/<channel> (parse.ts);
@@ -25,7 +26,7 @@ export const FEEDS: FeedConfig[] = [
   // Bankier's ESPI RSS has only some of the reports (10 at a time, many never appear in it), so
   // the reports come from Bankier's list page, which has them all; leads from the RSS
   { source: 'ESPI',  label: 'BANKIER',     url: 'https://www.bankier.pl/gielda/wiadomosci/komunikaty-spolek',
-    format: 'bankier-list', leads: 'https://www.bankier.pl/rss/espi.xml' },
+    format: 'bankier-list', leads: 'https://www.bankier.pl/rss/espi.xml', every: 60 },
   { source: 'GPW',   label: 'KOMUNIKATY',  url: 'https://www.gpw.pl/rss_komunikaty' },
   { source: 'GPW',   label: 'PRASA',       url: 'https://www.gpw.pl/rss_komunikaty_prasowe',     minAge: 600 },
   { source: 'GPW',   label: 'AKTUALNOŚCI', url: 'https://www.gpw.pl/rss_aktualnosci',           minAge: 600 },
@@ -109,10 +110,10 @@ export const SOURCE_INFO: Record<Source, { name: string; publisher: string; site
   },
 }
 
-// How often the server checks a feed (seconds); feeds with `minAge` use that instead.
-// At night (0:00–7:00, schedule.ts) almost nothing is published, so less often.
+// How often the server checks a feed (seconds) on weekdays from 7:00 to midnight; feeds with `every` or `minAge` use that instead.
+// At night (0:00–7:00) and at weekends (schedule.ts) almost nothing is published, so every feed less often (`minAge` still counts).
 export const CHECK_SECONDS = 120
-export const NIGHT_CHECK_SECONDS = 300
+export const QUIET_CHECK_SECONDS = 300
 // Browsers are connected to one of this many hubs (Durable Objects), so that sending a
 // change to everybody stays well under the 10 ms of CPU a free Cloudflare call may use
 export const HUBS = 4
