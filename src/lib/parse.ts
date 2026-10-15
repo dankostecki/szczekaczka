@@ -241,6 +241,53 @@ export function parseBankierList(section: string, feed: FeedConfig, limit = Infi
   return items
 }
 
+// ── The public web preview of a Telegram channel (t.me/s/<channel>) ──
+// The latest ~20 posts, oldest first; each one:
+//   <div class="tgme_widget_message text_not_supported_wrap js-widget_message" data-post="WalterBloomberg/34446" …>
+//     (a reply quotes the post it answers: <a class="tgme_widget_message_reply" …><div class="tgme_widget_message_text js-message_reply_text">…)
+//     <div class="tgme_widget_message_text js-message_text" dir="auto">$NVDA - NVIDIA …<br/><br/>(@WalterBloomberg)</div>
+//     … <a class="tgme_widget_message_date" href="https://t.me/WalterBloomberg/34446"><time datetime="2026-10-15T17:58:03+00:00" …>
+// Posts without text (a photo alone) and service messages (a pinned post) are left out. The rest of the page (views,
+// counters) changes on every visit, so the server compares the posts read from it, not the page.
+const TELEGRAM_POST = /<div\b(?=[^>]*\sclass="tgme_widget_message\b([^"]*)")(?=[^>]*\sdata-post="(\w+)\/(\d+)")[^>]*>/g
+const TELEGRAM_TEXT = /<div class="tgme_widget_message_text\b[^"]*\bjs-message_text\b[^"]*"[^>]*>/
+
+// The HTML inside the element that starts at `from` (just after its opening tag), up to its own </div>
+function divInner(html: string, from: number): string {
+  const re = /<(\/?)div\b[^>]*>/g
+  re.lastIndex = from
+  let depth = 1
+  for (let m; (m = re.exec(html)); ) {
+    depth += m[1] ? -1 : 1
+    if (depth === 0) return html.slice(from, m.index)
+  }
+  return html.slice(from)
+}
+
+export function parseTelegram(html: string, feed: FeedConfig, limit = Infinity): NewsItem[] {
+  const posts = [...html.matchAll(TELEGRAM_POST)]
+  const items: NewsItem[] = []
+  posts.forEach((m, i) => {
+    const [, classes, channel, id] = m
+    const block = html.slice(m.index!, posts[i + 1]?.index ?? html.length)
+    if (/\bservice_message\b/.test(classes) || block.includes('tgme_widget_service_strong_text')) return
+    const text = TELEGRAM_TEXT.exec(block)
+    if (!text) return
+    // The lines of the post, without the channel's own handle at the end ("(@WalterBloomberg)", on its own line or after the text)
+    const own = new RegExp(`(?:^@${channel}|\\s*\\(@${channel}\\))$`, 'i')
+    const lines = divInner(block, text.index + text[0].length).split(/<br\s*\/?>/i).map(cleanText).filter(Boolean)
+    while (lines.length && own.test(lines[lines.length - 1])) {
+      const last = lines.pop()!.replace(own, '')
+      if (last) { lines.push(last); break }
+    }
+    if (!lines.length) return
+    const date = (block.match(/class="tgme_widget_message_date\b[\s\S]*?<time\b[^>]*\bdatetime="([^"]+)"/) ?? block.match(/<time\b[^>]*\bdatetime="([^"]+)"/))?.[1] ?? ''
+    const item = makeItem(feed, lines[0], `https://t.me/${channel}/${id}`, '', date)
+    items.push({ ...item, description: lines.slice(1).join(' ') })
+  })
+  return items.slice(-limit)
+}
+
 // The response body in the charset the feed declares (header, then <?xml encoding?>).
 // Polish feeds are sometimes ISO-8859-2 / windows-1250, which fetch's .text() would garble.
 export function decodeBody(buf: ArrayBuffer, contentType: string | null): string {

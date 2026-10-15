@@ -1,5 +1,5 @@
 // Checking one feed: download it if it changed, parse it, and say what is new.
-import { decodeBody, parseFeedXml, bankierListSection, parseBankierList, type NewsItem } from '../src/lib/parse'
+import { decodeBody, parseFeedXml, bankierListSection, parseBankierList, parseTelegram, type NewsItem } from '../src/lib/parse'
 import type { FeedConfig } from '../src/lib/sources'
 import type { MacroGroup } from '../src/lib/macronext'
 
@@ -137,18 +137,31 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
   if (!res.ok) return failed(`źródło zwróciło błąd HTTP ${res.status}`)
 
   const buf = await res.arrayBuffer()
+  const meta = { etag: res.headers.get('etag') ?? undefined, lastModified: res.headers.get('last-modified') ?? undefined }
+
+  // A Telegram channel's page: only its posts count (the views beside them change on every visit), so they are compared, not the page
+  if (feed.format === 'telegram') {
+    const page = decodeBody(buf, res.headers.get('content-type'))
+    const posts = parseTelegram(page, feed, MAX_PER_FEED)
+    if (posts.length === 0) return failed('nie udało się pobrać wiadomości z kanału', `strona bez wiadomości: ${pageInfo(page, res, url)}`)
+    const hash = await sha1(new TextEncoder().encode(JSON.stringify(posts)))
+    if (prev && hash === old.hash && old.parser === PARSER_VERSION) return aged({ ...meta, error: null, failures: 0 })
+    return merge(posts, { hash, ...meta, error: null, failures: 0 })
+  }
+
   // A list page: only the list counts (the rest of the page changes on every visit)
-  const page = feed.format ? decodeBody(buf, res.headers.get('content-type')) : ''
-  const section = feed.format ? bankierListSection(page) : null
+  const list = feed.format === 'bankier-list'
+  const page = list ? decodeBody(buf, res.headers.get('content-type')) : ''
+  const section = list ? bankierListSection(page) : null
   let listProblem: string | null = null, listDetail = ''
-  if (feed.format && section === null) {
+  if (list && section === null) {
     const text = page.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<[^>]+>/gi, ' ').replace(/\s+/g, ' ').trim()
     // For the logs: what the page is, and what it has where the list used to be
     const at = page.indexOf('announcements')
     listProblem = `strona bez listy komunikatów: ${pageInfo(page, res, url)}`
     listDetail = `${res.headers.get('server') ?? ''} ${text.slice(0, 300)} | announcements: ${at < 0 ? 'none' : page.slice(Math.max(0, at - 80), at + 240).replace(/\s+/g, ' ')}`
   }
-  const leads = feed.format && leadsUrl ? await fetchLeads(leadsUrl, feed) : null
+  const leads = list && leadsUrl ? await fetchLeads(leadsUrl, feed) : null
   // No list: the RSS's entries rather than nothing, with a note in the red box (from the 3rd time); the red box is for the
   // reader, so it says what they see, and the page's details (listProblem) go to the logs only
   if (listProblem && !leads) return failed('nie udało się pobrać listy raportów', `${listProblem} | ${listDetail}`)
@@ -156,11 +169,10 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
   const error = listProblem && (failures >= SHOW_ERROR_AFTER || old.items.length === 0) ? 'widać tylko część raportów' : null
   const problem = listProblem ? `${listProblem} (raporty z RSS) | ${listDetail}` : undefined
   const hash = await sha1(section === null && !leads ? buf : new TextEncoder().encode(`${section ?? 'rss'}${leads?.body ?? ''}`))
-  const meta = { etag: res.headers.get('etag') ?? undefined, lastModified: res.headers.get('last-modified') ?? undefined }
   if (prev && hash === old.hash && old.parser === PARSER_VERSION) return { ...aged({ ...meta, error, failures }), problem }
 
   let parsed: NewsItem[]
-  if (feed.format) {
+  if (list) {
     // An entry already stored under another form of its link (from the RSS, with "?utm_…") keeps its id
     const stored = new Map(old.items.map((i) => [bareLink(i.link), i]))
     const entries = section !== null ? parseBankierList(section, feed, MAX_PER_FEED) : leads!.items
@@ -175,27 +187,32 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
     parsed = parseFeedXml(xml, feed, MAX_PER_FEED)
     if (parsed.length === 0 && !/<(item|entry)[\s>]/i.test(xml)) return failed('odpowiedź bez wpisów RSS')
   }
-  const before = new Map(old.items.map((i) => [i.id, i]))
-  // An entry keeps the time it was first read with: CNBC moved an article's date each time it edited
-  // it, which would lift an old article above the new ones. After a parser change it is read anew.
-  const fresh = parsed.map((it) => {
-    const b = before.get(it.id)
-    return { ...it, description: shorten(it.description), pubDate: b?.pubDate && !reread ? b.pubDate : it.pubDate }
-  })
-  // New ids, and items whose title or lead was corrected (or their date, after a parser change)
-  const add = fresh.filter((i) => {
-    const b = before.get(i.id)
-    return !b || b.title !== i.title || b.description !== i.description || b.pubDate !== i.pubDate
-  })
-  const merged = new Map(old.items.map((i) => [i.id, i]))
-  for (const i of fresh) merged.set(i.id, i)
-  const inFeed = new Set(fresh.map((i) => i.id))
-  const items = retain([...merged.values()], inFeed, now)
-  const kept = new Set(items.map((i) => i.id))
-  const remove = old.items.filter((i) => !kept.has(i.id)).map((i) => i.id)
-  const state: FeedState = { items, current: [...inFeed], error: feed.format ? error : null, failures: feed.format ? failures : 0, hash, ...meta, checkedAt: now, parser: PARSER_VERSION }
-  // An added entry that is already too old to keep (a feed item without a date is always kept)
-  const added = add.filter((i) => kept.has(i.id))
-  const gap = current.size > 0 && fresh.length > 0 && !fresh.some((i) => current.has(i.id))
-  return { state, changed: added.length > 0 || remove.length > 0 || old.error !== state.error, add: added, remove, gap, problem: feed.format ? problem : undefined }
+  return { ...merge(parsed, { hash, ...meta, error, failures }), problem }
+
+  // The entries read now, merged with those kept from before
+  function merge(parsed: NewsItem[], patch: Pick<FeedState, 'hash' | 'etag' | 'lastModified' | 'error' | 'failures'>): CheckResult {
+    const before = new Map(old.items.map((i) => [i.id, i]))
+    // An entry keeps the time it was first read with: CNBC moved an article's date each time it edited
+    // it, which would lift an old article above the new ones. After a parser change it is read anew.
+    const fresh = parsed.map((it) => {
+      const b = before.get(it.id)
+      return { ...it, description: shorten(it.description), pubDate: b?.pubDate && !reread ? b.pubDate : it.pubDate }
+    })
+    // New ids, and items whose title or lead was corrected (or their date, after a parser change)
+    const add = fresh.filter((i) => {
+      const b = before.get(i.id)
+      return !b || b.title !== i.title || b.description !== i.description || b.pubDate !== i.pubDate
+    })
+    const merged = new Map(old.items.map((i) => [i.id, i]))
+    for (const i of fresh) merged.set(i.id, i)
+    const inFeed = new Set(fresh.map((i) => i.id))
+    const items = retain([...merged.values()], inFeed, now)
+    const kept = new Set(items.map((i) => i.id))
+    const remove = old.items.filter((i) => !kept.has(i.id)).map((i) => i.id)
+    const state: FeedState = { items, current: [...inFeed], ...patch, checkedAt: now, parser: PARSER_VERSION }
+    // An added entry that is already too old to keep (a feed item without a date is always kept)
+    const added = add.filter((i) => kept.has(i.id))
+    const gap = current.size > 0 && fresh.length > 0 && !fresh.some((i) => current.has(i.id))
+    return { state, changed: added.length > 0 || remove.length > 0 || old.error !== state.error, add: added, remove, gap }
+  }
 }

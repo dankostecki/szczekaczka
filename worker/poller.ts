@@ -1,8 +1,8 @@
 // One object for the whole site: checks the feeds one at a time and sends changes to the hubs.
 // Checking one feed per call keeps each call far below the 10 ms of CPU of the free plan.
 import { DurableObject } from 'cloudflare:workers'
-import { FEEDS, feedKey, renamedKey, renamedId, renamedItem, CHECK_SECONDS, QUIET_CHECK_SECONDS, HUBS, HEARTBEAT_SECONDS, type FeedConfig } from '../src/lib/sources'
-import { marketHours } from '../src/lib/schedule'
+import { FEEDS, feedKey, renamedKey, renamedId, renamedItem, CHECK_SECONDS, NIGHT_CHECK_SECONDS, HUBS, HEARTBEAT_SECONDS, type FeedConfig } from '../src/lib/sources'
+import { night } from '../src/lib/schedule'
 import type { Delta, FeedSnapshot, Heartbeat } from '../src/lib/protocol'
 import { checkFeed, type FeedState } from './feeds'
 import { checkMacro, macroDueAt } from './macro'
@@ -94,6 +94,11 @@ export class Poller extends DurableObject<Env> {
   async joined(i: number): Promise<number> {
     this.sockets[i] = Math.max(1, this.sockets[i] ?? 0)
     await this.ensureAlarm()
+    // With nobody connected the loop sends no heartbeat and may sleep for minutes (at night 5): this page needs its first
+    // heartbeat within HEARTBEAT_SECONDS, or Cloudflare closes the idle connection
+    const at = await this.ctx.storage.getAlarm()
+    const beat = Date.now() + HEARTBEAT_SECONDS * 1000
+    if (at != null && at > beat) await this.ctx.storage.setAlarm(beat)
     return this.v
   }
 
@@ -101,12 +106,15 @@ export class Poller extends DurableObject<Env> {
     if ((await this.ctx.storage.getAlarm()) == null) await this.ctx.storage.setAlarm(Date.now() + 500)
   }
 
+  // Some hub has pages connected (as far as the hubs said at the last publish; all of them after a restart)
+  private get connected(): boolean { return this.sockets.some((n) => n > 0) }
+
   // ── The loop ──
   async alarm() {
     try {
       const feed = this.mostOverdue(Date.now())
       if (feed) await this.check(feed)
-      if (Date.now() - this.lastPublish >= HEARTBEAT_SECONDS * 1000) await this.publish(this.heartbeat())
+      if (this.connected && Date.now() - this.lastPublish >= HEARTBEAT_SECONDS * 1000) await this.publish(this.heartbeat())
     } catch (e) {
       console.error('poller tick failed', e)
     } finally {
@@ -115,7 +123,7 @@ export class Poller extends DurableObject<Env> {
   }
 
   private interval(feed: FeedConfig, now: number): number {
-    const usual = Math.max(feed.minAge ?? 0, marketHours(new Date(now)) ? CHECK_SECONDS : QUIET_CHECK_SECONDS) * 1000
+    const usual = Math.max(feed.minAge ?? 0, night(new Date(now)) ? NIGHT_CHECK_SECONDS : CHECK_SECONDS) * 1000
     const failures = this.feeds.get(feedKey(feed.source, feed.label))?.failures ?? 0
     return failures ? Math.min(usual, RETRY_SECONDS * 1000 * 2 ** (failures - 1)) : usual
   }
@@ -137,9 +145,10 @@ export class Poller extends DurableObject<Env> {
     return best
   }
 
+  // The next feed to check, or the next heartbeat; with no page connected there is no one to send a heartbeat to
   private nextWake(): number {
     const now = Date.now()
-    let next = this.lastPublish + HEARTBEAT_SECONDS * 1000
+    let next = this.connected ? this.lastPublish + HEARTBEAT_SECONDS * 1000 : Infinity
     for (const f of FEEDS) next = Math.min(next, this.dueAt(f, now))
     return Math.max(next, now + MIN_GAP_MS)
   }

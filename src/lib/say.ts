@@ -1764,13 +1764,24 @@ const markPauses = (text: string) =>
     // a semicolon keeps its place in the text and gets the same pause
     .replace(/;(\s+|$)/g, (m, space: string) => `;${PAUSE_MARK}${space}`)
 export const sayPauses = (text: string) => markPauses(text).split(PAUSE_MARK).join('')
-// Only the pauses, none of the rules above: for a text in English, which the rules of Polish would turn into Polish
-export const sayPausedParts = (text: string): string[] => markPauses(text).split(PAUSE_MARK).map((s) => s.trim()).filter(Boolean)
+
+// ── Signs that are not said ──
+// Emoji and pictographs ("🚨", "🇺🇸", "©"), which voices name ("police car light"), and asterisks, which mark a headline or a
+// footnote ("*FED HOLDS RATES", "zysk netto*"): voices say "asterisk", "gwiazdka". The "$" of a ticker goes too ("$NVDA - NVIDIA
+// SHARES RISE" -> "NVDA - NVIDIA SHARES RISE", not "dollar NVDA"); the "$" of an amount ("$5 BILLION") stays.
+const NOT_SAID = /[ \t]*[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\u{1F3FB}-\u{1F3FF}\uFE0F\u200D\u20E3*]+[ \t]*/gu
+export const saySigns = (text: string) =>
+  text.replace(/\$(?=\p{Lu}{1,6}(?![\p{L}\d]))/gu, '')
+    // between two words a space stays; at the start or the end, or before a full stop or a bracket, nothing
+    .replace(NOT_SAID, (m: string, at: number, all: string) => (at === 0 || at + m.length === all.length || /[\s(]/.test(all[at - 1]) || /[\s.,:;!?)]/.test(all[at + m.length]) ? '' : ' '))
+
+// Only the pauses and the signs, none of the other rules: for a text in English, which the rules of Polish would turn into Polish
+export const sayPausedParts = (text: string): string[] => markPauses(saySigns(text)).split(PAUSE_MARK).map((s) => s.trim()).filter(Boolean)
 
 // ── All of it ──
 
 function sayMarked(text: string): string {
-  let t = sayRoman(sayMonths(sayDayRanges(sayCountRanges(sayMonthSpans(sayMonthDays(sayYearRanges(sayYears(sayQuarters(sayCompounds(sayIssueNumbers(sayAddresses(sayDates(sayParticiples(sayProvisions(text)))))))))))))))
+  let t = sayRoman(sayMonths(sayDayRanges(sayCountRanges(sayMonthSpans(sayMonthDays(sayYearRanges(sayYears(sayQuarters(sayCompounds(sayIssueNumbers(sayAddresses(sayDates(sayParticiples(sayProvisions(saySigns(text))))))))))))))))
   t = sayTerritories(sayHours(sayDirections(sayInstitutions(sayCodes(t)))))
   for (const [re, said] of WORDS) t = t.replace(re, said)
   t = saySpelled(sayAsWords(sayTitles(sayEnglish(sayProperNames(sayMarkets(sayBrokers(t)))))))
