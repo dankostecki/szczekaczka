@@ -286,8 +286,6 @@ button:disabled { cursor: default; opacity: 0.5; }
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .row.read .desc { color: var(--text-3); }
-/* MacroNext's announcements: the figures are the point, so all of them */
-.desc.whole { display: block; overflow: visible; }
 
 .errors {
   margin-top: 14px; padding: 10px 12px; border-radius: 10px;
@@ -337,7 +335,6 @@ body.reading { overflow: hidden; padding-right: var(--scrollbar, 0px); }
   position: relative; flex: none; display: flex; align-items: center; gap: 10px;
   padding: 10px 10px 8px 20px; border-top: 3px solid var(--c);
 }
-.reader-grip { display: none; position: absolute; top: 7px; left: 50%; width: 38px; height: 4px; margin-left: -19px; border-radius: 2px; background: var(--border-strong); }
 .reader-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; min-width: 0; font-size: 13px; color: var(--text-2); }
 .reader-meta .ago { color: var(--text-3); }
 .reader-close {
@@ -408,15 +405,15 @@ body.reading { overflow: hidden; padding-right: var(--scrollbar, 0px); }
 @keyframes reader-sheet-out { to { transform: translateY(100%); } }
 @keyframes reader-line { from { opacity: 0; transform: translateY(9px); } }
 
+/* On a phone the window is the whole screen, whatever the text: it slides up from the bottom, the text scrolls, the buttons stay at the bottom */
 @media (max-width: 560px) {
   .reader-overlay { align-items: flex-end; padding: 0; }
   .reader {
-    width: 100%; max-height: 92dvh; border-radius: 22px 22px 0 0; border-bottom: 0;
+    width: 100%; height: 100vh; height: 100dvh; max-height: none; border: 0; border-radius: 0;
     animation: reader-sheet-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
   .reader-overlay[data-closing] .reader { animation: reader-sheet-out 0.22s cubic-bezier(0.4, 0, 1, 1) both; }
-  .reader-head { padding-top: 18px; }
-  .reader-grip { display: block; }
+  .reader-head { padding-top: calc(10px + env(safe-area-inset-top)); }
   .reader-foot { padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
   .reader-title { font-size: 20px; }
 }

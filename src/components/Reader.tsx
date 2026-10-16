@@ -100,7 +100,6 @@ export default function Reader({ item, origin, now, saved, speaking, onClose, on
       <div ref={panel} className="reader" role="dialog" aria-modal="true" aria-labelledby="reader-title" tabIndex={-1}
         style={{ ['--c' as string]: `var(--src-${item.source.toLowerCase()})` }} onKeyDown={trap}>
         <div className="reader-head">
-          <i className="reader-grip" />
           <div className="reader-meta">
             <span className="tag"><i className="dot" /><span>{tagOf(item)}</span></span>
             <time dateTime={item.pubDate || undefined} title={fullDate(item.time)}>{clock(item.time)}</time>
