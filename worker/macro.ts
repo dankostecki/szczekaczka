@@ -117,7 +117,17 @@ export async function checkMacro(feed: FeedConfig, prev: FeedState | undefined, 
   // Releases more than a day old are forgotten
   state.calendar = state.calendar!.filter((g) => lastAt(g) > now - DAY_MS)
 
-  state.items = retain([...old.items, ...add], new Set(), now)
+  // An announcement made before the rows were kept as a list (`body`) gets it from its group of the calendar, while the text is the same
+  const groups = new Map(state.calendar!.map((g) => [g.id, g]))
+  const listed: NewsItem[] = []
+  state.items = retain([...old.items, ...add], new Set(), now).map((i) => {
+    const g = groups.get(i.id)
+    if (i.body || !g?.lines.length || i.description !== g.lines.join(' ')) return i
+    const item = { ...i, body: g.lines.map((l) => `- ${l}`).join('\n') }
+    listed.push(item)
+    return item
+  })
+  add.push(...listed)
   const kept = new Set(state.items.map((i) => i.id))
   const remove = old.items.filter((i) => !kept.has(i.id)).map((i) => i.id)
   const changed = add.length > 0 || remove.length > 0 || state.error !== old.error
