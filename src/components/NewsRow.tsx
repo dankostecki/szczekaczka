@@ -59,7 +59,7 @@ function NewsRow({ item, now, read, saved, fresh, watched, onRead, onSave, onSpe
         // where it was clicked or tapped; from the keyboard (no pointer) the middle of the title
         onOpen(item, e.detail > 0 ? { x: e.clientX, y: e.clientY } : { x: box.left + box.width / 2, y: box.top + box.height / 2 })
       }}>{item.title}</button>
-      {item.description && <p className={`desc${item.source === 'MACRONEXT' ? ' whole' : ''}`} lang={lang === 'pl' ? undefined : lang}>{item.description}</p>}
+      {item.description && <p className="desc" lang={lang === 'pl' ? undefined : lang}>{item.description}</p>}
     </article>
   )
 }
