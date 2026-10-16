@@ -2,6 +2,7 @@
 // server with Workers AI and kept beside the original (NewsItem.pl). The page shows the translation unless the reader
 // chose the original (prefs.originalFeeds), and reads it with the Polish voice and the rules of say.ts.
 import type { NewsItem } from '../src/lib/parse'
+import { fixOrdinals } from '../src/lib/ordinals'
 import type { CheckResult } from './feeds'
 
 export const MODEL = '@cf/google/gemma-4-26b-a4b-it'
@@ -21,6 +22,7 @@ Zasady:
 - Tickery (np. $NVDA) oraz nazwy spółek, funduszy i osób zostaw w oryginalnej pisowni; nazwy spółek możesz odmieniać (akcje Nvidii). Instytucje z przyjętą polską nazwą nazywaj po polsku: Fed, EBC, Bank Japonii, Biały Dom, Departament Skarbu USA, Kongres.
 - Liczby po polsku: przecinek dziesiętny (0.3% → 0,3%); B lub BLN → mld, M lub MLN → mln, T lub TLN → bln, K → tys., BPS → pb; M/M → m/m, Y/Y → r/r, Q/Q → k/k. Kwoty w dolarach: $5B → 5 mld USD.
 - EST. lub EXP. (prognoza rynku) → „prognoza”, PREV. lub PRIOR → „poprzednio”.
+- Liczebniki porządkowe pisz poprawnie po polsku i odmieniaj je przez przypadki: seventh straight session → siódma sesja z rzędu (w siódmej sesji z rzędu), eighth → ósmy, fifth → piąty, 10th → dziesiąty.
 - Zachowaj układ: pierwsza linia to tytuł, kolejne linie (jeśli są) to dalszy ciąg; odpowiedz w tym samym układzie.
 - Znaki „*” i „-” na początku linii (punkty listy) zostaw na swoim miejscu.
 - Odpowiedz wyłącznie tłumaczeniem, bez cudzysłowów i bez dopisków.`
@@ -31,6 +33,7 @@ const EXAMPLES: [en: string, pl: string][] = [
   ["FED'S WALLER: RATE CUTS SHOULD BE GRADUAL", 'Waller z Fed: obniżki stóp powinny być stopniowe'],
   ['FMC downgraded at Jefferies as visibility deteriorates again with guidance cut\nJefferies cut FMC (NYSE:FMC) to Hold from Buy and lowered its price target to $20 from $35.', 'Jefferies obniża rekomendację FMC: widoczność znów się pogarsza po cięciu prognoz\nJefferies obniżył rekomendację dla FMC (NYSE:FMC) do „trzymaj” z „kupuj” i zmniejszył cenę docelową do 20 USD z 35 USD.'],
   ['TRUMP: WE WILL IMPOSE 25% TARIFFS ON $50B OF CHINESE IMPORTS', 'Trump: nałożymy 25% cła na import z Chin o wartości 50 mld USD'],
+  ['Coca-Cola shares rise for a seventh straight session as investors favor defensive stocks', 'Akcje Coca-Coli rosną siódmą sesję z rzędu, bo inwestorzy wybierają spółki defensywne'],
 ]
 
 type Text = { title: string; description: string; body?: string }
@@ -40,7 +43,7 @@ export const sourceText = (it: Text) => (it.body ? `${it.title}\n${it.body}` : i
 
 // The model's answer as a title and a lead, or null when it is not a translation (empty, or far longer than the post)
 export function readTranslation(out: string | null | undefined, src: Text): Text | null {
-  const text = (out ?? '').replace(/<think>[\s\S]*?<\/think>/g, '').replace(/^\s*(?:tłumaczenie|translation)\s*:\s*/i, '').replace(/\*\*/g, '').trim()
+  const text = fixOrdinals((out ?? '').replace(/<think>[\s\S]*?<\/think>/g, '').replace(/^\s*(?:tłumaczenie|translation)\s*:\s*/i, '').replace(/\*\*/g, '').trim())
   const lines = text.split(/\n+/).map((l) => l.trim().replace(/^["„“](.*)["”“]$/, '$1').trim()).filter(Boolean)
   if (lines.length === 0) return null
   // a post without a lead is one title, however the answer is cut
