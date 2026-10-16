@@ -1628,6 +1628,9 @@ export function sayMarkets(text: string): string {
 
 // "mBank" and "MBANK" -> "Embank", "mObywatel" -> "Emobywatel": a small "m" before a capital letter is the letter "em", the rest a word.
 // "PKO BP" and "PKO bp" are said letter by letter, "pe ka o be pe" (written "bp" a voice reads one word)
+// "BP", the oil company, is said the English way, "Bipi" ("BP ocenia polski rynek paliw", "stacje BP", "BP Polska"). Not where "BP" is something else:
+// the basis points after a small number ("o 25 BP"; a year, "w 2026 BP wypłaci", is not one), "Bank Polska" ("BNP Paribas BP" is said "be pe", like
+// "PKO BP"), the state budget ("deficyt BP", a sentence with the budget or the Ministry of Finance in it); "Bp" before a name is a bishop (titles-pl.ts)
 // Surnames that a voice reads by their spelling, not as they are said in Polish: "Merz" (the German chancellor) is "Merc", the endings
 // the name takes in Polish are kept ("Merza" is "Merca", "Merzowi" "Mercowi", "Merzem" "Mercem")
 const SURNAMES: Record<string, string> = { merz: 'Merc', scholz: 'Szolc' }
@@ -1635,12 +1638,20 @@ const SURNAME_RE = new RegExp(String.raw`(?<![\p{L}\d])(${Object.keys(SURNAMES).
 // "mPay" and "MPAY" (the name in capitals, as ESPI writes a company) are the same: "Empej", the letter "em" and the English "pay" ("pej"), one word like "Embank";
 // the other brands with the "m" are in capitals the same way (MBANK, MLEASING, MOBYWATEL)
 const M_BRANDS = /(?<![\p{L}\d])M(BANK|PAY|LEASING|OBYWATEL)(?![\p{L}\d])/gu
+const OIL_BP = /(?<![\p{L}\d])BP(?![\p{L}\d])/gu
+const SMALL_NUMBER_BEFORE = /(?<![\d.,])\d{1,3}(?:[.,]\d+)?\s*$/u
+const STATE_BUDGET = /budżet|(?<![\p{L}\d])MF(?![\p{L}\d])|Ministerstw\p{L}*\s+Finans/iu
 export const sayProperNames = (text: string) =>
   text
     .replace(/(?<![\p{L}\d])[mM]Pay(?![\p{L}\d])/gu, 'Empej')
     .replace(/(?<![\p{L}\d])m(\p{Lu})(\p{Ll}+)/gu, (m, first: string, rest: string) => `Em${first.toLocaleLowerCase('pl')}${rest}`)
     .replace(M_BRANDS, (m, brand: string) => `Em${brand === 'PAY' ? 'pej' : brand.toLowerCase()}`)
     .replace(/(?<![\p{L}\d])PKO\s?(?:BP|Bp|bp)(?![\p{L}\d])/gu, 'Pe ka o be pe')
+    .replace(/(?<=(?<![\p{L}\d])BNP\s+(?:Paribas|PARIBAS)\s+)BP(?![\p{L}\d])/gu, 'be pe')
+    .replace(OIL_BP, (m: string, at: number, all: string) => {
+      const sentence = `${all.slice(0, at).match(/[^.!?]*$/)![0]}${all.slice(at + m.length).match(/^[^.!?]*/)![0]}`
+      return SMALL_NUMBER_BEFORE.test(all.slice(Math.max(0, at - 16), at)) || STATE_BUDGET.test(sentence) ? m : 'Bipi'
+    })
     .replace(SURNAME_RE, (m, name: string, ending?: string) => `${SURNAMES[name.toLowerCase()]}${(ending ?? '').toLowerCase()}`)
 
 // ── Titles before a name: "prof.", "dr hab.", "gen. dyw.", "st. sierż. szt.", "ks." (titles-pl.ts) ──
