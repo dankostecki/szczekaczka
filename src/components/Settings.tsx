@@ -208,6 +208,29 @@ export default function Settings(p: Props) {
             Wiersz źródła ustawia wszystkie jego kanały naraz, a strzałka je rozwija, żeby ustawić każdy osobno.
             Oko: kanał na liście. Lead: po tytule czytana jest też zajawka.
           </p>
+          {FEEDS.filter((f) => f.translate).map((f) => {
+            const key = feedKey(f.source, f.label)
+            const original = prefs.originalFeeds.includes(key)
+            return (
+              <div key={key} className="voice-pick">
+                <span>Język: {f.source}</span>
+                <div>
+                  <select value={original ? 'original' : 'pl'} aria-label={`Język: ${f.source}`}
+                    onChange={(e) => onChange({ originalFeeds: e.target.value === 'original'
+                      ? [...new Set([...prefs.originalFeeds, key])] : prefs.originalFeeds.filter((k) => k !== key) })}>
+                    <option value="pl">po polsku (tłumaczenie AI)</option>
+                    <option value="original">po angielsku (oryginał)</option>
+                  </select>
+                </div>
+              </div>
+            )
+          })}
+          {FEEDS.some((f) => f.translate) && (
+            <p className="hint">
+              Wiadomości Waltera Bloomberga są po angielsku. Po polsku pokazuje je tłumaczenie maszynowe (AI), które może
+              zawierać błędy; czyta je wtedy polski głos. Wiadomość, której nie udało się przetłumaczyć, jest po angielsku.
+            </p>
+          )}
         </section>
 
         <section>

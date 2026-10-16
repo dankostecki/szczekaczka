@@ -19,6 +19,8 @@
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Poller", "Hub"] }],
   "triggers": { "crons": ["*/10 * * * *"] },
+  // Workers AI: Walter Bloomberg's posts translated into Polish (worker/translate.ts), within the free 10,000 neurons a day
+  "ai": { "binding": "AI" },
   // The copy of the page on GitHub Pages gets its news from this Worker
   "vars": { "ALLOWED_ORIGINS": "https://dankostecki.github.io" },
   "observability": { "enabled": true }

@@ -6,6 +6,7 @@ import { checkSeconds } from '../src/lib/schedule'
 import type { Delta, FeedSnapshot, Heartbeat } from '../src/lib/protocol'
 import { checkFeed, type FeedState } from './feeds'
 import { checkMacro, macroDueAt } from './macro'
+import { translateNew } from './translate'
 import { type Env, hub } from './env'
 
 const MIN_GAP_MS = 2000 // never wake up more often than this
@@ -159,6 +160,11 @@ export class Poller extends DurableObject<Env> {
     const prev = this.feeds.get(key)
     const leads = feed.leads && this.env.FEED_ORIGIN ? `${this.env.FEED_ORIGIN}/${feed.leads.replace(/^https?:\/\//, '')}` : feed.leads
     const r = feed.format?.startsWith('macronext') ? await checkMacro(feed, prev, url, Date.now()) : await checkFeed(feed, prev, url, Date.now(), leads)
+    // A channel in English: its new posts are translated before they go out (translate.ts)
+    if (feed.translate && this.env.AI) {
+      const said = await translateNew(this.env.AI, r, Date.now())
+      if (said) console.log(`feed ${key}: ${said}`)
+    }
     this.feeds.set(key, r.state)
     if (r.log) console.log(`feed ${key}: ${r.log}`)
     if (r.problem) console.log(`feed ${key}: failed check ${r.state.failures} in a row: ${r.problem}`)

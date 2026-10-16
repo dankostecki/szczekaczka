@@ -23,6 +23,9 @@ export interface FeedConfig {
   // Every entry of the channel links here (the author's profile) instead of to its own address, which stays the entry's
   // `link` and id: the same link for all would make them one (parse.ts, finalizeItems). The page swaps it (linkOf).
   linkTo?: string
+  // Entries are translated into Polish on the server (worker/translate.ts); the page shows the translation unless the
+  // reader chose the original (prefs.originalFeeds)
+  translate?: boolean
 }
 
 export const FEEDS: FeedConfig[] = [
@@ -39,7 +42,7 @@ export const FEEDS: FeedConfig[] = [
   // Walter Bloomberg (@DeItaone on X): short market headlines in English. The channel has no RSS; its
   // public preview on Telegram shows the latest ~20 posts
   { source: 'WALTER', label: 'TELEGRAM',   url: 'https://t.me/s/WalterBloomberg', format: 'telegram', lang: 'en',
-    linkTo: 'https://x.com/DeItaone' },
+    linkTo: 'https://x.com/DeItaone', translate: true },
   { source: 'PAP',   label: 'BIZNES',      url: 'https://pap-mediaroom.pl/kategoria/biznes-i-finanse/rss.xml' },
   { source: 'PAP',   label: 'NAUKA',       url: 'https://pap-mediaroom.pl/kategoria/nauka-i-technologie/rss.xml' },
   { source: 'PAP',   label: 'POLITYKA',    url: 'https://pap-mediaroom.pl/kategoria/polityka-i-społeczenstwo/rss.xml' },
@@ -102,7 +105,7 @@ export const SOURCE_INFO: Record<Source, { name: string; publisher: string; site
     name: 'Walter Bloomberg na Telegramie',
     publisher: 'Walter Bloomberg (@DeItaone)',
     site: 'https://t.me/s/WalterBloomberg',
-    about: 'Krótkie wiadomości z rynków na świecie, po angielsku, z publicznego kanału Walter Bloomberg na Telegramie (ten sam autor co @DeItaone w serwisie X). Czytane angielskim głosem. Każda wiadomość prowadzi do profilu autora w serwisie X (x.com/DeItaone). To niezależny kanał, niezwiązany z agencją Bloomberg.',
+    about: 'Krótkie wiadomości z rynków na świecie z publicznego kanału Walter Bloomberg na Telegramie (ten sam autor co @DeItaone w serwisie X). Autor pisze po angielsku; Szczekaczka pokazuje je domyślnie po polsku, w tłumaczeniu maszynowym (model AI Gemma 4 w Cloudflare Workers AI), które może zawierać błędy. Oryginał po angielsku, czytany angielskim głosem, można wybrać w ustawieniach. Każda wiadomość prowadzi do profilu autora w serwisie X (x.com/DeItaone). To niezależny kanał, niezwiązany z agencją Bloomberg.',
   },
   PAP: {
     name: 'PAP MediaRoom',

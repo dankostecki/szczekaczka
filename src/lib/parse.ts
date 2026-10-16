@@ -13,6 +13,9 @@ export interface NewsItem {
   source: string
   label: string
   say?: string    // what is read aloud when it differs from `description`, one part per line (MacroNext's stock calendar)
+  // The Polish translation of a channel in English (FeedConfig.translate, worker/translate.ts); null: the post could not be
+  // translated (shown as it is, not tried again)
+  pl?: { title: string; description: string } | null
 }
 
 const NAMED: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash: '–', mdash: '—', hellip: '…', bdquo: '„', rdquo: '”', ldquo: '“', oacute: 'ó', Oacute: 'Ó' }

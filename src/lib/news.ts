@@ -4,6 +4,7 @@ import { SOURCES, feedKey, labelsOf, type Source } from './sources'
 
 export interface Item extends NewsItem {
   time: number // ms since epoch, 0 = no date
+  translated?: boolean // shown in the Polish translation (NewsItem.pl), not as published
 }
 
 export interface FeedError { feed: string; message: string }
@@ -11,6 +12,18 @@ export interface FeedError { feed: string; message: string }
 export const withTime = (it: NewsItem): Item => ({ ...it, time: it.pubDate ? Date.parse(it.pubDate) : 0 })
 
 export const keyOf = (it: NewsItem) => feedKey(it.source, it.label)
+
+// The item as the page shows, reads and notifies it: a translated channel (FeedConfig.translate) in Polish, unless the
+// reader chose the original for it (prefs.originalFeeds) or the post has no translation (yet). Saving keeps the original
+// (originalOf), so that the choice can change later.
+const originals = new WeakMap<Item, Item>()
+export function inLanguage(it: Item, originalFeeds: string[]): Item {
+  if (!it.pl || originalFeeds.includes(keyOf(it))) return it
+  const shown: Item = { ...it, title: it.pl.title, description: it.pl.description, translated: true }
+  originals.set(shown, it)
+  return shown
+}
+export const originalOf = (it: Item): Item => originals.get(it) ?? it
 
 // "ESPI" for one-channel sources, "GPW · PRASA" otherwise
 export function tagOf(it: NewsItem): string {

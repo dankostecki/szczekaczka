@@ -33,6 +33,7 @@ function NewsRow({ item, now, read, saved, fresh, watched, onRead, onSave, onSpe
         {since && <span className="ago">· {since}</span>}
         {fresh && <span className="badge new">NOWE</span>}
         {watched && <span className="badge watch">obserwowana</span>}
+        {item.translated && <span className="badge tr" title="Tłumaczenie maszynowe (AI) z angielskiego. Oryginał można włączyć w ustawieniach.">tłumaczenie AI</span>}
         <span className="tools">
           {onSpeak && (
             <button className={`speak${speaking ? ' on' : ''}`} onClick={() => onSpeak(item)} aria-pressed={speaking}
