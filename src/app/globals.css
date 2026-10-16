@@ -527,6 +527,12 @@ body.reading { overflow: hidden; padding-right: var(--scrollbar, 0px); }
 .channels tr.off .dot { opacity: .4; }
 .channels th.lead { font-size: 12px; font-weight: 600; letter-spacing: .02em; }
 .channels th:not(:first-child), .channels td:not(:first-child) { width: 44px; }
+/* The column with the arrows that move a source up and down: two small buttons side by side */
+.channels th.order, .channels td.order { width: 60px; white-space: nowrap; }
+.channels th.order { opacity: .7; }
+.channels td.order button { display: inline-grid; place-items: center; width: 26px; height: 28px; border-radius: 7px; color: var(--text-2); transition: background-color .15s, color .15s; }
+.channels td.order button:hover:not(:disabled) { background: var(--border); color: var(--text); }
+.channels td.order button:disabled { opacity: .25; cursor: default; }
 .channels button.ch { width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .channels .chev { flex-shrink: 0; color: var(--text-3); transition: transform .15s; }
 .channels .chev.open { transform: rotate(90deg); }

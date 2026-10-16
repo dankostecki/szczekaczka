@@ -1,7 +1,7 @@
 'use client'
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { SOURCES, labelsOf, renamedId, renamedItem, sourceName, feedName, type Source } from '@/lib/sources'
+import { orderedSources, labelsOf, renamedId, renamedItem, sourceName, feedName, type Source } from '@/lib/sources'
 import type { NewsItem } from '@/lib/parse'
 import { type Item, type FeedError, freshItems, keyOf, dayKey, dayLabel, clock, withTime, inLanguage, originalOf } from '@/lib/news'
 import { connectLive, type LiveStatus } from '@/lib/live'
@@ -27,7 +27,6 @@ const FRESH_MS  = 10 * 60_000 // how long a new headline keeps its NOWE badge
 const TITLE = 'Szczekaczka'
 
 type Filter = 'ALL' | Source | 'SAVED'
-const FILTERS: Filter[] = ['ALL', ...SOURCES, 'SAVED']
 const filterName = (f: Filter) => (f === 'ALL' ? 'Wszystko' : f === 'SAVED' ? 'Zapisane' : sourceName(f))
 const filterColor = (f: Filter) => (f === 'ALL' || f === 'SAVED' ? undefined : `var(--src-${f.toLowerCase()})`)
 
@@ -270,7 +269,8 @@ export default function App() {
   const original = prefs.originalFeeds
   const shown = useMemo(() => items.filter((i) => !hidden.has(keyOf(i))).map((i) => inLanguage(i, original)), [items, hidden, original])
   const labelsShown = (src: Source) => labelsOf(src).filter((l) => !hidden.has(`${src}:${l}`))
-  const filters = FILTERS.filter((f) => f === 'ALL' || f === 'SAVED' || labelsShown(f).length > 0)
+  // the tabs: everything, the sources in the order the reader set in the settings, the saved
+  const filters = (['ALL', ...orderedSources(prefs.sourceOrder), 'SAVED'] as Filter[]).filter((f) => f === 'ALL' || f === 'SAVED' || labelsShown(f).length > 0)
   // A tab or channel chip whose channels were just hidden falls back to everything
   const activeFilter: Filter = filters.includes(filter) ? filter : 'ALL'
   const activeLabel = label && activeFilter !== 'ALL' && activeFilter !== 'SAVED' && !hidden.has(`${activeFilter}:${label}`) ? label : null

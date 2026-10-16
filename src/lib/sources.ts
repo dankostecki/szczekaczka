@@ -2,8 +2,23 @@
 
 export type Source = 'ESPI' | 'GPW' | 'STOOQ' | 'WALTER' | 'SEEKINGALPHA' | 'PAP' | 'MACRONEXT'
 
-// In this order: the tabs, the channels in settings and the sources on the about page
-export const SOURCES: Source[] = ['ESPI', 'STOOQ', 'WALTER', 'SEEKINGALPHA', 'MACRONEXT', 'PAP', 'GPW']
+// The default order of the tabs, the sources in settings and the sources on the about page; the reader can move the sources (prefs.sourceOrder)
+export const SOURCES: Source[] = ['ESPI', 'STOOQ', 'MACRONEXT', 'WALTER', 'SEEKINGALPHA', 'PAP', 'GPW']
+
+// The sources in the order the reader chose: those of `order` that exist, once each, then the ones it does not have (a source added since) in their default order
+export function orderedSources(order: readonly string[] | undefined): Source[] {
+  const chosen = [...new Set(order ?? [])].filter((s): s is Source => (SOURCES as string[]).includes(s))
+  return [...chosen, ...SOURCES.filter((s) => !chosen.includes(s))]
+}
+
+// One place up (-1) or down (1); the same order at the ends
+export function moveSource(order: readonly Source[], source: Source, by: -1 | 1): Source[] {
+  const from = order.indexOf(source), to = from + by
+  if (from < 0 || to < 0 || to >= order.length) return [...order]
+  const next = [...order]
+  ;[next[from], next[to]] = [next[to], next[from]]
+  return next
+}
 
 // The name of a source as the page writes it (the tabs, the tags, the settings), where it is not the key
 export const sourceName = (source: string): string => (source === 'SEEKINGALPHA' ? 'SEEKING ALPHA' : source)
