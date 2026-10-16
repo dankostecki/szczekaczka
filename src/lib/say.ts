@@ -1778,7 +1778,9 @@ export const sayPauses = (text: string) => markPauses(text).split(PAUSE_MARK).jo
 
 // ── Signs that are not said ──
 // Emoji and pictographs ("🚨", "🇺🇸", "©"), which voices name ("police car light"), and asterisks, which mark a headline or a
-// footnote ("*FED HOLDS RATES", "zysk netto*"): voices say "asterisk", "gwiazdka".
+// footnote ("*FED HOLDS RATES", "zysk netto*"): voices say "asterisk", "gwiazdka". An asterisk that opens a new line of a list (Walter Bloomberg
+// marks the lines of a post so, and the page joins the lines with a space: "…do 5,458% *Rentowność 2-letnich…") is a pause before the line, as
+// between the items of a list: the voice stops and starts again ("…do 5,458%;" a semicolon, which has that pause), a full stop or colon before it stays.
 // A cashtag, the "$" with the ticker of a company ("$ADBE"), is not read at all, in Polish or in English: "$NVDA - NVIDIA SHARES RISE 3%" is read
 // "NVIDIA SHARES RISE 3%", "$AAPL, $MSFT AND $GOOG FALL" "FALL". One at the start of a sentence takes the dash or colon after it with it; "$BRK.B" and "$NVDA's"
 // are cashtags too. The "$" of an amount ("$5 BILLION", "US$5 BLN") is not one and stays.
@@ -1793,8 +1795,10 @@ const dropCashtags = (text: string): string => {
   return out === text ? text : out.replace(/\(\s*\)|\[\s*\]/g, '').replace(/([.!?])[ \t]+\.(?![\p{L}\d.])/gu, '$1')
     .replace(/[ \t]{2,}/g, ' ').replace(/[ \t]+(?=[.,;:!?)])/g, '').trim()
 }
+const BULLET = /([\p{L}\p{N}%°)\]"”’'.,;:!?…])[ \t]+\*(?=[^\s*])/gu
 export const saySigns = (text: string) =>
   dropCashtags(text
+    .replace(BULLET, (m: string, before: string) => `${/[.;:!?…]/.test(before) ? before : before === ',' ? ';' : `${before};`} `)
     // between two words a space stays; at the start or the end, or before a full stop or a bracket, nothing
     .replace(NOT_SAID, (m: string, at: number, all: string) => (at === 0 || at + m.length === all.length || /[\s(]/.test(all[at - 1]) || /[\s.,:;!?)]/.test(all[at + m.length]) ? '' : ' ')))
 

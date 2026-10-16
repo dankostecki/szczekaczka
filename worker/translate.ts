@@ -22,6 +22,7 @@ Zasady:
 - Liczby po polsku: przecinek dziesiętny (0.3% → 0,3%); B lub BLN → mld, M lub MLN → mln, T lub TLN → bln, K → tys., BPS → pb; M/M → m/m, Y/Y → r/r, Q/Q → k/k. Kwoty w dolarach: $5B → 5 mld USD.
 - EST. lub EXP. (prognoza rynku) → „prognoza”, PREV. lub PRIOR → „poprzednio”.
 - Zachowaj układ: pierwsza linia to tytuł, kolejne linie (jeśli są) to dalszy ciąg; odpowiedz w tym samym układzie.
+- Znaki „*” i „-” na początku linii (punkty listy) zostaw na swoim miejscu.
 - Odpowiedz wyłącznie tłumaczeniem, bez cudzysłowów i bez dopisków.`
 
 const EXAMPLES: [en: string, pl: string][] = [
