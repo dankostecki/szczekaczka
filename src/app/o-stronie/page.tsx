@@ -25,9 +25,9 @@ export default function About() {
       <h2>Skąd są newsy</h2>
       <p>
         Wszystkie treści pochodzą z publicznych kanałów RSS i stron wymienionych niżej. Przy każdym newsie widać źródło
-        i kanał (np. „GPW · KOMUNIKATY”), a tytuł prowadzi do pełnej treści na stronie wydawcy. Szczekaczka pokazuje
-        tytuły i zajawki, czyli to, co kanał podaje obok tytułu; na liście widać ich początek, a ikona powiększenia przy
-        newsie otwiera okno z całą zajawką, w podziale na akapity i punkty, jeśli źródło go podaje. Nie zmienia ich treści
+        i kanał (np. „GPW · KOMUNIKATY”), a ikona linku prowadzi do pełnej treści na stronie wydawcy. Szczekaczka pokazuje
+        tytuły i zajawki, czyli to, co kanał podaje obok tytułu; na liście widać ich początek, a kliknięcie newsa otwiera
+        okno z całą zajawką, w podziale na akapity i punkty, jeśli źródło go podaje. Nie zmienia ich treści
         i nie dodaje własnych. Wyjątkiem są zapowiedzi MacroNext:
         Szczekaczka składa je z kalendarium danych makro (kraj, nazwa danych, okres, prognoza jako konsensus, poprzedni
         odczyt) i z kalendarium giełdowego (wydarzenia spółek, wyniki spółek z Nowego Jorku); prowadzą do kalendarium

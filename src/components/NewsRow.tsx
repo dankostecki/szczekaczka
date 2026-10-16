@@ -4,7 +4,7 @@ import { memo } from 'react'
 import { type Item, tagOf, clock, ago, fullDate } from '@/lib/news'
 import { itemLang } from '@/lib/lang'
 import { linkOf } from '@/lib/sources'
-import { Star, Speaker, Expand } from './Icons'
+import { Star, Speaker, External } from './Icons'
 
 interface Props {
   item: Item
@@ -16,7 +16,7 @@ interface Props {
   onRead: (id: string) => void
   onSave: (item: Item) => void
   onSpeak?: (item: Item) => void
-  onOpen?: (item: Item, button: DOMRect) => void // the whole lead in a window (Reader.tsx)
+  onOpen: (item: Item, origin: { x: number; y: number }) => void // the news in a window of its own (Reader.tsx), growing out of where it was clicked
   speaking?: boolean  // this headline is being read now
 }
 
@@ -36,10 +36,11 @@ function NewsRow({ item, now, read, saved, fresh, watched, onRead, onSave, onSpe
         {watched && <span className="badge watch">obserwowana</span>}
         {item.translated && <span className="badge tr" title="Tłumaczenie maszynowe (AI) z angielskiego. Oryginał można włączyć w ustawieniach.">tłumaczenie AI</span>}
         <span className="tools">
-          {onOpen && (item.body || item.description) && (
-            <button className="open" onClick={(e) => onOpen(item, e.currentTarget.getBoundingClientRect())} title="Pokaż cały tekst" aria-label="Pokaż cały tekst">
-              <Expand size={16} />
-            </button>
+          {link && (
+            <a className="open" href={link} target="_blank" rel="noopener noreferrer" title="Otwórz źródło" aria-label="Otwórz źródło"
+              onClick={() => onRead(item.id)} onAuxClick={() => onRead(item.id)}>
+              <External size={16} />
+            </a>
           )}
           {onSpeak && (
             <button className={`speak${speaking ? ' on' : ''}`} onClick={() => onSpeak(item)} aria-pressed={speaking}
@@ -52,10 +53,12 @@ function NewsRow({ item, now, read, saved, fresh, watched, onRead, onSave, onSpe
           </button>
         </span>
       </div>
-      {link
-        ? <a className="title" href={link} target="_blank" rel="noopener noreferrer"
-            lang={lang === 'pl' ? undefined : lang} onClick={() => onRead(item.id)} onAuxClick={() => onRead(item.id)}>{item.title}</a>
-        : <span className="title" lang={lang === 'pl' ? undefined : lang} onClick={() => onRead(item.id)}>{item.title}</span>}
+      {/* the whole tile opens the news in its window; the way to the source is the icon above */}
+      <button type="button" className="title" lang={lang === 'pl' ? undefined : lang} onClick={(e) => {
+        const box = e.currentTarget.getBoundingClientRect()
+        // where it was clicked or tapped; from the keyboard (no pointer) the middle of the title
+        onOpen(item, e.detail > 0 ? { x: e.clientX, y: e.clientY } : { x: box.left + box.width / 2, y: box.top + box.height / 2 })
+      }}>{item.title}</button>
       {item.description && <p className={`desc${item.source === 'MACRONEXT' ? ' whole' : ''}`} lang={lang === 'pl' ? undefined : lang}>{item.description}</p>}
     </article>
   )

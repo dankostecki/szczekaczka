@@ -1653,7 +1653,7 @@ export function sayMarkets(text: string): string {
 // "mBank" and "MBANK" -> "Embank", "mObywatel" -> "Emobywatel": a small "m" before a capital letter is the letter "em", the rest a word.
 // "PKO BP" and "PKO bp" are said letter by letter, "pe ka o be pe" (written "bp" a voice reads one word)
 // "BP", the oil company, is said the English way, "Bipi" ("BP ocenia polski rynek paliw", "stacje BP", "BP Polska"). Not where "BP" is something else:
-// the basis points after a small number ("o 25 BP"; a year, "w 2026 BP wypłaci", is not one), "Bank Polska" ("BNP Paribas BP" is said "be pe", like
+// the basis points after a small number ("o 25 BP" is "o 25 punktów bazowych"; a year, "w 2026 BP wypłaci", is not one), "Bank Polska" ("BNP Paribas BP" is said "be pe", like
 // "PKO BP"), the state budget ("deficyt BP", a sentence with the budget or the Ministry of Finance in it); "Bp" before a name is a bishop (titles-pl.ts)
 // Surnames that a voice reads by their spelling, not as they are said in Polish: "Merz" (the German chancellor) is "Merc", the endings
 // the name takes in Polish are kept ("Merza" is "Merca", "Merzowi" "Mercowi", "Merzem" "Mercem")
@@ -1666,6 +1666,8 @@ const M_BRANDS = /(?<![\p{L}\d])M(BANK|PAY|LEASING|OBYWATEL)(?![\p{L}\d])/gu
 function sentenceAround(all: string, at: number, length: number): string {
   return `${all.slice(0, at).match(/[^.!?]*$/)![0]}${all.slice(at + length).match(/^[^.!?]*/)![0]}`
 }
+// Basis points after a small number: "25 bp", "50 BP", "12,5 bps" are "pb", the unit the numbers go with ("25 punktów bazowych", "12,5 punktu bazowego")
+const BASIS_POINTS = /(?<![\p{L}\d.,])(\d{1,3}(?:[.,]\d+)?)\s?(?:bps?|BPS?)(?![\p{L}\d])/gu
 const OIL_BP = /(?<![\p{L}\d])BP(?![\p{L}\d])/gu
 const SMALL_NUMBER_BEFORE = /(?<![\d.,])\d{1,3}(?:[.,]\d+)?\s*$/u
 const STATE_BUDGET = /budżet|(?<![\p{L}\d])MF(?![\p{L}\d])|Ministerstw\p{L}*\s+Finans/iu
@@ -1676,6 +1678,7 @@ export const sayProperNames = (text: string) =>
     .replace(M_BRANDS, (m, brand: string) => `Em${brand === 'PAY' ? 'pej' : brand.toLowerCase()}`)
     .replace(/(?<![\p{L}\d])PKO\s?(?:BP|Bp|bp)(?![\p{L}\d])/gu, 'Pe ka o be pe')
     .replace(/(?<=(?<![\p{L}\d])BNP\s+(?:Paribas|PARIBAS)\s+)BP(?![\p{L}\d])/gu, 'be pe')
+    .replace(BASIS_POINTS, '$1 pb')
     .replace(OIL_BP, (m: string, at: number, all: string) => {
       return SMALL_NUMBER_BEFORE.test(all.slice(Math.max(0, at - 16), at)) || STATE_BUDGET.test(sentenceAround(all, at, m.length)) ? m : 'Bipi'
     })

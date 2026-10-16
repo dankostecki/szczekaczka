@@ -9,7 +9,7 @@ import { Close, Star, Speaker, External } from './Icons'
 
 interface Props {
   item: Item
-  origin: { x: number; y: number } | null // the button it opened from: the window grows out of it
+  origin: { x: number; y: number } | null // where it was opened from (the click on the news): the window grows out of it
   now: number
   saved: boolean
   speaking: boolean
@@ -72,7 +72,7 @@ export default function Reader({ item, origin, now, saved, speaking, onClose, on
     }
   }, [opener])
 
-  // The window grows out of the button: its centre in the window's own coordinates
+  // The window grows out of where it was clicked: that point in the window's own coordinates
   useLayoutEffect(() => {
     const el = panel.current
     if (!el || !origin) return
@@ -116,6 +116,7 @@ export default function Reader({ item, origin, now, saved, speaking, onClose, on
             <button className="reader-switch" onClick={() => setOriginal((o) => !o)}>{original ? 'Pokaż tłumaczenie' : 'Pokaż oryginał'}</button>
           )}
           <div className="reader-body" lang={lang === 'pl' ? undefined : lang}>
+            {blocks.length === 0 && <p className="reader-empty" style={line(n++)}>{link ? 'Źródło nie podaje zajawki. Cały tekst jest na jego stronie.' : 'Źródło nie podaje zajawki.'}</p>}
             {blocks.map((b, i) => b.t === 'h' ? <h3 key={i} style={line(n++)}>{b.text}</h3>
               : b.t === 'p' ? <p key={i} style={line(n++)}>{b.text}</p>
               : (
