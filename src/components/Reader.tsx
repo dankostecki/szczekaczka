@@ -30,6 +30,7 @@ export default function Reader({ item, origin, now, saved, speaking, onClose, on
   const [original, setOriginal] = useState(false) // a translation: the original beside it
   const [opener] = useState(() => document.activeElement)
   const panel = useRef<HTMLDivElement>(null)
+  const scroller = useRef<HTMLDivElement>(null)
   const timer = useRef<number | undefined>(undefined)
   const pressedOutside = useRef(false) // a click outside counts only if it also began outside (not the end of selecting text)
 
@@ -51,6 +52,58 @@ export default function Reader({ item, origin, now, saved, speaking, onClose, on
     const onKey = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); close() } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
+  }, [close])
+
+  // On a phone the window is pulled down to close it, as a sheet usually is: from the bar and the buttons, or from the text when it is at its top. It follows the
+  // finger, leaves when it is pulled far or fast enough, and comes back otherwise. The X, Esc and a click outside stay.
+  useEffect(() => {
+    const el = panel.current, overlay = el?.parentElement
+    if (!el || !overlay) return
+    const phone = window.matchMedia('(max-width: 560px)')
+    let start: { x: number; y: number; t: number; fromText: boolean } | null = null
+    let dragging = false, dy = 0
+    const onStart = (e: TouchEvent) => {
+      const t = e.touches[0]
+      start = phone.matches && e.touches.length === 1 && timer.current === undefined
+        ? { x: t.clientX, y: t.clientY, t: e.timeStamp, fromText: !!scroller.current?.contains(e.target as Node) } : null
+      dragging = false; dy = 0
+    }
+    const onMove = (e: TouchEvent) => {
+      if (!start) return
+      const t = e.touches[0]
+      const down = t.clientY - start.y
+      if (!dragging) {
+        if (down < -8 || (start.fromText && (scroller.current?.scrollTop ?? 0) > 0)) { start = null; return } // the text scrolls
+        if (down <= 0 || (Math.abs(t.clientX - start.x) > down && down < 10)) return
+        dragging = true
+        el.classList.add('touched')
+        el.style.transition = 'none'
+      }
+      e.preventDefault()
+      dy = Math.max(0, down)
+      el.style.transform = `translateY(${dy}px)`
+      overlay.style.setProperty('--drag', String(Math.min(1, dy / el.offsetHeight)))
+    }
+    const onEnd = (e: TouchEvent) => {
+      const s = start
+      start = null
+      if (!s || !dragging) return
+      dragging = false
+      if (dy > 110 || (dy > 30 && dy / Math.max(1, e.timeStamp - s.t) > 0.5)) { close(); return } // goes on from where it is (reader-sheet-out)
+      el.style.transition = 'transform 0.32s cubic-bezier(0.2, 0.9, 0.3, 1)'
+      el.style.transform = ''
+      overlay.style.setProperty('--drag', '0')
+    }
+    el.addEventListener('touchstart', onStart, { passive: true })
+    el.addEventListener('touchmove', onMove, { passive: false })
+    el.addEventListener('touchend', onEnd)
+    el.addEventListener('touchcancel', onEnd)
+    return () => {
+      el.removeEventListener('touchstart', onStart)
+      el.removeEventListener('touchmove', onMove)
+      el.removeEventListener('touchend', onEnd)
+      el.removeEventListener('touchcancel', onEnd)
+    }
   }, [close])
 
   // Focus does not leave the window (a click outside the text, a Tab from the page behind it)
@@ -100,6 +153,7 @@ export default function Reader({ item, origin, now, saved, speaking, onClose, on
       <div ref={panel} className="reader" role="dialog" aria-modal="true" aria-labelledby="reader-title" tabIndex={-1}
         style={{ ['--c' as string]: `var(--src-${item.source.toLowerCase()})` }} onKeyDown={trap}>
         <div className="reader-head">
+          <i className="reader-grip" />
           <div className="reader-meta">
             <span className="tag"><i className="dot" /><span>{tagOf(item)}</span></span>
             <time dateTime={item.pubDate || undefined} title={fullDate(item.time)}>{clock(item.time)}</time>
@@ -109,13 +163,12 @@ export default function Reader({ item, origin, now, saved, speaking, onClose, on
           <button className="reader-close" onClick={close} title="Zamknij" aria-label="Zamknij"><Close size={20} /></button>
         </div>
 
-        <div className="reader-scroll">
+        <div ref={scroller} className="reader-scroll">
           <h2 id="reader-title" className="reader-title" lang={lang === 'pl' ? undefined : lang} style={line(n++)}>{shown.title}</h2>
           {item.translated && (
             <button className="reader-switch" onClick={() => setOriginal((o) => !o)}>{original ? 'Pokaż tłumaczenie' : 'Pokaż oryginał'}</button>
           )}
           <div className="reader-body" lang={lang === 'pl' ? undefined : lang}>
-            {blocks.length === 0 && <p className="reader-empty" style={line(n++)}>{link ? 'Źródło nie podaje zajawki. Cały tekst jest na jego stronie.' : 'Źródło nie podaje zajawki.'}</p>}
             {blocks.map((b, i) => b.t === 'h' ? <h3 key={i} style={line(n++)}>{b.text}</h3>
               : b.t === 'p' ? <p key={i} style={line(n++)}>{b.text}</p>
               : (
