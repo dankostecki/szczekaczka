@@ -32,10 +32,10 @@ const EXAMPLES: [en: string, pl: string][] = [
   ['TRUMP: WE WILL IMPOSE 25% TARIFFS ON $50B OF CHINESE IMPORTS', 'Trump: nałożymy 25% cła na import z Chin o wartości 50 mld USD'],
 ]
 
-type Text = { title: string; description: string }
+type Text = { title: string; description: string; body?: string }
 
-// What the model is given: the title, and the lead on the next line
-export const sourceText = (it: Text) => (it.description ? `${it.title}\n${it.description}` : it.title)
+// What the model is given: the title, and the lead on the next line; a post with lines (a list) in the lines it has them, so that the translation keeps them
+export const sourceText = (it: Text) => (it.body ? `${it.title}\n${it.body}` : it.description ? `${it.title}\n${it.description}` : it.title)
 
 // The model's answer as a title and a lead, or null when it is not a translation (empty, or far longer than the post)
 export function readTranslation(out: string | null | undefined, src: Text): Text | null {
@@ -46,7 +46,8 @@ export function readTranslation(out: string | null | undefined, src: Text): Text
   const [title, ...rest] = src.description ? lines : [lines.join(' ')]
   const description = rest.join(' ')
   if (title.length + description.length > 3 * (src.title.length + src.description.length) + 200) return null
-  return { title, description }
+  // The lines of the lead go on being lines where the post had them
+  return { title, description, ...(src.body && rest.length > 1 ? { body: rest.join('\n') } : {}) }
 }
 
 type Done = { pl?: Text | null; error?: string; tokensIn: number; tokensOut: number }

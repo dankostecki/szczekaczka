@@ -13,9 +13,12 @@ export interface NewsItem {
   source: string
   label: string
   say?: string    // what is read aloud when it differs from `description`, one part per line (MacroNext's stock calendar)
+  // The lead as the reading window shows it (Reader.tsx, lib/body.ts): one line per paragraph, a list item as "- text", a subheading as
+  // "## text". Only where it says more than `description` (several lines, or a lead cut short there); `description` is the same text as one line
+  body?: string
   // The Polish translation of a channel in English (FeedConfig.translate, worker/translate.ts); null: the post could not be
   // translated (shown as it is, not tried again)
-  pl?: { title: string; description: string } | null
+  pl?: { title: string; description: string; body?: string } | null
 }
 
 const NAMED: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash: '–', mdash: '—', hellip: '…', bdquo: '„', rdquo: '”', ldquo: '“', oacute: 'ó', Oacute: 'Ó' }
@@ -37,6 +40,16 @@ export const cleanText = (html: string) =>
     .replace(/<\/?(?:b|i|em|strong|span|a|u|small|sup|sub|font)\b[^>]*>/gi, '')
     .replace(/<br\s*\/?>/gi, ' ')
     .replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim()
+
+// The lines of a lead: a paragraph, a break or a list item (as "- text") starts a new one, the rest as in cleanText
+const NEW_LINE = '\u0001'
+export const cleanBlocks = (html: string): string[] =>
+  decodeEntities(html
+    .replace(/<\/?(?:b|i|em|strong|span|a|u|small|sup|sub|font)\b[^>]*>/gi, '')
+    .replace(/<li\b[^>]*>/gi, `${NEW_LINE}- `)
+    .replace(/<br\s*\/?>|<\/(?:p|div|li|ul|ol|h[1-6]|tr|table|blockquote)>|<(?:p|div|ul|ol|h[1-6]|tr|table|blockquote)\b[^>]*>/gi, NEW_LINE)
+    .replace(/<[^>]+>/g, ' '))
+    .split(NEW_LINE).map((l) => l.replace(/\s+/g, ' ').trim()).filter((l) => l && l !== '-')
 
 // Offset of Europe/Warsaw from UTC at a given moment, in ms
 // Creating an Intl formatter is slow (a fraction of a millisecond, for every date of
@@ -142,14 +155,33 @@ function absolute(link: string, base: string): string {
 // Only the start of a lead is kept (~500 characters), so long press releases in the feed
 // are not cleaned in full: that would cost CPU for text that is thrown away
 const MAX_RAW_LEAD = 4000
+// What the row shows of a lead (the server cuts `description` here), and how much of it the reading window gets
+export const MAX_LEAD = 500
+const MAX_BODY = 3000
+const BLOCK_TAG = /<(?:br|p|li|div|h[1-6])\b/i
+
+// The lines of a lead as one text, cut at a line (or a word) when it is too long
+export function joinBody(lines: string[], max = MAX_BODY): string {
+  const text = lines.join('\n')
+  if (text.length <= max) return text
+  const cut = text.slice(0, max)
+  return `${cut.slice(0, Math.max(cut.lastIndexOf('\n'), cut.lastIndexOf(' '), max - 200))}…`
+}
 
 function makeItem(feed: FeedConfig, title: string, link: string, description: string, date: string): NewsItem {
   const raw = description.length > MAX_RAW_LEAD ? description.slice(0, MAX_RAW_LEAD).replace(/<[^>]*$/, '') : description
   const desc = cleanText(raw)
+  // The reading window shows the lines of the lead; with no break in it, only a lead the row cuts short has more to show
+  let body = ''
+  if (desc !== title && (desc.length > MAX_LEAD || BLOCK_TAG.test(raw))) {
+    const lines = cleanBlocks(raw)
+    if (lines.length > 1 || desc.length > MAX_LEAD) body = joinBody(lines)
+  }
   return {
     id: `${feed.source}:${feed.label}:${link || title}`,
     title, link,
     description: desc === title ? '' : desc,
+    ...(body ? { body } : {}),
     pubDate: parseDate(date),
     source: feed.source,
     label: feed.label,
@@ -286,7 +318,8 @@ export function parseTelegram(html: string, feed: FeedConfig, limit = Infinity):
     if (!lines.length) return
     const date = (block.match(/class="tgme_widget_message_date\b[\s\S]*?<time\b[^>]*\bdatetime="([^"]+)"/) ?? block.match(/<time\b[^>]*\bdatetime="([^"]+)"/))?.[1] ?? ''
     const item = makeItem(feed, lines[0], `https://t.me/${channel}/${id}`, '', date)
-    items.push({ ...item, description: lines.slice(1).join(' ') })
+    // The lines after the title are the lead; as a list in the reading window (a post of a title and one line has no more to show)
+    items.push({ ...item, description: lines.slice(1).join(' '), ...(lines.length > 2 ? { body: joinBody(lines.slice(1)) } : {}) })
   })
   return items.slice(-limit)
 }

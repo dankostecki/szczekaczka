@@ -311,6 +311,115 @@ a.title:focus-visible { outline: none; }
   background: var(--bg-soft); animation: pulse 1.5s ease-in-out infinite;
 }
 
+/* ── Reading window: the whole lead of a news (components/Reader.tsx) ──────
+   On a computer it grows out of the button it was opened with and settles with a small overshoot; on a phone it is a sheet that slides up from
+   the bottom. The lines of the text come in one after another. Leaving is quicker than coming. Only the text inside scrolls. */
+body.reading { overflow: hidden; padding-right: var(--scrollbar, 0px); }
+.reader-overlay {
+  position: fixed; inset: 0; z-index: 22;
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: rgba(8, 8, 12, 0.42);
+  -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px);
+  animation: reader-fade 0.22s ease-out both;
+}
+.reader-overlay[data-closing] { animation: reader-fade-out 0.2s ease-in both; }
+.reader {
+  display: flex; flex-direction: column; width: min(680px, 100%); max-height: min(86dvh, 780px);
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: 18px; overflow: hidden; outline: none;
+  box-shadow: var(--shadow), 0 2px 8px rgba(0, 0, 0, 0.08);
+  transform-origin: var(--ox, 50%) var(--oy, 50%);
+  animation: reader-in 0.36s cubic-bezier(0.2, 0.9, 0.25, 1.05) both;
+}
+.reader-overlay[data-closing] .reader { animation: reader-out 0.2s cubic-bezier(0.4, 0, 1, 1) both; }
+
+.reader-head {
+  position: relative; flex: none; display: flex; align-items: center; gap: 10px;
+  padding: 10px 10px 8px 20px; border-top: 3px solid var(--c);
+}
+.reader-grip { display: none; position: absolute; top: 7px; left: 50%; width: 38px; height: 4px; margin-left: -19px; border-radius: 2px; background: var(--border-strong); }
+.reader-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; min-width: 0; font-size: 13px; color: var(--text-2); }
+.reader-meta .ago { color: var(--text-3); }
+.reader-close {
+  flex: none; margin-left: auto; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 11px; color: var(--text-2);
+  transition: background-color 0.15s, color 0.15s, transform 0.2s;
+}
+.reader-close:hover { background: var(--hover); color: var(--text); transform: rotate(90deg); }
+
+.reader-scroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  padding: 2px 20px 22px;
+  /* a soft edge shows where more text runs under the bar or the buttons */
+  background:
+    linear-gradient(var(--surface) 30%, transparent) 0 0 / 100% 26px no-repeat local,
+    linear-gradient(transparent, var(--surface) 70%) 0 100% / 100% 26px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, var(--reader-edge), transparent) 0 0 / 100% 10px no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, var(--reader-edge), transparent) 0 100% / 100% 10px no-repeat scroll;
+}
+.reader { --reader-edge: rgba(0, 0, 0, 0.13); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .reader { --reader-edge: rgba(0, 0, 0, 0.5); } }
+:root[data-theme="dark"] .reader { --reader-edge: rgba(0, 0, 0, 0.5); }
+
+.reader-title { margin: 6px 0 14px; font-size: 21px; line-height: 1.3; font-weight: 700; letter-spacing: -0.012em; text-wrap: balance; overflow-wrap: anywhere; }
+.reader-switch {
+  height: 28px; margin: -4px 0 12px; padding: 0 11px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 12.5px; font-weight: 500; color: var(--text-2); transition: background-color 0.15s, color 0.15s;
+}
+.reader-switch:hover { background: var(--hover); color: var(--text); }
+.reader-body { overflow-wrap: anywhere; }
+.reader-body p { margin: 0 0 12px; font-size: 16px; line-height: 1.65; }
+.reader-body h3 { margin: 20px 0 6px; font-size: 12.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+.reader-list { margin: 0 0 8px; padding: 0; list-style: none; }
+.reader-list li { position: relative; padding: 10px 0 10px 20px; border-bottom: 1px solid var(--border); font-size: 15.5px; line-height: 1.55; }
+.reader-list li:last-child { border-bottom: 0; }
+.reader-list li::before { content: ""; position: absolute; left: 3px; top: 1.1em; width: 7px; height: 7px; border-radius: 50%; background: var(--c); opacity: 0.85; }
+.reader-list .lab { font-weight: 600; }
+.reader-figs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.reader-fig {
+  padding: 2px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-soft);
+  font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.5;
+}
+.reader-fig em { font-style: normal; font-weight: 500; color: var(--text-3); }
+.reader-title, .reader-body > *, .reader-list > li { animation: reader-line 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both; animation-delay: calc(0.12s + min(var(--i, 0), 12) * 32ms); }
+.reader-body > ul { animation: none; }
+.reader-overlay[data-closing] .reader-title, .reader-overlay[data-closing] .reader-body > *, .reader-overlay[data-closing] .reader-list > li { animation: none; }
+
+.reader-foot { flex: none; display: flex; align-items: center; gap: 8px; padding: 12px 12px 14px 20px; border-top: 1px solid var(--border); background: var(--surface); }
+.reader-open {
+  display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 11px;
+  background: var(--accent); color: #fff; font-size: 14.5px; font-weight: 600; text-decoration: none;
+  transition: filter 0.15s, transform 0.15s;
+}
+.reader-open:hover { filter: brightness(1.07); }
+.reader-open:active { transform: scale(0.97); }
+.reader-tools { margin-left: auto; display: flex; gap: 4px; }
+.reader-tools button { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 11px; color: var(--text-3); transition: background-color 0.15s, color 0.15s; }
+.reader-tools button:hover { background: var(--border); color: var(--text); }
+.reader-tools .save.on { color: #f5a524; }
+.reader-tools .speak.on { color: var(--accent); background: var(--accent-soft); }
+.reader button:focus-visible, .reader a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+@keyframes reader-fade { from { opacity: 0; } }
+@keyframes reader-fade-out { to { opacity: 0; } }
+@keyframes reader-in { from { opacity: 0; transform: translateY(12px) scale(0.78); } }
+@keyframes reader-out { to { opacity: 0; transform: translateY(6px) scale(0.9); } }
+@keyframes reader-sheet-in { from { transform: translateY(100%); } }
+@keyframes reader-sheet-out { to { transform: translateY(100%); } }
+@keyframes reader-line { from { opacity: 0; transform: translateY(9px); } }
+
+@media (max-width: 560px) {
+  .reader-overlay { align-items: flex-end; padding: 0; }
+  .reader {
+    width: 100%; max-height: 92dvh; border-radius: 22px 22px 0 0; border-bottom: 0;
+    animation: reader-sheet-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .reader-overlay[data-closing] .reader { animation: reader-sheet-out 0.22s cubic-bezier(0.4, 0, 1, 1) both; }
+  .reader-head { padding-top: 18px; }
+  .reader-grip { display: block; }
+  .reader-foot { padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+  .reader-title { font-size: 20px; }
+}
+
 /* ── Settings panel ────────────────────────────────────────────────────── */
 .overlay {
   position: fixed; inset: 0; z-index: 20;

@@ -19,7 +19,7 @@ export const keyOf = (it: NewsItem) => feedKey(it.source, it.label)
 const originals = new WeakMap<Item, Item>()
 export function inLanguage(it: Item, originalFeeds: string[]): Item {
   if (!it.pl || originalFeeds.includes(keyOf(it))) return it
-  const shown: Item = { ...it, title: it.pl.title, description: it.pl.description, translated: true }
+  const shown: Item = { ...it, title: it.pl.title, description: it.pl.description, body: it.pl.body, translated: true }
   originals.set(shown, it)
   return shown
 }

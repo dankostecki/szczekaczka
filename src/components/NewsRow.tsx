@@ -4,7 +4,7 @@ import { memo } from 'react'
 import { type Item, tagOf, clock, ago, fullDate } from '@/lib/news'
 import { itemLang } from '@/lib/lang'
 import { linkOf } from '@/lib/sources'
-import { Star, Speaker } from './Icons'
+import { Star, Speaker, Expand } from './Icons'
 
 interface Props {
   item: Item
@@ -16,10 +16,11 @@ interface Props {
   onRead: (id: string) => void
   onSave: (item: Item) => void
   onSpeak?: (item: Item) => void
+  onOpen?: (item: Item, button: DOMRect) => void // the whole lead in a window (Reader.tsx)
   speaking?: boolean  // this headline is being read now
 }
 
-function NewsRow({ item, now, read, saved, fresh, watched, onRead, onSave, onSpeak, speaking = false }: Props) {
+function NewsRow({ item, now, read, saved, fresh, watched, onRead, onSave, onSpeak, onOpen, speaking = false }: Props) {
   const since = ago(item.time, now)
   const lang = itemLang(item)
   const link = linkOf(item)
@@ -35,6 +36,11 @@ function NewsRow({ item, now, read, saved, fresh, watched, onRead, onSave, onSpe
         {watched && <span className="badge watch">obserwowana</span>}
         {item.translated && <span className="badge tr" title="Tłumaczenie maszynowe (AI) z angielskiego. Oryginał można włączyć w ustawieniach.">tłumaczenie AI</span>}
         <span className="tools">
+          {onOpen && (item.body || item.description) && (
+            <button className="open" onClick={(e) => onOpen(item, e.currentTarget.getBoundingClientRect())} title="Pokaż cały tekst" aria-label="Pokaż cały tekst">
+              <Expand size={16} />
+            </button>
+          )}
           {onSpeak && (
             <button className={`speak${speaking ? ' on' : ''}`} onClick={() => onSpeak(item)} aria-pressed={speaking}
               title={speaking ? 'Zatrzymaj czytanie' : 'Przeczytaj na głos'}>

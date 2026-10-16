@@ -93,7 +93,7 @@ export default function PrivacyPolicy() {
           </tr>
           <tr>
             <td><code>szczekaczka:saved</code></td>
-            <td>Newsy zapisane na później: tytuł, zajawka, link, źródło i data.</td>
+            <td>Newsy zapisane na później: tytuł, zajawka (w całości, z podziałem na akapity i punkty, jeśli źródło go podaje), link, źródło i data.</td>
             <td>Do czasu usunięcia</td>
           </tr>
           <tr>
