@@ -108,7 +108,9 @@ export async function checkMacro(feed: FeedConfig, prev: FeedState | undefined, 
     const minutes = Math.min(LEAD_MINUTES, Math.ceil((g.at - now) / 60_000))
     // MacroNext's page for today. The day and time after "#" make each link different, or the
     // list would keep one announcement only. The lead is the data; speeches are named in the title.
-    add.push({ id: g.id, title: groupTitle(g, minutes), description: g.lines.join(' '), ...(g.say ? { say: g.say.join('\n') } : {}),
+    add.push({ id: g.id, title: groupTitle(g, minutes), description: g.lines.join(' '),
+      // the reading window shows the rows as a list
+      ...(g.lines.length ? { body: g.lines.map((l) => `- ${l}`).join('\n') } : {}), ...(g.say ? { say: g.say.join('\n') } : {}),
       link: `${feed.url}#${g.day}${g.allDay ? '' : `-${clock(g.at)}`}`,
       pubDate: new Date(now).toISOString(), source: feed.source, label: feed.label })
   }

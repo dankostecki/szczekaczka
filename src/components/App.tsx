@@ -14,6 +14,7 @@ import { useNewVersion } from '@/lib/version'
 import { AUTHOR } from '@/lib/site'
 import NewsRow from './NewsRow'
 import Settings from './Settings'
+import Reader from './Reader'
 import PrivacyNotice from './PrivacyNotice'
 import ScrollRow from './ScrollRow'
 import { SiteFooter } from './LegalPage'
@@ -74,6 +75,7 @@ export default function App() {
   const [saved,     setSaved]     = useState<Item[]>([])
   const [freshAt,   setFreshAt]   = useState<Record<string, number>>({})
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [reader,   setReader]   = useState<{ item: Item; origin: { x: number; y: number } } | null>(null) // the whole lead in a window
   const [unseen,    setUnseen]    = useState(0) // new headlines while the tab was hidden
   const [systemDark, setSystemDark] = useState(false)
   const [now,       setNow]       = useState(() => Date.now())
@@ -236,6 +238,12 @@ export default function App() {
     })
   }, [])
   const closeSettings = useCallback(() => setSettingsOpen(false), [])
+  // The window with the whole text opens out of its button and counts as reading the news
+  const openReader = useCallback((it: Item, button: DOMRect) => {
+    markRead(it.id)
+    setReader({ item: it, origin: { x: button.left + button.width / 2, y: button.top + button.height / 2 } })
+  }, [markRead])
+  const closeReader = useCallback(() => setReader(null), [])
   function clearRead()  { setReadIds(new Set()); saveJson(READ_KEY, []) }
   function clearSaved() { setSaved([]); saveJson(SAVED_KEY, []) }
 
@@ -243,7 +251,7 @@ export default function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName
-      if (e.key !== '/' || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (e.key !== '/' || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.body.classList.contains('reading')) return
       e.preventDefault()
       searchRef.current?.focus()
     }
@@ -411,7 +419,7 @@ export default function App() {
               {newDay && <h2 className="day">{dayLabel(it.time, now)}</h2>}
               <NewsRow item={it} now={now} read={read} saved={savedIds.has(it.id)} fresh={fresh}
                 watched={it.source === 'ESPI' && watched(`${it.title} ${it.description}`)}
-                onRead={markRead} onSave={toggleSaved} onSpeak={canSpeak ? readAloud : undefined} speaking={speakingId === it.id} />
+                onRead={markRead} onSave={toggleSaved} onSpeak={canSpeak ? readAloud : undefined} onOpen={openReader} speaking={speakingId === it.id} />
             </Fragment>
           )
         })}
@@ -426,6 +434,15 @@ export default function App() {
           <button className="btn" onClick={reload}>Odśwież</button>
         </div>
       )}
+
+      {reader && (() => {
+        // the news as the list has it now (a fresher text, or the translation switched on), else as it was opened
+        const it = visible.find((i) => i.id === reader.item.id) ?? reader.item
+        return (
+          <Reader key={reader.item.id} item={it} origin={reader.origin} now={now} saved={savedIds.has(it.id)} speaking={speakingId === it.id}
+            onClose={closeReader} onSave={toggleSaved} onSpeak={canSpeak ? readAloud : undefined} />
+        )
+      })()}
 
       {settingsOpen && (
         <Settings

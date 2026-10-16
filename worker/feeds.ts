@@ -1,5 +1,5 @@
 // Checking one feed: download it if it changed, parse it, and say what is new.
-import { decodeBody, parseFeedXml, bankierListSection, parseBankierList, parseTelegram, type NewsItem } from '../src/lib/parse'
+import { decodeBody, parseFeedXml, bankierListSection, parseBankierList, parseTelegram, MAX_LEAD, type NewsItem } from '../src/lib/parse'
 import type { FeedConfig } from '../src/lib/sources'
 import type { MacroGroup } from '../src/lib/macronext'
 
@@ -34,12 +34,11 @@ export interface CheckResult {
 // however old they are; entries without a date go when they leave the feed.
 const KEEP_MS = 24 * 3600_000
 const MAX_KEEP = 500 // per channel (ESPI publishes a few hundred reports a day)
-// Keep messages small: the page shows two lines of the lead and reads at most ~400 characters
+// Keep messages small: the row shows two lines of the lead and the reading window the lines of it where it has them (`body`, at most ~3000 characters)
 const MAX_PER_FEED = 100
 // A huge feed (whole articles in every item) is cut: only its start, with the newest items,
 // is parsed, so that one check stays within the CPU limit (512 KB: about 3 ms)
 const MAX_XML_CHARS = 512 * 1024
-const MAX_LEAD = 500
 function shorten(text: string): string {
   if (text.length <= MAX_LEAD) return text
   const cut = text.slice(0, MAX_LEAD)
@@ -48,8 +47,8 @@ function shorten(text: string): string {
 
 // Raise this whenever parsing changes (dates, leads…): every feed is then downloaded and
 // read again once, even if it has not changed, so stored items get the new reading.
-// 2: PAP MediaRoom dates ("czw., 10/08/2026 - 16:22").
-export const PARSER_VERSION = 2
+// 2: PAP MediaRoom dates ("czw., 10/08/2026 - 16:22"); 3: the lines of a lead for the reading window (`body`).
+export const PARSER_VERSION = 3
 
 // How long to wait for a source. Waiting costs no CPU, only delays the other channels.
 export const TIMEOUT_S = 15
@@ -93,13 +92,13 @@ const bareLink = (link: string) => link.replace(/[?#].*$/, '')
 
 // Leads for a list page, from an RSS feed that has some of its entries (by link); its entries are
 // also the fallback when the list page fails. null when the feed could not be read this time.
-async function fetchLeads(url: string, feed: FeedConfig): Promise<{ body: string; items: NewsItem[]; byLink: Map<string, string> } | null> {
+async function fetchLeads(url: string, feed: FeedConfig): Promise<{ body: string; items: NewsItem[]; byLink: Map<string, { description: string; body?: string }> } | null> {
   try {
     const res = await fetch(url, { headers: { ...HEADERS, Accept: RSS_ACCEPT }, signal: AbortSignal.timeout(TIMEOUT_S * 1000) })
     if (!res.ok) return null
     const body = decodeBody(await res.arrayBuffer(), res.headers.get('content-type')).slice(0, MAX_XML_CHARS)
     const items = parseFeedXml(body, feed, MAX_PER_FEED)
-    return { body, items, byLink: new Map(items.map((i) => [bareLink(i.link), i.description])) }
+    return { body, items, byLink: new Map(items.map((i) => [bareLink(i.link), { description: i.description, ...(i.body ? { body: i.body } : {}) }])) }
   } catch { return null }
 }
 
@@ -179,8 +178,10 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
     const entries = section !== null ? parseBankierList(section, feed, MAX_PER_FEED) : leads!.items
     parsed = entries.map((i) => {
       const was = stored.get(bareLink(i.link))
-      const lead = leads?.byLink.get(bareLink(i.link)) || (was?.description ?? '')
-      return { ...i, id: was?.id ?? i.id, description: lead }
+      const found = leads?.byLink.get(bareLink(i.link))
+      // the lead of the RSS, or the one kept from before
+      const lead = found?.description ? found : was ? { description: was.description, body: was.body } : { description: '', body: undefined }
+      return { ...i, id: was?.id ?? i.id, description: lead.description, ...(lead.body ? { body: lead.body } : {}) }
     })
   } else {
     const full = decodeBody(buf, res.headers.get('content-type'))
@@ -199,13 +200,13 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
       const b = before.get(it.id)
       const description = shorten(it.description)
       // A translation (translate.ts) stays while the text it was made from is the same
-      const pl = b?.pl !== undefined && b.title === it.title && b.description === description ? { pl: b.pl } : {}
+      const pl = b?.pl !== undefined && b.title === it.title && b.description === description && b.body === it.body ? { pl: b.pl } : {}
       return { ...it, description, pubDate: b?.pubDate && !reread ? b.pubDate : it.pubDate, ...pl }
     })
     // New ids, and items whose title or lead was corrected (or their date, after a parser change)
     const add = fresh.filter((i) => {
       const b = before.get(i.id)
-      return !b || b.title !== i.title || b.description !== i.description || b.pubDate !== i.pubDate
+      return !b || b.title !== i.title || b.description !== i.description || b.body !== i.body || b.pubDate !== i.pubDate
     })
     const merged = new Map(old.items.map((i) => [i.id, i]))
     for (const i of fresh) merged.set(i.id, i)
