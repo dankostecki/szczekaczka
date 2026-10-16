@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { FEEDS, SOURCES, HAS_ENGLISH, feedKey, type Source } from '@/lib/sources'
+import { FEEDS, SOURCES, HAS_ENGLISH, feedKey, sourceName, type Source } from '@/lib/sources'
 import type { Prefs, Theme } from '@/lib/prefs'
 import { polishVoices, voicesFor, pickVoice, speak, stopSpeaking, voiceLabel, isAppleMobile } from '@/lib/speech'
 import { playChime, unlockChime, chimeSupported } from '@/lib/chime'
@@ -183,11 +183,11 @@ export default function Settings(p: Props) {
                         {many ? (
                           <button className="ch" onClick={() => toggleOpen(src)} aria-expanded={expanded}
                             title={expanded ? 'Zwiń kanały' : 'Rozwiń kanały'}>
-                            <Chevron open={expanded} /><i className="dot" />{src}<span className="n">{count}</span>
+                            <Chevron open={expanded} /><i className="dot" />{sourceName(src)}<span className="n">{count}</span>
                           </button>
-                        ) : <span className="ch"><span className="chev-space" /><i className="dot" />{src}<span className="n">{count}</span></span>}
+                        ) : <span className="ch"><span className="chev-space" /><i className="dot" />{sourceName(src)}<span className="n">{count}</span></span>}
                       </td>
-                      <ChannelBoxes keys={keys} name={src} prefs={prefs} onChange={onChange} />
+                      <ChannelBoxes keys={keys} name={sourceName(src)} prefs={prefs} onChange={onChange} />
                     </tr>
                     {expanded && feeds.map((f) => {
                       const key = feedKey(f.source, f.label)
@@ -195,7 +195,7 @@ export default function Settings(p: Props) {
                         <tr key={key} className={`sub${prefs.hiddenFeeds.includes(key) ? ' off' : ''}`}
                           style={{ ['--c' as string]: `var(--src-${src.toLowerCase()})` }}>
                           <td><span className="ch">{f.label}<span className="n">{p.counts[key] ?? 0}</span></span></td>
-                          <ChannelBoxes keys={[key]} name={`${src} · ${f.label}`} prefs={prefs} onChange={onChange} />
+                          <ChannelBoxes keys={[key]} name={`${sourceName(src)} · ${f.label}`} prefs={prefs} onChange={onChange} />
                         </tr>
                       )
                     })}
@@ -213,9 +213,9 @@ export default function Settings(p: Props) {
             const original = prefs.originalFeeds.includes(key)
             return (
               <div key={key} className="voice-pick">
-                <span>Język: {f.source}</span>
+                <span>Język: {sourceName(f.source)}</span>
                 <div>
-                  <select value={original ? 'original' : 'pl'} aria-label={`Język: ${f.source}`}
+                  <select value={original ? 'original' : 'pl'} aria-label={`Język: ${sourceName(f.source)}`}
                     onChange={(e) => onChange({ originalFeeds: e.target.value === 'original'
                       ? [...new Set([...prefs.originalFeeds, key])] : prefs.originalFeeds.filter((k) => k !== key) })}>
                     <option value="pl">po polsku (tłumaczenie AI)</option>
@@ -227,7 +227,7 @@ export default function Settings(p: Props) {
           })}
           {FEEDS.some((f) => f.translate) && (
             <p className="hint">
-              Wiadomości Waltera Bloomberga są po angielsku. Po polsku pokazuje je tłumaczenie maszynowe (AI), które może
+              Wiadomości Waltera Bloomberga i Seeking Alpha są po angielsku. Po polsku pokazuje je tłumaczenie maszynowe (AI), które może
               zawierać błędy; czyta je wtedy polski głos. Wiadomość, której nie udało się przetłumaczyć, jest po angielsku.
             </p>
           )}
@@ -389,7 +389,7 @@ export default function Settings(p: Props) {
 
         <p className="foot">
           Szczekaczka by <a href={AUTHOR.url} target="_blank" rel="noopener noreferrer">{AUTHOR.name}</a>.
-          Źródła: <Link href="/o-stronie">Bankier.pl (ESPI/EBI), GPW, Stooq, Walter Bloomberg (Telegram), PAP MediaRoom, MacroNext</Link>.
+          Źródła: <Link href="/o-stronie">Bankier.pl (ESPI/EBI), GPW, Stooq, Walter Bloomberg (Telegram), Seeking Alpha, PAP MediaRoom, MacroNext</Link>.
         </p>
       </aside>
     </div>

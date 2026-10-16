@@ -1,5 +1,5 @@
 // User settings, kept in this browser (localStorage).
-import { FEED_KEYS, renamedKey } from './sources'
+import { FEED_KEYS, QUIET_FEED_KEYS, renamedKey } from './sources'
 
 export type Theme = 'system' | 'light' | 'dark'
 
@@ -32,8 +32,8 @@ export const DEFAULT_PREFS: Prefs = {
   chime: true,
   maxPerRefresh: 0,
   hiddenFeeds: [],
-  speakFeeds: FEED_KEYS,
-  notifyFeeds: FEED_KEYS,
+  speakFeeds: FEED_KEYS.filter((k) => !QUIET_FEED_KEYS.includes(k)),
+  notifyFeeds: FEED_KEYS.filter((k) => !QUIET_FEED_KEYS.includes(k)),
   // Titles only, but MacroNext's announcements: their "lead" is the figures, the companies
   leadFeeds: ['MACRONEXT:MAKRO', 'MACRONEXT:GIEŁDA'],
   knownFeeds: FEED_KEYS,
@@ -67,14 +67,14 @@ export function loadPrefs(): Prefs {
     // cleaned settings are written back so nothing about them stays in the browser
     const existing = (list: string[]) => list.filter((k) => FEED_KEYS.includes(k))
     // A channel added since the settings were saved starts like for a new visitor: read aloud and
-    // notified, with its lead if new visitors have it
+    // notified (unless it is a quiet one), with its lead if new visitors have it
     const known = saved.knownFeeds ?? KNOWN_BEFORE.map(renamedKey)
     const added = FEED_KEYS.filter((k) => !known.includes(k))
     const cleaned: Prefs = {
       ...p, hiddenFeeds: existing(p.hiddenFeeds), originalFeeds: existing(p.originalFeeds), knownFeeds: FEED_KEYS,
       leadFeeds: [...existing(p.leadFeeds), ...added.filter((k) => DEFAULT_PREFS.leadFeeds.includes(k) && !p.leadFeeds.includes(k))],
-      speakFeeds: [...existing(p.speakFeeds), ...added.filter((k) => !p.speakFeeds.includes(k))],
-      notifyFeeds: [...existing(p.notifyFeeds), ...added.filter((k) => !p.notifyFeeds.includes(k))],
+      speakFeeds: [...existing(p.speakFeeds), ...added.filter((k) => !p.speakFeeds.includes(k) && !QUIET_FEED_KEYS.includes(k))],
+      notifyFeeds: [...existing(p.notifyFeeds), ...added.filter((k) => !p.notifyFeeds.includes(k) && !QUIET_FEED_KEYS.includes(k))],
     }
     const changed = (['hiddenFeeds', 'speakFeeds', 'notifyFeeds', 'leadFeeds', 'originalFeeds'] as const).some((k) => cleaned[k].length !== p[k].length)
       || known.length !== FEED_KEYS.length || added.length > 0 || renamed || old

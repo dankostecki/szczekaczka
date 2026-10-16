@@ -1,6 +1,6 @@
 // Browser side: items as the page uses them, and formatting dates.
 import type { NewsItem } from './parse'
-import { SOURCES, feedKey, labelsOf, type Source } from './sources'
+import { SOURCES, feedKey, labelsOf, sourceName, type Source } from './sources'
 
 export interface Item extends NewsItem {
   time: number // ms since epoch, 0 = no date
@@ -28,7 +28,7 @@ export const originalOf = (it: Item): Item => originals.get(it) ?? it
 // "ESPI" for one-channel sources, "GPW · PRASA" otherwise
 export function tagOf(it: NewsItem): string {
   const src = it.source as Source
-  return SOURCES.includes(src) && labelsOf(src).length === 1 ? it.source : `${it.source} · ${it.label}`
+  return SOURCES.includes(src) && labelsOf(src).length === 1 ? sourceName(it.source) : `${sourceName(it.source)} · ${it.label}`
 }
 
 // New = not in the previous fetch and published within the last hour (feeds sometimes

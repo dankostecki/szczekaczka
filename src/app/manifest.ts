@@ -10,7 +10,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: `${BASE_PATH}/`,
     name: 'Szczekaczka',
     short_name: 'Szczekaczka',
-    description: 'Komunikaty ESPI, GPW, newsy Stooq, wiadomości Waltera Bloomberga, komunikaty PAP MediaRoom oraz zapowiedzi danych makro i wydarzeń giełdowych w jednym miejscu, czytane na głos.',
+    description: 'Komunikaty ESPI, GPW, newsy Stooq, wiadomości Waltera Bloomberga i Seeking Alpha, komunikaty PAP MediaRoom oraz zapowiedzi danych makro i wydarzeń giełdowych w jednym miejscu, czytane na głos.',
     lang: 'pl',
     start_url: `${BASE_PATH}/`,
     scope: `${BASE_PATH}/`,

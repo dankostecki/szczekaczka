@@ -1818,8 +1818,11 @@ const NOT_SAID = /[ \t]*[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\u{1F3FB}-\
 const CASHTAG = String.raw`\$[A-Z][A-Z0-9]{0,5}(?:\.[A-Z]{1,2})?(?:['’]s)?(?![\p{L}\d])`
 const CASHTAGS = new RegExp(
   String.raw`(?<![\p{L}\d])${CASHTAG}(?:\s*(?:[,/&]|(?<!\p{L})(?:and|AND|i|oraz)(?!\p{L}))?\s*(?<![\p{L}\d])${CASHTAG})*(\s*[-–—:]\s+)?`, 'gu')
+// A company's ticker with its exchange in brackets ("Jefferies cut FMC (NYSE:FMC) to Hold", "(NASDAQ:AAPL, NASDAQ:MSFT)", Seeking Alpha writes them so) is not
+// read either, as a cashtag is not
+const EXCHANGE_TICKERS = /[ \t]*\(\s*[A-Z]{2,10}:[A-Z][A-Z0-9.-]{0,7}(?:\s*[,;/]\s*[A-Z]{2,10}:[A-Z][A-Z0-9.-]{0,7})*\s*\)/g
 const dropCashtags = (text: string): string => {
-  const out = text.replace(CASHTAGS, (m: string, separator: string | undefined, at: number, all: string) =>
+  const out = text.replace(EXCHANGE_TICKERS, '').replace(CASHTAGS, (m: string, separator: string | undefined, at: number, all: string) =>
     /(?:^|[:;.!?])\s*$/.test(all.slice(0, at)) ? '' : separator ?? '')
   // What the cashtag leaves: empty brackets, a second full stop, doubled spaces, a space before a full stop or a comma
   return out === text ? text : out.replace(/\(\s*\)|\[\s*\]/g, '').replace(/([.!?])[ \t]+\.(?![\p{L}\d.])/gu, '$1')
