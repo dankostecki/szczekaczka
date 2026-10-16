@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProp
 import { type Item, tagOf, clock, ago, fullDate, originalOf } from '@/lib/news'
 import { itemLang } from '@/lib/lang'
 import { linkOf } from '@/lib/sources'
-import { parseBody, splitItem } from '@/lib/body'
+import { bodyText, parseBody, splitItem } from '@/lib/body'
 import { Close, Star, Speaker, External } from './Icons'
 
 interface Props {
@@ -37,7 +37,7 @@ export default function Reader({ item, origin, now, saved, speaking, onClose, on
   const lang = itemLang(shown)
   const link = linkOf(item)
   const since = ago(item.time, now)
-  const blocks = parseBody(shown.body ?? shown.description)
+  const blocks = parseBody(bodyText(shown))
 
   const close = useCallback(() => {
     if (timer.current !== undefined) return

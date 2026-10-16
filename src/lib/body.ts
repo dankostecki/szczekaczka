@@ -33,6 +33,7 @@ export function parseBody(text: string): Block[] {
 export interface ListItem { label?: string; text: string; figures?: { name: string; value: string }[] }
 
 const FIGURE_AT = /,\s*(?:konsensus|poprzednio)\s/
+// a full stop ends the row after a number, a percent or a unit written without one in the middle of a row ("4,5 mld"); "tys." keeps its own
 const FIGURE = /,\s*(konsensus|poprzednio)\s+(.+?)(?=,\s*(?:konsensus|poprzednio)\s|$)/g
 const LABEL = /^([^:]{2,60}):\s+(\S.*)$/
 
@@ -42,9 +43,16 @@ export function splitItem(text: string, source: string): ListItem {
   if (source === 'MACRONEXT') {
     const at = FIGURE_AT.exec(rest)
     if (at) {
-      const figures = [...rest.slice(at.index).matchAll(FIGURE)].map((f) => ({ name: f[1], value: f[2].replace(/(?<=[\d%])\.$/, '').trim() }))
+      const figures = [...rest.slice(at.index).matchAll(FIGURE)].map((f) => ({ name: f[1], value: f[2].replace(/(?<=[\d%]|\b(?:mld|mln|bln))\.$/, '').trim() }))
       return { ...(head ? { label: head } : {}), text: rest.slice(0, at.index), figures }
     }
   }
   return label ? { label: label[1], text: label[2] } : { text }
+}
+
+// The text of a news for the window: its `body`; an announcement of MacroNext made (or saved) before the rows were kept as a list has them cut out of its
+// lead, where each row ends with a full stop and the next begins with a capital ("… poprzednio 14,2 mld. Bilans handlu …")
+export function bodyText(it: { source: string; body?: string; description: string }): string {
+  if (it.body || it.source !== 'MACRONEXT' || !it.description) return it.body ?? it.description
+  return it.description.split(/(?<=\.)\s+(?=\p{Lu})/u).map((row) => `- ${row}`).join('\n')
 }
