@@ -1778,13 +1778,25 @@ export const sayPauses = (text: string) => markPauses(text).split(PAUSE_MARK).jo
 
 // ── Signs that are not said ──
 // Emoji and pictographs ("🚨", "🇺🇸", "©"), which voices name ("police car light"), and asterisks, which mark a headline or a
-// footnote ("*FED HOLDS RATES", "zysk netto*"): voices say "asterisk", "gwiazdka". The "$" of a ticker goes too ("$NVDA - NVIDIA
-// SHARES RISE" -> "NVDA - NVIDIA SHARES RISE", not "dollar NVDA"); the "$" of an amount ("$5 BILLION") stays.
-const NOT_SAID = /[ \t]*[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\u{1F3FB}-\u{1F3FF}\uFE0F\u200D\u20E3*]+[ \t]*/gu
+// footnote ("*FED HOLDS RATES", "zysk netto*"): voices say "asterisk", "gwiazdka".
+// A cashtag, the "$" with the ticker of a company ("$ADBE"), is not read at all, in Polish or in English: "$NVDA - NVIDIA SHARES RISE 3%" is read
+// "NVIDIA SHARES RISE 3%", "$AAPL, $MSFT AND $GOOG FALL" "FALL". One at the start of a sentence takes the dash or colon after it with it; "$BRK.B" and "$NVDA's"
+// are cashtags too. The "$" of an amount ("$5 BILLION", "US$5 BLN") is not one and stays.
+const NOT_SAID = /[ \t]*[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\u{1F3FB}-\u{1F3FF}️‍⃣*]+[ \t]*/gu
+const CASHTAG = String.raw`\$[A-Z][A-Z0-9]{0,5}(?:\.[A-Z]{1,2})?(?:['’]s)?(?![\p{L}\d])`
+const CASHTAGS = new RegExp(
+  String.raw`(?<![\p{L}\d])${CASHTAG}(?:\s*(?:[,/&]|(?<!\p{L})(?:and|AND|i|oraz)(?!\p{L}))?\s*(?<![\p{L}\d])${CASHTAG})*(\s*[-–—:]\s+)?`, 'gu')
+const dropCashtags = (text: string): string => {
+  const out = text.replace(CASHTAGS, (m: string, separator: string | undefined, at: number, all: string) =>
+    /(?:^|[:;.!?])\s*$/.test(all.slice(0, at)) ? '' : separator ?? '')
+  // What the cashtag leaves: empty brackets, a second full stop, doubled spaces, a space before a full stop or a comma
+  return out === text ? text : out.replace(/\(\s*\)|\[\s*\]/g, '').replace(/([.!?])[ \t]+\.(?![\p{L}\d.])/gu, '$1')
+    .replace(/[ \t]{2,}/g, ' ').replace(/[ \t]+(?=[.,;:!?)])/g, '').trim()
+}
 export const saySigns = (text: string) =>
-  text.replace(/\$(?=\p{Lu}{1,6}(?![\p{L}\d]))/gu, '')
+  dropCashtags(text
     // between two words a space stays; at the start or the end, or before a full stop or a bracket, nothing
-    .replace(NOT_SAID, (m: string, at: number, all: string) => (at === 0 || at + m.length === all.length || /[\s(]/.test(all[at - 1]) || /[\s.,:;!?)]/.test(all[at + m.length]) ? '' : ' '))
+    .replace(NOT_SAID, (m: string, at: number, all: string) => (at === 0 || at + m.length === all.length || /[\s(]/.test(all[at - 1]) || /[\s.,:;!?)]/.test(all[at + m.length]) ? '' : ' ')))
 
 // Only the pauses and the signs, none of the other rules: for a text in English, which the rules of Polish would turn into Polish
 export const sayPausedParts = (text: string): string[] => markPauses(saySigns(text)).split(PAUSE_MARK).map((s) => s.trim()).filter(Boolean)
