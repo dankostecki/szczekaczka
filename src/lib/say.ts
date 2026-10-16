@@ -9,6 +9,7 @@
 
 import { US_NAMES, US_WORDS } from './names-us'
 import { FIRM_NAMES } from './names-firms'
+import { MARKET_NAMES } from './names-markets'
 import { CODES, type CodeEntry, type CodeMode } from './codes-pl'
 import { POLISH_BANKS } from './banks-pl'
 import { MACRO_TERMS, MACRO_GUARDS } from './macro-terms'
@@ -1565,13 +1566,16 @@ const sayEnglishInNames = (text: string) =>
 const US_ENDINGS_MASCULINE = new Set(['a', 'owi', 'em', 'iem', 'u', 'ie', 'owie', 'ów', 'om', 'ami', 'ach'])
 const US_ENDINGS_FEMININE = new Set(['i', 'y', 'ę', 'ą', 'o', 'e', 'ie'])
 const usKey = (form: string) => form.replace(/\s+/g, ' ')
-const US_BY_FORM = new Map<string, { said: string; stem: boolean; inflects: boolean }>()
-for (const [written, said, inflects] of [...US_NAMES, ...FIRM_NAMES]) {
+// A name may come with a condition (names-markets.ts): only in a sentence with one of those words ("MOVE" is the bond market's index next to "index" and a verb in
+// "MOVE HIGHER"; "SEC" next to the commission, not the seconds)
+const US_BY_FORM = new Map<string, { said: string; stem: boolean; inflects: boolean; needs?: RegExp }>()
+for (const [written, said, inflects, needs] of [...US_NAMES, ...FIRM_NAMES, ...MARKET_NAMES] as readonly (readonly [string, string, boolean, string?])[]) {
   const feminine = inflects && written.endsWith('a') && said.endsWith('a')
-  US_BY_FORM.set(usKey(written), { said, stem: false, inflects })
+  const when = needs ? new RegExp(needs, 'iu') : undefined
+  US_BY_FORM.set(usKey(written), { said, stem: false, inflects, needs: when })
   // The name in capitals too ("NVIDIA", "JPMORGAN CHASE"), with no endings
-  if (written.length > 3 && /\p{Ll}/u.test(written)) US_BY_FORM.set(usKey(written.toLocaleUpperCase('en')), { said, stem: false, inflects: false })
-  if (feminine) US_BY_FORM.set(usKey(written.slice(0, -1)), { said: said.slice(0, -1), stem: true, inflects })
+  if (written.length > 3 && /\p{Ll}/u.test(written)) US_BY_FORM.set(usKey(written.toLocaleUpperCase('en')), { said, stem: false, inflects: false, needs: when })
+  if (feminine) US_BY_FORM.set(usKey(written.slice(0, -1)), { said: said.slice(0, -1), stem: true, inflects, needs: when })
 }
 const US_RE = new RegExp(
   String.raw`(?<![\p{L}\d])(${[...US_BY_FORM.keys()].sort((a, b) => b.length - a.length)
@@ -1583,9 +1587,10 @@ const US_WORD_RE = new RegExp(
   String.raw`(?<=\p{Lu}[\p{L}\d&.'’-]*\s+)(${[...US_WORD_BY_FORM.keys()].sort((a, b) => b.length - a.length).map((k) => k.replace(/\./g, '\\.')).join('|')})(?![\p{L}\d])`, 'gu')
 const sayUsWords = (text: string) => text.replace(US_WORD_RE, (m: string, word: string) => US_WORD_BY_FORM.get(word) ?? m)
 export const sayUsNames = (text: string) =>
-  sayUsWords(text.replace(US_RE, (m: string, form: string, apostrophe: string, ending: string) => {
+  sayUsWords(text.replace(US_RE, (m: string, form: string, apostrophe: string, ending: string, at: number, all: string) => {
     const name = US_BY_FORM.get(usKey(form))
     if (!name) return m
+    if (name.needs && !name.needs.test(sentenceAround(all, at, m.length))) return m
     if (!ending) return apostrophe || name.stem ? m : name.said
     if (!name.inflects || !(name.stem ? US_ENDINGS_FEMININE : US_ENDINGS_MASCULINE).has(ending)) return m
     return `${name.said}${ending}`
@@ -1638,6 +1643,10 @@ const SURNAME_RE = new RegExp(String.raw`(?<![\p{L}\d])(${Object.keys(SURNAMES).
 // "mPay" and "MPAY" (the name in capitals, as ESPI writes a company) are the same: "Empej", the letter "em" and the English "pay" ("pej"), one word like "Embank";
 // the other brands with the "m" are in capitals the same way (MBANK, MLEASING, MOBYWATEL)
 const M_BRANDS = /(?<![\p{L}\d])M(BANK|PAY|LEASING|OBYWATEL)(?![\p{L}\d])/gu
+// The sentence a match is in (up to a full stop, "!" or "?" on both sides), for the names that mean something else without a word near them
+function sentenceAround(all: string, at: number, length: number): string {
+  return `${all.slice(0, at).match(/[^.!?]*$/)![0]}${all.slice(at + length).match(/^[^.!?]*/)![0]}`
+}
 const OIL_BP = /(?<![\p{L}\d])BP(?![\p{L}\d])/gu
 const SMALL_NUMBER_BEFORE = /(?<![\d.,])\d{1,3}(?:[.,]\d+)?\s*$/u
 const STATE_BUDGET = /budżet|(?<![\p{L}\d])MF(?![\p{L}\d])|Ministerstw\p{L}*\s+Finans/iu
@@ -1649,8 +1658,7 @@ export const sayProperNames = (text: string) =>
     .replace(/(?<![\p{L}\d])PKO\s?(?:BP|Bp|bp)(?![\p{L}\d])/gu, 'Pe ka o be pe')
     .replace(/(?<=(?<![\p{L}\d])BNP\s+(?:Paribas|PARIBAS)\s+)BP(?![\p{L}\d])/gu, 'be pe')
     .replace(OIL_BP, (m: string, at: number, all: string) => {
-      const sentence = `${all.slice(0, at).match(/[^.!?]*$/)![0]}${all.slice(at + m.length).match(/^[^.!?]*/)![0]}`
-      return SMALL_NUMBER_BEFORE.test(all.slice(Math.max(0, at - 16), at)) || STATE_BUDGET.test(sentence) ? m : 'Bipi'
+      return SMALL_NUMBER_BEFORE.test(all.slice(Math.max(0, at - 16), at)) || STATE_BUDGET.test(sentenceAround(all, at, m.length)) ? m : 'Bipi'
     })
     .replace(SURNAME_RE, (m, name: string, ending?: string) => `${SURNAMES[name.toLowerCase()]}${(ending ?? '').toLowerCase()}`)
 
