@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { FEEDS, SOURCES, HAS_ENGLISH, feedKey, sourceName, type Source } from '@/lib/sources'
+import { FEEDS, HAS_ENGLISH, feedKey, sourceName, orderedSources, moveSource, type Source } from '@/lib/sources'
 import type { Prefs, Theme } from '@/lib/prefs'
 import { polishVoices, voicesFor, pickVoice, speak, stopSpeaking, voiceLabel, isAppleMobile } from '@/lib/speech'
 import { playChime, unlockChime, chimeSupported } from '@/lib/chime'
@@ -10,7 +10,7 @@ import { AUTHOR, STORAGE_PREFIX } from '@/lib/site'
 import { isInstalledApp, promptInstall, useCanInstall } from '@/lib/install'
 import type { AwakeState } from '@/lib/wakeLock'
 import type { LiveStatus } from '@/lib/live'
-import { Close, Speaker, Bell, Play, Eye } from './Icons'
+import { Close, Speaker, Bell, Play, Eye, ArrowUp, ArrowDown } from './Icons'
 
 interface Props {
   prefs: Prefs
@@ -144,6 +144,9 @@ export default function Settings(p: Props) {
   const [installed, setInstalled] = useState(false)
   useEffect(() => setInstalled(isInstalledApp()), [])
 
+  // The sources in the order the reader set (the same as the tabs on the page)
+  const order = orderedSources(prefs.sourceOrder)
+
   // Sources with their channels shown
   const [open, setOpen] = useState<Set<Source>>(() => new Set())
   const toggleOpen = (src: Source) => setOpen((o) => { const n = new Set(o); if (n.has(src)) n.delete(src); else n.add(src); return n })
@@ -166,10 +169,11 @@ export default function Settings(p: Props) {
                 <th title="Czytaj na głos"><Speaker on size={16} /></th>
                 <th title="Powiadomienia"><Bell on size={16} /></th>
                 <th title="Czytaj też lead (bez zaznaczenia: sam tytuł)" className="lead">Lead</th>
+                <th title="Kolejność źródeł: tak są ułożone zakładki na stronie głównej" className="order"><ArrowUp size={14} /><ArrowDown size={14} /></th>
               </tr>
             </thead>
             <tbody>
-              {SOURCES.map((src) => {
+              {order.map((src, i) => {
                 const feeds = FEEDS.filter((f) => f.source === src)
                 const keys = feeds.map((f) => feedKey(f.source, f.label))
                 const many = keys.length > 1
@@ -188,6 +192,12 @@ export default function Settings(p: Props) {
                         ) : <span className="ch"><span className="chev-space" /><i className="dot" />{sourceName(src)}<span className="n">{count}</span></span>}
                       </td>
                       <ChannelBoxes keys={keys} name={sourceName(src)} prefs={prefs} onChange={onChange} />
+                      <td className="order">
+                        <button onClick={() => onChange({ sourceOrder: moveSource(order, src, -1) })} disabled={i === 0}
+                          title={`Przesuń ${sourceName(src)} wyżej`} aria-label={`Przesuń ${sourceName(src)} wyżej`}><ArrowUp size={16} /></button>
+                        <button onClick={() => onChange({ sourceOrder: moveSource(order, src, 1) })} disabled={i === order.length - 1}
+                          title={`Przesuń ${sourceName(src)} niżej`} aria-label={`Przesuń ${sourceName(src)} niżej`}><ArrowDown size={16} /></button>
+                      </td>
                     </tr>
                     {expanded && feeds.map((f) => {
                       const key = feedKey(f.source, f.label)
@@ -196,6 +206,7 @@ export default function Settings(p: Props) {
                           style={{ ['--c' as string]: `var(--src-${src.toLowerCase()})` }}>
                           <td><span className="ch">{f.label}<span className="n">{p.counts[key] ?? 0}</span></span></td>
                           <ChannelBoxes keys={[key]} name={`${sourceName(src)} · ${f.label}`} prefs={prefs} onChange={onChange} />
+                          <td />
                         </tr>
                       )
                     })}
@@ -206,7 +217,8 @@ export default function Settings(p: Props) {
           </table>
           <p className="hint">
             Wiersz źródła ustawia wszystkie jego kanały naraz, a strzałka je rozwija, żeby ustawić każdy osobno.
-            Oko: kanał na liście. Lead: po tytule czytana jest też zajawka.
+            Oko: kanał na liście. Lead: po tytule czytana jest też zajawka. Strzałki z prawej przesuwają źródło wyżej lub niżej:
+            w tej kolejności są zakładki na stronie głównej.
           </p>
           {FEEDS.filter((f) => f.translate).map((f) => {
             const key = feedKey(f.source, f.label)

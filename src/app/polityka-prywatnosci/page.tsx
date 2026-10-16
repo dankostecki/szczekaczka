@@ -83,7 +83,7 @@ export default function PrivacyPolicy() {
         <tbody>
           <tr>
             <td><code>szczekaczka:prefs</code></td>
-            <td>Ustawienia: motyw, głos, tempo, dźwięk przed czytaniem, co czytać, wybrane kanały, język kanałów Walter Bloomberg i Seeking Alpha, powiadomienia, lista obserwowanych spółek.</td>
+            <td>Ustawienia: motyw, głos, tempo, dźwięk przed czytaniem, co czytać, wybrane kanały, kolejność źródeł (zakładek), język kanałów Walter Bloomberg i Seeking Alpha, powiadomienia, lista obserwowanych spółek.</td>
             <td>Do czasu usunięcia</td>
           </tr>
           <tr>
