@@ -44,6 +44,5 @@ export const Eye = (p: P) => (
 )
 export const Close = (p: P) => <Svg {...p}><path d="M18 6L6 18M6 6l12 12" /></Svg>
 export const Play = (p: P) => <Svg {...p}><path d="M11 5L6 9H2v6h4l5 4V5z" /><path d="M15.5 8.5a5 5 0 010 7" /></Svg>
-// Show the whole text (two arrows pointing apart) and leave for the source's page
-export const Expand = (p: P) => <Svg {...p}><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></Svg>
+// Leave for the source's page
 export const External = (p: P) => <Svg {...p}><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" /></Svg>

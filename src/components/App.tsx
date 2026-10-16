@@ -238,10 +238,10 @@ export default function App() {
     })
   }, [])
   const closeSettings = useCallback(() => setSettingsOpen(false), [])
-  // The window with the whole text opens out of its button and counts as reading the news
-  const openReader = useCallback((it: Item, button: DOMRect) => {
+  // A click on a news opens it in a window of its own, growing out of the place clicked, and counts as reading it
+  const openReader = useCallback((it: Item, origin: { x: number; y: number }) => {
     markRead(it.id)
-    setReader({ item: it, origin: { x: button.left + button.width / 2, y: button.top + button.height / 2 } })
+    setReader({ item: it, origin })
   }, [markRead])
   const closeReader = useCallback(() => setReader(null), [])
   function clearRead()  { setReadIds(new Set()); saveJson(READ_KEY, []) }

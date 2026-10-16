@@ -259,27 +259,27 @@ button:disabled { cursor: default; opacity: 0.5; }
 .badge.tr { border: 1px solid var(--border-strong); color: var(--text-2); font-weight: 600; letter-spacing: 0; }
 
 .tools { position: relative; z-index: 1; margin-left: auto; display: flex; gap: 2px; }
-.tools button {
+.tools button, .tools a {
   display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; color: var(--text-3);
 }
-.tools button:hover { background: var(--border); color: var(--text); }
+.tools button:hover, .tools a:hover { background: var(--border); color: var(--text); }
 .tools .save.on { color: #f5a524; }
 .tools .speak.on { color: var(--accent); background: var(--accent-soft); }
 @media (hover: hover) {
-  .tools button { opacity: 0; transition: opacity 0.15s; }
-  .row:hover .tools button, .tools button:focus-visible, .tools .save.on, .tools .speak.on { opacity: 1; }
+  .tools button, .tools a { opacity: 0; transition: opacity 0.15s; }
+  .row:hover .tools button, .row:hover .tools a, .tools button:focus-visible, .tools a:focus-visible, .tools .save.on, .tools .speak.on { opacity: 1; }
 }
 
 .title {
-  display: block; margin-top: 2px;
+  display: block; width: 100%; margin-top: 2px; padding: 0; text-align: left;
   font-size: 16px; line-height: 1.42; font-weight: 600; letter-spacing: -0.005em;
   color: var(--text); text-decoration: none; cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-/* The link covers the whole tile, so a click anywhere on it opens the news */
-a.title::after { content: ""; position: absolute; inset: 0; }
-a.title:focus-visible { outline: none; }
-.title:visited, .row.read .title { color: var(--text-3); font-weight: 500; }
+/* The title covers the whole tile, so a click anywhere on it opens the news in its window */
+.title::after { content: ""; position: absolute; inset: 0; }
+.title:focus-visible { outline: none; }
+.row.read .title { color: var(--text-3); font-weight: 500; }
 
 .desc {
   margin: 4px 0 0; font-size: 14px; line-height: 1.5; color: var(--text-2);
@@ -367,6 +367,7 @@ body.reading { overflow: hidden; padding-right: var(--scrollbar, 0px); }
 }
 .reader-switch:hover { background: var(--hover); color: var(--text); }
 .reader-body { overflow-wrap: anywhere; }
+.reader-empty { margin: 0; font-size: 15px; line-height: 1.6; color: var(--text-3); }
 .reader-body p { margin: 0 0 12px; font-size: 16px; line-height: 1.65; }
 .reader-body h3 { margin: 20px 0 6px; font-size: 12.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
 .reader-list { margin: 0 0 8px; padding: 0; list-style: none; }
@@ -646,7 +647,7 @@ body.reading { overflow: hidden; padding-right: var(--scrollbar, 0px); }
   .search { margin-left: 0; flex: none; max-width: none; }
   .title { font-size: 15.5px; }
   .ago { display: none; }
-  .tools button { width: 28px; }
+  .tools button, .tools a { width: 28px; }
   .row { margin: 0 -10px; padding-left: 10px; padding-right: 10px; border-radius: 12px; }
   .row::after { left: 10px; right: 10px; }
   .row::before { left: 3px; }
