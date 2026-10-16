@@ -568,4 +568,9 @@ export const US_WORDS: readonly (readonly [written: string, said: string])[] = [
   ['Aerospace', 'Erospejs'], ['Airlines', 'Erlajns'], ['Airways', 'Erłejs'], ['Energy', 'Enerdżi'], ['Electric', 'Elektrik'],
   ['Dynamics', 'Dajnamiks'], ['Semiconductor', 'Semikondaktor'], ['Semiconductors', 'Semikondaktors'], ['Chemical', 'Kemikal'],
   ['Chemicals', 'Kemikals'], ['Services', 'Serwisis'], ['Solutions', 'Soluszyns'], ['Brothers', 'Brazers'], ['Bros.', 'Brazers'],
+  // agencies, bodies and data publishers ("Federal Trade Commission", "Moody's Analytics", "S&P Global Ratings")
+  ['Commission', 'Komiszyn'], ['Bureau', 'Biurou'], ['Department', 'Dipartment'], ['Administration', 'Edministrejszyn'], ['Association', 'Asousjejszyn'],
+  ['Authority', 'Otoryti'], ['Agency', 'Ejdżensi'], ['Council', 'Kaunsyl'], ['Committee', 'Komiti'], ['Board', 'Bord'], ['Institute', 'Instytut'],
+  ['Office', 'Ofis'], ['Survey', 'Serwej'], ['Ratings', 'Rejtings'], ['Analytics', 'Enalitiks'], ['Intelligence', 'Intelidżens'], ['Research', 'Risercz'],
+  ['Indices', 'Indisis'], ['Manufacturing', 'Menjufekczering'], ['Nordic', 'Nordik'],
 ]
