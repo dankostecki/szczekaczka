@@ -896,6 +896,7 @@ INSTITUTIONS.ON = { nom: 'olej napędowy', gen: 'oleju napędowego', dat: 'olejo
 const FUEL_CONTEXT = /Pb\s?9[58]|benzyn\p{L}*|paliw\p{L}*|LPG|zł\/l|za litr|diesel|olej\p{L}*\s+napędow|stacj\p{L}*\s+(?:paliw|benzyn)|ceny?\s+maksymaln/iu
 // "NYSE" is the New York Stock Exchange; said as "nowojorska giełda" in the case the sentence needs ("Dziś na NYSE przed sesją" -> "Dziś na
 // nowojorskiej giełdzie przed sesją"): the English words are no good for a Polish voice, and the abbreviation spelled out is a string of letters
+INSTITUTIONS.IMF = INSTITUTIONS.MFW // the English abbreviation of the same Fund
 INSTITUTIONS.NYSE = { nom: 'nowojorska giełda', gen: 'nowojorskiej giełdy', dat: 'nowojorskiej giełdzie', acc: 'nowojorską giełdę', inst: 'nowojorską giełdą', loc: 'nowojorskiej giełdzie' }
 INSTITUTIONS.RN = { nom: 'Rada nadzorcza', gen: 'Rady nadzorczej', dat: 'Radzie nadzorczej', acc: 'Radę nadzorczą', inst: 'Radą nadzorczą', loc: 'Radzie nadzorczej' }
 INSTITUTIONS.MFiPR = named(MINISTRY, 'Funduszy i Polityki Regionalnej')
@@ -1545,7 +1546,7 @@ const NAMES_EN: [RegExp, string][] = [
   [/(?<=\p{Lu}[\p{L}\d]*\s+)(?:PLC|plc)(?![\p{L}\d])/gu, 'pi el si'],
   [/(?<![\p{L}\d])GmbH(?![\p{L}\d])/gu, 'ge em be ha'],
 ]
-const SPELLED_EN_RE = new RegExp(String.raw`(?<![\p{L}\d])(${SPELLED_EN.join('|')})(?![\p{L}\d])`, 'gu')
+const SPELLED_EN_RE = new RegExp(String.raw`(?<![\p{L}\d])(${SPELLED_EN.join('|')})(?:-(\p{Ll}{1,4}))?(?![\p{L}\d])`, 'gu')
 // A word of an English name that a Polish voice says as a Polish word: "Asia" is a name for it. Inside an English name,
 // next to another capitalised word ("New Asia Forum", "Asia Pacific", "Nikkei Asia", "South-East Asia"), it is said the English way;
 // alone, or after a full stop or a lower-case word ("Rozmawiała z Asią", "Asia poszła"), it stays
@@ -1563,7 +1564,7 @@ const sayEnglishInNames = (text: string) =>
 // A name as Polish headlines decline it ("kurs Nvidii", "od Microsoftu", "akcje Tesli"): the ending is kept, the name respelled. A name in -a loses
 // its "a" before an ending (Nvidia -> Nvidii, Tesla -> Teslę); the others take the endings of a masculine noun. Only names marked as declined do:
 // "Applebee" is not "Apple" with an ending.
-const US_ENDINGS_MASCULINE = new Set(['a', 'owi', 'em', 'iem', 'u', 'ie', 'owie', 'ów', 'om', 'ami', 'ach'])
+const US_ENDINGS_MASCULINE = new Set(['a', 'owi', 'em', 'iem', 'u', 'ie', 'owie', 'ów', 'om', 'ami', 'ach', 'y', 'i', 's'])
 const US_ENDINGS_FEMININE = new Set(['i', 'y', 'ę', 'ą', 'o', 'e', 'ie'])
 const usKey = (form: string) => form.replace(/\s+/g, ' ')
 // A name may come with a condition (names-markets.ts): only in a sentence with one of those words ("MOVE" is the bond market's index next to "index" and a verb in
@@ -1579,7 +1580,7 @@ for (const [written, said, inflects, needs] of [...US_NAMES, ...FIRM_NAMES, ...M
 }
 const US_RE = new RegExp(
   String.raw`(?<![\p{L}\d])(${[...US_BY_FORM.keys()].sort((a, b) => b.length - a.length)
-    .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, String.raw`\s+`)).join('|')})(['’]?)(\p{Ll}{0,5})(?![\p{L}\d])`, 'gu')
+    .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, String.raw`\s+`)).join('|')})(['’]?)(-?)(\p{Ll}{0,5})(?![\p{L}\d])`, 'gu')
 // The English words in company names, only after another capitalised word ("Foo Technologies"): a sentence in Polish does not have them there
 // ESPI writes a company in capitals ("CELON PHARMA S.A."): the word in capitals is said the same
 const US_WORD_BY_FORM = new Map<string, string>(US_WORDS.flatMap(([written, said]) => [[written, said], [written.toLocaleUpperCase('en'), said]]))
@@ -1587,7 +1588,7 @@ const US_WORD_RE = new RegExp(
   String.raw`(?<=\p{Lu}[\p{L}\d&.'’-]*\s+)(${[...US_WORD_BY_FORM.keys()].sort((a, b) => b.length - a.length).map((k) => k.replace(/\./g, '\\.')).join('|')})(?![\p{L}\d])`, 'gu')
 const sayUsWords = (text: string) => text.replace(US_WORD_RE, (m: string, word: string) => US_WORD_BY_FORM.get(word) ?? m)
 export const sayUsNames = (text: string) =>
-  sayUsWords(text.replace(US_RE, (m: string, form: string, apostrophe: string, ending: string, at: number, all: string) => {
+  sayUsWords(text.replace(US_RE, (m: string, form: string, apostrophe: string, _hyphen: string, ending: string, at: number, all: string) => {
     const name = US_BY_FORM.get(usKey(form))
     if (!name) return m
     if (name.needs && !name.needs.test(sentenceAround(all, at, m.length))) return m
@@ -1602,10 +1603,28 @@ const COMPANY_SUFFIX = /(?<=\p{Lu}[\p{L}\d.'’-]*)(?:\s+&)?\s+(?:(Cos?)(\.?)(?!
 const dropCompany = (text: string) =>
   text.replace(COMPANY_SUFFIX, (m: string, abbreviation: string | undefined, dot: string | undefined, at: number, all: string) =>
     abbreviation && dot && /^\s+\p{Lu}/u.test(all.slice(at + m.length)) ? '.' : '')
+// "Securities and Exchange Commission (SEC)", "raport COT (Commitments of Traders)": a name of the lists with its abbreviation (or the other way round) in brackets,
+// when the initials of the words are the abbreviation, is said once: as the words, or as the abbreviation, whichever comes first
+const SMALL_WORD = /^(?:of|and|the|for|on|in|&)$/i
+// The initials of the words, with and without the small ones ("Securities and Exchange Commission" is SEC, "Commitments of Traders" COT)
+const initialsOf = (words: string): string[] => {
+  const list = words.trim().split(/\s+/)
+  return [list, list.filter((w) => !SMALL_WORD.test(w))].map((l) => l.map((w) => w[0]).join('').toLocaleUpperCase('en'))
+}
+const knownName = (written: string) => US_BY_FORM.has(usKey(written)) || US_BY_FORM.has(usKey(written.toLocaleUpperCase('en')))
+const ABBREVIATION_IN_BRACKETS = /((?:\p{L}[\p{L}.'’&-]*\s+){1,9})\(\s*(\p{Lu}[\p{L}\d]{1,7})\s*\)/gu
+const FULL_NAME_IN_BRACKETS = /(?<![\p{L}\d])(\p{Lu}[\p{L}\d]{1,7})\s*\(\s*((?:[\p{L}.'’&-]+\s+){1,8}[\p{L}.'’&-]+)\s*\)/gu
+const dropNameInBrackets = (text: string) =>
+  text
+    .replace(ABBREVIATION_IN_BRACKETS, (m: string, words: string, abbreviation: string) =>
+      knownName(abbreviation) && initialsOf(words).some((i) => i.endsWith(abbreviation.toLocaleUpperCase('en'))) ? words.trimEnd() : m)
+    .replace(FULL_NAME_IN_BRACKETS, (m: string, abbreviation: string, words: string) =>
+      knownName(abbreviation) && initialsOf(words).includes(abbreviation.toLocaleUpperCase('en')) ? abbreviation : m)
 export function sayEnglish(text: string): string {
-  let t = dropCompany(sayUsNames(sayEnglishInNames(text)))
+  let t = dropCompany(sayUsNames(dropNameInBrackets(sayEnglishInNames(text))))
   for (const [re, said] of NAMES_EN) t = t.replace(re, said)
-  return t.replace(SPELLED_EN_RE, (m) => [...m].map((c) => EN_LETTERS[c]).join(' '))
+  // The ending Polish writes after a hyphen ("NFT-y", "IPO-wy") goes on the last letter: "en ef tiy" would be "en ef ti-y"
+  return t.replace(SPELLED_EN_RE, (m, abbreviation: string, ending?: string) => `${[...abbreviation].map((c) => EN_LETTERS[c]).join(' ')}${ending ?? ''}`)
 }
 
 // ── Markets ──
@@ -1614,7 +1633,7 @@ export function sayEnglish(text: string): string {
 const CURRENCIES = new Set(['PLN', 'EUR', 'USD', 'CHF', 'GBP', 'JPY', 'CZK', 'HUF', 'NOK', 'SEK', 'DKK', 'CAD', 'AUD', 'NZD', 'CNY', 'TRY', 'RON', 'RUB', 'UAH'])
 const sayCurrency = (code: string) => (code === 'EUR' ? 'euro' : [...code].map((c) => PL_LETTERS[c]).join(' '))
 // "WIG20" -> "wig dwadzieścia", "mWIG40" -> "emwig czterdzieści", "sWIG80" -> "eswig osiemdziesiąt" (a word, not spelled; the "m" and the
-// "s" of the index are said as letters, the number in words); "S&P 500" -> "es and pi 500"; "na FX/FI" -> "na rynku walutowym i obligacji"
+// "s" of the index are said as letters, the number in words); "S&P 500" -> "es end pi 500"; "na FX/FI" -> "na rynku walutowym i obligacji"
 const INDEX_PREFIX: Record<string, string> = { m: 'em', s: 'es' }
 export function sayMarkets(text: string): string {
   return text
@@ -1622,7 +1641,7 @@ export function sayMarkets(text: string): string {
     .replace(/(?<![\p{L}\d])([msMS]?)WIG(\d*)(TR)?(?![\p{L}\d])/gu, (m, pre: string, num: string, total?: string) =>
       /[MS]/.test(pre) && !num ? m
         : `${INDEX_PREFIX[pre.toLowerCase()] ?? ''}wig${num ? ` ${+num > 0 && +num < 1000 ? cardinal(+num) : num}` : ''}${total ? ' te er' : ''}`)
-    .replace(/(?<![\p{L}\d])S&P(?:\s?(\d+))?(?![\p{L}\d])/gu, (m, num?: string) => `es and pi${num ? ` ${num}` : ''}`)
+    .replace(/(?<![\p{L}\d])S&P(?:\s?(\d+))?(?![\p{L}\d])/gu, (m, num?: string) => `es end pi${num ? ` ${num}` : ''}`)
     .replace(/(?<!\p{L})([Nn][Aa]|[Ww])\s+FX\/FI(?!\p{L})/gu, '$1 rynku walutowym i obligacji')
     .replace(/(?<!\p{L})FX\/FI(?!\p{L})/gu, 'rynek walutowy i obligacji')
     .replace(/(?<![\p{L}\d])([A-Z]{3})\/([A-Z]{3})(?![\p{L}\d])/gu, (m, a: string, b: string) =>
