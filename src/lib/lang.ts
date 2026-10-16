@@ -39,8 +39,10 @@ export function isEnglish(text: string): boolean {
 }
 
 const cache = new WeakMap<object, Lang>()
-// The title decides, and the lead when the title is too short or too plain to tell. A channel in English (feed.lang) is English whatever the text
-export function itemLang(it: { source: string; label: string; title: string; description?: string }): Lang {
+// The title decides, and the lead when the title is too short or too plain to tell. A channel in English (feed.lang) is English whatever the text,
+// unless it is shown in its Polish translation
+export function itemLang(it: { source: string; label: string; title: string; description?: string; translated?: boolean }): Lang {
+  if (it.translated) return 'pl'
   if (langOf(it.source, it.label) === 'en') return 'en'
   if (it.source === 'MACRONEXT') return 'pl'
   const known = cache.get(it)

@@ -29,7 +29,8 @@ export default function About() {
         tylko tytuły i krótkie zajawki. Nie zmienia ich treści i nie dodaje własnych. Wyjątkiem są zapowiedzi MacroNext:
         Szczekaczka składa je z kalendarium danych makro (kraj, nazwa danych, okres, prognoza jako konsensus, poprzedni
         odczyt) i z kalendarium giełdowego (wydarzenia spółek, wyniki spółek z Nowego Jorku); prowadzą do kalendarium
-        MacroNext na dziś.
+        MacroNext na dziś. Drugim wyjątkiem są wiadomości Waltera Bloomberga: pisane po angielsku, są domyślnie pokazywane
+        w tłumaczeniu maszynowym na polski (z oznaczeniem „tłumaczenie AI”); oryginał można wybrać w ustawieniach.
       </p>
 
       {SOURCES.map((src) => {

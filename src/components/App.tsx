@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { SOURCES, labelsOf, renamedId, renamedItem, type Source } from '@/lib/sources'
 import type { NewsItem } from '@/lib/parse'
-import { type Item, type FeedError, freshItems, keyOf, dayKey, dayLabel, clock, withTime } from '@/lib/news'
+import { type Item, type FeedError, freshItems, keyOf, dayKey, dayLabel, clock, withTime, inLanguage, originalOf } from '@/lib/news'
 import { connectLive, type LiveStatus } from '@/lib/live'
 import { type Prefs, DEFAULT_PREFS, loadPrefs, savePrefs, loadJson, saveJson, watchMatcher } from '@/lib/prefs'
 import { speechSupported, speak, speakItem, announce, stopSpeaking, onSpeechBlocked } from '@/lib/speech'
@@ -129,7 +129,9 @@ export default function App() {
     if (prev) {
       const { prefs: p, voiceOn: on, voices: vs } = live.current
       // Hidden channels: not on the list, so not counted, read aloud or notified either
+      // Read aloud and notified in the language the channel is shown in (a translation: in Polish)
       const fresh = freshItems(fetched.filter((i) => knownFeeds.current.has(keyOf(i)) && !p.hiddenFeeds.includes(keyOf(i))), prev)
+        .map((i) => inLanguage(i, p.originalFeeds))
       if (fresh.length) {
         const t = Date.now()
         setFreshAt((f) => ({ ...f, ...Object.fromEntries(fresh.map((i) => [i.id, t])) }))
@@ -227,7 +229,8 @@ export default function App() {
   }, [])
   const toggleSaved = useCallback((it: Item) => {
     setSaved((prev) => {
-      const next = prev.some((s) => s.id === it.id) ? prev.filter((s) => s.id !== it.id) : [it, ...prev]
+      // the original, with its translation: the language it is shown in can change later
+      const next = prev.some((s) => s.id === it.id) ? prev.filter((s) => s.id !== it.id) : [originalOf(it), ...prev]
       saveJson(SAVED_KEY, next.map(({ time: _t, ...rest }) => rest))
       return next
     })
@@ -255,7 +258,8 @@ export default function App() {
 
   // Channels switched off in the settings are left out everywhere except "Zapisane"
   const hidden = useMemo(() => new Set(prefs.hiddenFeeds), [prefs.hiddenFeeds])
-  const shown = useMemo(() => items.filter((i) => !hidden.has(keyOf(i))), [items, hidden])
+  const original = prefs.originalFeeds
+  const shown = useMemo(() => items.filter((i) => !hidden.has(keyOf(i))).map((i) => inLanguage(i, original)), [items, hidden, original])
   const labelsShown = (src: Source) => labelsOf(src).filter((l) => !hidden.has(`${src}:${l}`))
   const filters = FILTERS.filter((f) => f === 'ALL' || f === 'SAVED' || labelsShown(f).length > 0)
   // A tab or channel chip whose channels were just hidden falls back to everything
@@ -264,11 +268,11 @@ export default function App() {
 
   const visible = useMemo(() => {
     const base =
-      activeFilter === 'SAVED' ? [...saved].sort((a, b) => b.time - a.time)
+      activeFilter === 'SAVED' ? saved.map((i) => inLanguage(i, original)).sort((a, b) => b.time - a.time)
       : activeFilter === 'ALL' ? shown
       : shown.filter((i) => i.source === activeFilter && (!activeLabel || i.label === activeLabel))
     return q ? base.filter((i) => `${i.title} ${i.description} ${i.source} ${i.label}`.toLowerCase().includes(q)) : base
-  }, [shown, saved, activeFilter, activeLabel, q])
+  }, [shown, saved, original, activeFilter, activeLabel, q])
 
   // News per channel, for the settings (also for hidden channels)
   const counts = useMemo(() => {

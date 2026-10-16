@@ -256,6 +256,7 @@ button:disabled { cursor: default; opacity: 0.5; }
 }
 .badge.new { background: var(--accent); color: #fff; }
 .badge.watch { border: 1px solid var(--c); color: var(--c); font-weight: 600; letter-spacing: 0; }
+.badge.tr { border: 1px solid var(--border-strong); color: var(--text-2); font-weight: 600; letter-spacing: 0; }
 
 .tools { position: relative; z-index: 1; margin-left: auto; display: flex; gap: 2px; }
 .tools button {

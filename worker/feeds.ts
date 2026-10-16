@@ -14,6 +14,7 @@ export interface FeedState {
   failures?: number // failed checks in a row
   parser?: number   // PARSER_VERSION the items were read with
   calendar?: MacroGroup[] // MacroNext only: releases to announce (macro.ts)
+  ai?: { day: string; n: number; retryAt?: number } // translations asked for today (UTC) and a pause after a failed one (translate.ts)
 }
 
 export interface CheckResult {
@@ -194,9 +195,12 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
     const before = new Map(old.items.map((i) => [i.id, i]))
     // An entry keeps the time it was first read with: CNBC moved an article's date each time it edited
     // it, which would lift an old article above the new ones. After a parser change it is read anew.
-    const fresh = parsed.map((it) => {
+    const fresh = parsed.map((it): NewsItem => {
       const b = before.get(it.id)
-      return { ...it, description: shorten(it.description), pubDate: b?.pubDate && !reread ? b.pubDate : it.pubDate }
+      const description = shorten(it.description)
+      // A translation (translate.ts) stays while the text it was made from is the same
+      const pl = b?.pl !== undefined && b.title === it.title && b.description === description ? { pl: b.pl } : {}
+      return { ...it, description, pubDate: b?.pubDate && !reread ? b.pubDate : it.pubDate, ...pl }
     })
     // New ids, and items whose title or lead was corrected (or their date, after a parser change)
     const add = fresh.filter((i) => {
@@ -209,7 +213,8 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
     const items = retain([...merged.values()], inFeed, now)
     const kept = new Set(items.map((i) => i.id))
     const remove = old.items.filter((i) => !kept.has(i.id)).map((i) => i.id)
-    const state: FeedState = { items, current: [...inFeed], ...patch, checkedAt: now, parser: PARSER_VERSION }
+    // the count of translations and their pause (translate.ts) go on from check to check
+    const state: FeedState = { items, current: [...inFeed], ...patch, checkedAt: now, parser: PARSER_VERSION, ...(old.ai ? { ai: old.ai } : {}) }
     // An added entry that is already too old to keep (a feed item without a date is always kept)
     const added = add.filter((i) => kept.has(i.id))
     const gap = current.size > 0 && fresh.length > 0 && !fresh.some((i) => current.has(i.id))
