@@ -1,5 +1,6 @@
 // Browser side: items as the page uses them, and formatting dates.
 import type { NewsItem } from './parse'
+import { fixOrdinals } from './ordinals'
 import { SOURCES, feedKey, labelsOf, sourceName, type Source } from './sources'
 
 export interface Item extends NewsItem {
@@ -19,7 +20,8 @@ export const keyOf = (it: NewsItem) => feedKey(it.source, it.label)
 const originals = new WeakMap<Item, Item>()
 export function inLanguage(it: Item, originalFeeds: string[]): Item {
   if (!it.pl || originalFeeds.includes(keyOf(it))) return it
-  const shown: Item = { ...it, title: it.pl.title, description: it.pl.description, body: it.pl.body, translated: true }
+  const { title, description, body } = it.pl
+  const shown: Item = { ...it, title: fixOrdinals(title), description: fixOrdinals(description), body: body && fixOrdinals(body), translated: true }
   originals.set(shown, it)
   return shown
 }
