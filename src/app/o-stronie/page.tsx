@@ -16,7 +16,7 @@ export default function About() {
     <LegalPage title="O stronie i źródła" dated={false}>
       <p>
         Szczekaczka zbiera w jednym miejscu komunikaty spółek giełdowych (ESPI/EBI), komunikaty Giełdy Papierów
-        Wartościowych w Warszawie, wiadomości Stooq, krótkie wiadomości z rynków świata z kanału Walter Bloomberg na Telegramie,
+        Wartościowych w Warszawie, wiadomości Stooq, krótkie wiadomości z rynków świata z kanału Walter Bloomberg na Telegramie i z serwisu Seeking Alpha,
         komunikaty prasowe z PAP MediaRoom, a także zapowiedzi danych makro
         (10 minut przed publikacją) i wydarzeń giełdowych z kalendarium MacroNext. Nowe newsy może czytać na głos i pokazywać jako powiadomienia
         na pulpicie. Autor: <a href={AUTHOR.url} target="_blank" rel="noopener noreferrer">{AUTHOR.name}</a>.
@@ -31,7 +31,7 @@ export default function About() {
         i nie dodaje własnych. Wyjątkiem są zapowiedzi MacroNext:
         Szczekaczka składa je z kalendarium danych makro (kraj, nazwa danych, okres, prognoza jako konsensus, poprzedni
         odczyt) i z kalendarium giełdowego (wydarzenia spółek, wyniki spółek z Nowego Jorku); prowadzą do kalendarium
-        MacroNext na dziś. Drugim wyjątkiem są wiadomości Waltera Bloomberga: pisane po angielsku, są domyślnie pokazywane
+        MacroNext na dziś. Drugim wyjątkiem są wiadomości Waltera Bloomberga i Seeking Alpha (tytuł i zajawka z kanału RSS; artykułów Szczekaczka nie pobiera): pisane po angielsku, są domyślnie pokazywane
         w tłumaczeniu maszynowym na polski (z oznaczeniem „tłumaczenie AI”); oryginał można wybrać w ustawieniach.
       </p>
 

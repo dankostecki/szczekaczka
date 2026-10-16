@@ -1,7 +1,7 @@
 'use client'
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { SOURCES, labelsOf, renamedId, renamedItem, type Source } from '@/lib/sources'
+import { SOURCES, labelsOf, renamedId, renamedItem, sourceName, feedName, type Source } from '@/lib/sources'
 import type { NewsItem } from '@/lib/parse'
 import { type Item, type FeedError, freshItems, keyOf, dayKey, dayLabel, clock, withTime, inLanguage, originalOf } from '@/lib/news'
 import { connectLive, type LiveStatus } from '@/lib/live'
@@ -28,14 +28,15 @@ const TITLE = 'Szczekaczka'
 
 type Filter = 'ALL' | Source | 'SAVED'
 const FILTERS: Filter[] = ['ALL', ...SOURCES, 'SAVED']
-const filterName = (f: Filter) => (f === 'ALL' ? 'Wszystko' : f === 'SAVED' ? 'Zapisane' : f)
+const filterName = (f: Filter) => (f === 'ALL' ? 'Wszystko' : f === 'SAVED' ? 'Zapisane' : sourceName(f))
 const filterColor = (f: Filter) => (f === 'ALL' || f === 'SAVED' ? undefined : `var(--src-${f.toLowerCase()})`)
 
 // A source tab (or one of its channels) with nothing on it: why. Its channels are shown,
 // or the tab would not be there; errors are named "PAP · BIZNES".
 function emptyTab(src: Source, label: string | null, errors: FeedError[]): string {
-  const name = label ? `${src} · ${label}` : src
-  const failing = errors.filter((e) => (label ? e.feed === name : e.feed.startsWith(`${src} · `)))
+  const key = label ? `${src} · ${label}` : src // how the server names it in an error
+  const name = label ? `${sourceName(src)} · ${label}` : sourceName(src)
+  const failing = errors.filter((e) => (label ? e.feed === key : e.feed.startsWith(`${src} · `)))
   if (src === 'MACRONEXT') return failing.length
     ? 'Nie udało się pobrać kalendarium MacroNext (powód w ramce wyżej). Kolejna próba za chwilę.'
     : label === 'GIEŁDA' ? 'Na razie brak zapowiedzi. Zapowiedzi z kalendarium giełdowego MacroNext pojawiają się tu przed sesją na GPW i przed sesją oraz po sesji w Nowym Jorku.'
@@ -385,7 +386,7 @@ export default function App() {
       <main className="list wrap">
         {shownErrors.length > 0 && (
           <div className="errors" role="status">
-            Chwilowo nie działa: {shownErrors.map((e) => `${e.feed} (${e.message})`).join(', ')}.
+            Chwilowo nie działa: {shownErrors.map((e) => `${feedName(e.feed)} (${e.message})`).join(', ')}.
             Widać ostatnio pobrane newsy, kolejna próba za chwilę.
           </div>
         )}

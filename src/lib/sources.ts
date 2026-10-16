@@ -1,9 +1,14 @@
 // News sources. Fetched on the server (/api/news): browsers cannot read these feeds directly (CORS).
 
-export type Source = 'ESPI' | 'GPW' | 'STOOQ' | 'WALTER' | 'PAP' | 'MACRONEXT'
+export type Source = 'ESPI' | 'GPW' | 'STOOQ' | 'WALTER' | 'SEEKINGALPHA' | 'PAP' | 'MACRONEXT'
 
 // In this order: the tabs, the channels in settings and the sources on the about page
-export const SOURCES: Source[] = ['ESPI', 'STOOQ', 'WALTER', 'MACRONEXT', 'PAP', 'GPW']
+export const SOURCES: Source[] = ['ESPI', 'STOOQ', 'WALTER', 'SEEKINGALPHA', 'MACRONEXT', 'PAP', 'GPW']
+
+// The name of a source as the page writes it (the tabs, the tags, the settings), where it is not the key
+export const sourceName = (source: string): string => (source === 'SEEKINGALPHA' ? 'SEEKING ALPHA' : source)
+// "SEEKINGALPHA · MARKET CURRENTS" (how the server names a channel in an error) as the page writes it
+export const feedName = (feed: string): string => feed.replace(/^[^ ]+/, sourceName)
 
 // Language of a feed: read aloud with a voice for it
 export type Lang = 'pl' | 'en'
@@ -26,6 +31,9 @@ export interface FeedConfig {
   // Entries are translated into Polish on the server (worker/translate.ts); the page shows the translation unless the
   // reader chose the original (prefs.originalFeeds)
   translate?: boolean
+  // A channel with so many news that reading each aloud and a notification for each would be too much: they start switched off (the reader can
+  // switch them on); the news are on the list as in any other channel
+  quiet?: boolean
 }
 
 export const FEEDS: FeedConfig[] = [
@@ -43,6 +51,9 @@ export const FEEDS: FeedConfig[] = [
   // public preview on Telegram shows the latest ~20 posts
   { source: 'WALTER', label: 'TELEGRAM',   url: 'https://t.me/s/WalterBloomberg', format: 'telegram', lang: 'en',
     linkTo: 'https://x.com/DeItaone', translate: true },
+  // Seeking Alpha's market news ("Market Currents"): the feed holds only the latest few, so they are kept by the rules of every channel (24 hours
+  // from publication, retain in worker/feeds.ts); the title and the lead in English are translated like Walter's posts
+  { source: 'SEEKINGALPHA', label: 'MARKET CURRENTS', url: 'https://seekingalpha.com/market_currents.xml', lang: 'en', translate: true, quiet: true, every: 60 },
   { source: 'PAP',   label: 'BIZNES',      url: 'https://pap-mediaroom.pl/kategoria/biznes-i-finanse/rss.xml' },
   { source: 'PAP',   label: 'NAUKA',       url: 'https://pap-mediaroom.pl/kategoria/nauka-i-technologie/rss.xml' },
   { source: 'PAP',   label: 'POLITYKA',    url: 'https://pap-mediaroom.pl/kategoria/polityka-i-społeczenstwo/rss.xml' },
@@ -55,6 +66,7 @@ export const FEEDS: FeedConfig[] = [
 // "GPW:PRASA" — key for a single channel (settings, filters)
 export const feedKey = (source: string, label: string) => `${source}:${label}`
 export const FEED_KEYS = FEEDS.map((f) => feedKey(f.source, f.label))
+export const QUIET_FEED_KEYS = FEEDS.filter((f) => f.quiet).map((f) => feedKey(f.source, f.label))
 
 // Channels that got a new name: settings and stored news move to it (old key -> new key)
 export const RENAMED_FEEDS: Record<string, string> = { 'ESPI:ESPI/EBI': 'ESPI:BANKIER' }
@@ -112,6 +124,12 @@ export const SOURCE_INFO: Record<Source, { name: string; publisher: string; site
     publisher: 'Polska Agencja Prasowa S.A.',
     site: 'https://pap-mediaroom.pl/rss',
     about: 'Komunikaty prasowe firm i instytucji z serwisu PAP MediaRoom Polskiej Agencji Prasowej, z kategorii: biznes i finanse, nauka i technologie, polityka i społeczeństwo.',
+  },
+  SEEKINGALPHA: {
+    name: 'Seeking Alpha: Market Currents',
+    publisher: 'Seeking Alpha',
+    site: 'https://seekingalpha.com/market-news',
+    about: 'Krótkie wiadomości z rynków świata z kanału RSS „Market Currents” serwisu Seeking Alpha (tytuł i zajawka). Seeking Alpha pisze po angielsku; Szczekaczka pokazuje je domyślnie po polsku, w tłumaczeniu maszynowym (model AI Gemma 4 w Cloudflare Workers AI), które może zawierać błędy. Oryginał po angielsku, czytany angielskim głosem, można wybrać w ustawieniach. Każda wiadomość prowadzi do artykułu w serwisie Seeking Alpha; Szczekaczka nie pobiera ani nie tłumaczy treści artykułów, tylko to, co podaje kanał. Kanał zachowuje tylko kilka ostatnich wiadomości, dlatego Szczekaczka trzyma każdą przez dobę od publikacji. To niezależny serwis, niezwiązany ze Seeking Alpha.',
   },
   MACRONEXT: {
     name: 'MacroNext – kalendarium danych makro i kalendarium giełdowe',

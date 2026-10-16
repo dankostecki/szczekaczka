@@ -1,4 +1,4 @@
-// Posts of a channel in English (FeedConfig.translate: Walter Bloomberg) in Polish: each post is translated once on the
+// Posts of a channel in English (FeedConfig.translate: Walter Bloomberg, Seeking Alpha) in Polish: each post is translated once on the
 // server with Workers AI and kept beside the original (NewsItem.pl). The page shows the translation unless the reader
 // chose the original (prefs.originalFeeds), and reads it with the Polish voice and the rules of say.ts.
 import type { NewsItem } from '../src/lib/parse'
@@ -14,10 +14,10 @@ const TIMEOUT_MS = 15_000
 // After an error of the service (no capacity, the day's allocation used up): no translations for this long
 export const PAUSE_MS = 10 * 60_000
 
-const SYSTEM = `Tłumaczysz na język polski krótkie wiadomości z rynków finansowych (kanał Walter Bloomberg na Telegramie). Piszesz jak polski serwis finansowy (PAP Biznes, Bankier.pl): zwięźle i rzeczowo.
+const SYSTEM = `Tłumaczysz na język polski krótkie wiadomości z rynków finansowych (kanał Walter Bloomberg na Telegramie, serwis Seeking Alpha). Piszesz jak polski serwis finansowy (PAP Biznes, Bankier.pl): zwięźle i rzeczowo.
 Zasady:
 - Tłumacz wiernie: nic nie dodawaj, niczego nie pomijaj, nie komentuj i nie wyjaśniaj.
-- Pisz zwykłą pisownią, nie wielkimi literami: wielka litera na początku zdania i w nazwach własnych. Skróty zostają wielkimi literami (USA, CPI, PKB, EBC).
+- Pisz zwykłą pisownią, nie wielkimi literami: wielka litera na początku zdania i w nazwach własnych. Skróty zostają wielkimi literami (USA, CPI, PKB, EBC). Oznaczenia spółek z giełdą w nawiasie, np. (NYSE:FMC), zostaw bez zmian.
 - Tickery (np. $NVDA) oraz nazwy spółek, funduszy i osób zostaw w oryginalnej pisowni; nazwy spółek możesz odmieniać (akcje Nvidii). Instytucje z przyjętą polską nazwą nazywaj po polsku: Fed, EBC, Bank Japonii, Biały Dom, Departament Skarbu USA, Kongres.
 - Liczby po polsku: przecinek dziesiętny (0.3% → 0,3%); B lub BLN → mld, M lub MLN → mln, T lub TLN → bln, K → tys., BPS → pb; M/M → m/m, Y/Y → r/r, Q/Q → k/k. Kwoty w dolarach: $5B → 5 mld USD.
 - EST. lub EXP. (prognoza rynku) → „prognoza”, PREV. lub PRIOR → „poprzednio”.
@@ -29,6 +29,7 @@ const EXAMPLES: [en: string, pl: string][] = [
   ['$NVDA - NVIDIA SHARES RISE 3% IN PREMARKET AFTER CHINA APPROVAL', '$NVDA - Akcje Nvidii rosną o 3% przed sesją po zgodzie Chin'],
   ['US CPI RISES 0.3% M/M; EST. 0.2%\n- CORE CPI 3.1% Y/Y; EST. 3.0%', 'CPI w USA wzrósł o 0,3% m/m; prognoza 0,2%\n- Inflacja bazowa 3,1% r/r; prognoza 3,0%'],
   ["FED'S WALLER: RATE CUTS SHOULD BE GRADUAL", 'Waller z Fed: obniżki stóp powinny być stopniowe'],
+  ['FMC downgraded at Jefferies as visibility deteriorates again with guidance cut\nJefferies cut FMC (NYSE:FMC) to Hold from Buy and lowered its price target to $20 from $35.', 'Jefferies obniża rekomendację FMC: widoczność znów się pogarsza po cięciu prognoz\nJefferies obniżył rekomendację dla FMC (NYSE:FMC) do „trzymaj” z „kupuj” i zmniejszył cenę docelową do 20 USD z 35 USD.'],
   ['TRUMP: WE WILL IMPOSE 25% TARIFFS ON $50B OF CHINESE IMPORTS', 'Trump: nałożymy 25% cła na import z Chin o wartości 50 mld USD'],
 ]
 
