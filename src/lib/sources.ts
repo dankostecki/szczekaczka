@@ -31,9 +31,6 @@ export interface FeedConfig {
   // Entries are translated into Polish on the server (worker/translate.ts); the page shows the translation unless the
   // reader chose the original (prefs.originalFeeds)
   translate?: boolean
-  // A channel with so many news that reading each aloud and a notification for each would be too much: they start switched off (the reader can
-  // switch them on); the news are on the list as in any other channel
-  quiet?: boolean
 }
 
 export const FEEDS: FeedConfig[] = [
@@ -53,7 +50,7 @@ export const FEEDS: FeedConfig[] = [
     linkTo: 'https://x.com/DeItaone', translate: true },
   // Seeking Alpha's market news ("Market Currents"): the feed holds only the latest few, so they are kept by the rules of every channel (24 hours
   // from publication, retain in worker/feeds.ts); the title and the lead in English are translated like Walter's posts
-  { source: 'SEEKINGALPHA', label: 'MARKET CURRENTS', url: 'https://seekingalpha.com/market_currents.xml', lang: 'en', translate: true, quiet: true, every: 60 },
+  { source: 'SEEKINGALPHA', label: 'MARKET CURRENTS', url: 'https://seekingalpha.com/market_currents.xml', lang: 'en', translate: true },
   { source: 'PAP',   label: 'BIZNES',      url: 'https://pap-mediaroom.pl/kategoria/biznes-i-finanse/rss.xml' },
   { source: 'PAP',   label: 'NAUKA',       url: 'https://pap-mediaroom.pl/kategoria/nauka-i-technologie/rss.xml' },
   { source: 'PAP',   label: 'POLITYKA',    url: 'https://pap-mediaroom.pl/kategoria/polityka-i-społeczenstwo/rss.xml' },
@@ -66,7 +63,6 @@ export const FEEDS: FeedConfig[] = [
 // "GPW:PRASA" — key for a single channel (settings, filters)
 export const feedKey = (source: string, label: string) => `${source}:${label}`
 export const FEED_KEYS = FEEDS.map((f) => feedKey(f.source, f.label))
-export const QUIET_FEED_KEYS = FEEDS.filter((f) => f.quiet).map((f) => feedKey(f.source, f.label))
 
 // Channels that got a new name: settings and stored news move to it (old key -> new key)
 export const RENAMED_FEEDS: Record<string, string> = { 'ESPI:ESPI/EBI': 'ESPI:BANKIER' }
