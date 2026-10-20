@@ -352,7 +352,7 @@ export default function Settings(p: Props) {
           <textarea rows={3} value={prefs.watchlist} placeholder="np. PKN ORLEN, CD PROJEKT, KGHM"
             onChange={(e) => onChange({ watchlist: e.target.value })} spellCheck={false} />
           <p className="hint">
-            Nazwy lub tickery po przecinku. Z listą widać w ESPI tylko raporty tych spółek, tylko one są czytane na głos i tylko one są w powiadomieniach.
+            Nazwy lub tickery po przecinku; wystarczy nazwa bez ostatniej litery, np. „Asbis” znajdzie raporty ASBISc. Z listą widać w ESPI tylko raporty tych spółek, tylko one są czytane na głos i tylko one są w powiadomieniach.
             Przy pustej liście widać wszystkie raporty ESPI i głos czyta każdy, a powiadomień o nich nie ma, bo przychodzi ich bardzo dużo.
           </p>
         </section>
