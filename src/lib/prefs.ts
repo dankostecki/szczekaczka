@@ -18,7 +18,7 @@ export interface Prefs {
   leadFeeds: string[]    // channels read with the lead after the title; the others: the title only
   knownFeeds: string[]   // channels that existed when these settings were saved
   originalFeeds: string[] // translated channels (FeedConfig.translate) shown in their own language, not in Polish
-  watchlist: string      // ESPI: with a list, only these companies are read aloud / notified; empty, every report is read aloud (and none notified)
+  watchlist: string      // ESPI: with a list, only the reports of these companies are shown, read aloud and notified; empty, every report is shown and read aloud (none notified)
   sourceOrder: Source[]  // the order of the sources: the tabs on the page and the rows in settings (the reader moves them there)
   v: number              // the version of the settings: older ones are brought up to date when loaded (PREFS_VERSION)
 }
@@ -114,4 +114,11 @@ export function watchMatcher(list: string, allWhenEmpty = false): (text: string)
   const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')
   const re = new RegExp(`(?<![\\p{L}\\p{N}])(?:${names.map(esc).join('|')})(?![\\p{L}\\p{N}])`, 'iu')
   return (text) => re.test(text)
+}
+
+// What the page shows of ESPI: with a watch list only the reports of those companies (the rest of the channel is left out
+// everywhere but "Zapisane"), without one every report. Other channels pass.
+export function onWatchlist(list: string): (it: { source: string; title: string; description: string }) => boolean {
+  const listed = watchMatcher(list, true)
+  return (it) => it.source !== 'ESPI' || listed(`${it.title} ${it.description}`)
 }
