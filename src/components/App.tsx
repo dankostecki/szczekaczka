@@ -5,7 +5,7 @@ import { orderedSources, labelsOf, renamedId, renamedItem, sourceName, feedName,
 import type { NewsItem } from '@/lib/parse'
 import { type Item, type FeedError, freshItems, keyOf, dayKey, dayLabel, clock, withTime, inLanguage, originalOf } from '@/lib/news'
 import { connectLive, type LiveStatus } from '@/lib/live'
-import { type Prefs, DEFAULT_PREFS, loadPrefs, savePrefs, loadJson, saveJson, watchMatcher } from '@/lib/prefs'
+import { type Prefs, DEFAULT_PREFS, loadPrefs, savePrefs, loadJson, saveJson, watchMatcher, onWatchlist } from '@/lib/prefs'
 import { speechSupported, speak, speakItem, announce, stopSpeaking, onSpeechBlocked } from '@/lib/speech'
 import { unlockChime } from '@/lib/chime'
 import { notifyPermission, requestNotifyPermission, notifyHeadlines, testNotification } from '@/lib/notify'
@@ -32,7 +32,7 @@ const filterColor = (f: Filter) => (f === 'ALL' || f === 'SAVED' ? undefined : `
 
 // A source tab (or one of its channels) with nothing on it: why. Its channels are shown,
 // or the tab would not be there; errors are named "PAP · BIZNES".
-function emptyTab(src: Source, label: string | null, errors: FeedError[]): string {
+function emptyTab(src: Source, label: string | null, errors: FeedError[], watching: boolean): string {
   const key = label ? `${src} · ${label}` : src // how the server names it in an error
   const name = label ? `${sourceName(src)} · ${label}` : sourceName(src)
   const failing = errors.filter((e) => (label ? e.feed === key : e.feed.startsWith(`${src} · `)))
@@ -41,9 +41,8 @@ function emptyTab(src: Source, label: string | null, errors: FeedError[]): strin
     : label === 'GIEŁDA' ? 'Na razie brak zapowiedzi. Zapowiedzi z kalendarium giełdowego MacroNext pojawiają się tu przed sesją na GPW i przed sesją oraz po sesji w Nowym Jorku.'
     : label === 'MAKRO' ? 'Na razie brak zapowiedzi. Zapowiedzi danych makro z kalendarium MacroNext pojawiają się tu 10 minut przed publikacją.'
     : 'Na razie brak zapowiedzi. Zapowiedzi danych makro pojawiają się tu 10 minut przed publikacją, a zapowiedzi z kalendarium giełdowego przed sesją.'
-  return failing.length
-    ? `Nie udało się pobrać newsów z ${name} (powód w ramce wyżej). Kolejna próba za chwilę.`
-    : `Na razie brak newsów z ${name}.`
+  if (failing.length) return `Nie udało się pobrać newsów z ${name} (powód w ramce wyżej). Kolejna próba za chwilę.`
+  return src === 'ESPI' && watching ? 'Na razie brak raportów ESPI obserwowanych spółek. Listę spółek zmienisz w ustawieniach.' : `Na razie brak newsów z ${name}.`
 }
 
 // Read and saved news of a renamed channel get its new ids, saved back once
@@ -130,15 +129,16 @@ export default function App() {
     const prev = seen.current
     if (prev) {
       const { prefs: p, voiceOn: on, voices: vs } = live.current
-      // Hidden channels: not on the list, so not counted, read aloud or notified either
+      // Hidden channels and the ESPI reports of companies off the watch list: not on the list, so not counted, read aloud or notified either
       // Read aloud and notified in the language the channel is shown in (a translation: in Polish)
-      const fresh = freshItems(fetched.filter((i) => knownFeeds.current.has(keyOf(i)) && !p.hiddenFeeds.includes(keyOf(i))), prev)
+      const inList = onWatchlist(p.watchlist)
+      const fresh = freshItems(fetched.filter((i) => knownFeeds.current.has(keyOf(i)) && !p.hiddenFeeds.includes(keyOf(i)) && inList(i)), prev)
         .map((i) => inLanguage(i, p.originalFeeds))
       if (fresh.length) {
         const t = Date.now()
         setFreshAt((f) => ({ ...f, ...Object.fromEntries(fresh.map((i) => [i.id, t])) }))
         if (document.visibilityState !== 'visible') setUnseen((u) => u + fresh.length)
-        // ESPI: with a watch list only those companies; voice reads every report while the list is empty, notifications none
+        // ESPI: with a watch list only those companies (the rest is not here at all); voice reads every report while the list is empty, notifications none
         const wanted = (channels: string[], onList: (text: string) => boolean) => (i: Item) =>
           channels.includes(keyOf(i)) && (i.source !== 'ESPI' || onList(`${i.title} ${i.description}`))
         if (on) { const s = fresh.filter(wanted(p.speakFeeds, watchMatcher(p.watchlist, true))); if (s.length) announce(s, p, vs) }
@@ -267,7 +267,9 @@ export default function App() {
   // Channels switched off in the settings are left out everywhere except "Zapisane"
   const hidden = useMemo(() => new Set(prefs.hiddenFeeds), [prefs.hiddenFeeds])
   const original = prefs.originalFeeds
-  const shown = useMemo(() => items.filter((i) => !hidden.has(keyOf(i))).map((i) => inLanguage(i, original)), [items, hidden, original])
+  // ESPI with a watch list: only the reports of those companies (the saved ones stay, whatever the list says)
+  const listed = useMemo(() => onWatchlist(prefs.watchlist), [prefs.watchlist])
+  const shown = useMemo(() => items.filter((i) => !hidden.has(keyOf(i)) && listed(i)).map((i) => inLanguage(i, original)), [items, hidden, listed, original])
   const labelsShown = (src: Source) => labelsOf(src).filter((l) => !hidden.has(`${src}:${l}`))
   // the tabs: everything, the sources in the order the reader set in the settings, the saved
   const filters = (['ALL', ...orderedSources(prefs.sourceOrder), 'SAVED'] as Filter[]).filter((f) => f === 'ALL' || f === 'SAVED' || labelsShown(f).length > 0)
@@ -404,7 +406,8 @@ export default function App() {
           <p className="empty">
             {activeFilter === 'SAVED' && !q ? 'Nic jeszcze nie zapisano. Kliknij gwiazdkę przy newsie, żeby go tu odłożyć.'
               : q ? 'Brak wyników dla tego wyszukiwania.'
-              : activeFilter !== 'ALL' && activeFilter !== 'SAVED' ? emptyTab(activeFilter, activeLabel, shownErrors)
+              : activeFilter !== 'ALL' && activeFilter !== 'SAVED' ? emptyTab(activeFilter, activeLabel, shownErrors, prefs.watchlist.trim() !== '')
+              : items.some((i) => !hidden.has(keyOf(i))) ? 'Na razie brak raportów ESPI obserwowanych spółek. Listę spółek zmienisz w ustawieniach.'
               : items.length > 0 ? 'Kanały z newsami są ukryte. Pokaż je w ustawieniach (kolumna z okiem).'
               : 'Brak newsów.'}
           </p>
