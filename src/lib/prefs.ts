@@ -107,12 +107,18 @@ export function saveJson(key: string, value: unknown) {
   try { localStorage.setItem(key, JSON.stringify(value)) } catch {}
 }
 
-// "PKN, CD Projekt; KGHM" -> a test for whole words, any case. An empty list matches nothing, or everything with `allWhenEmpty`
+// "PKN, CD Projekt; KGHM" -> a test for whole words, any case. An empty list matches nothing, or everything with `allWhenEmpty`.
+// A name typed a little short still matches the word it begins: up to a quarter of its letters more, at most two ("Asbis" finds
+// "ASBISc", the way the company writes its name, "mBank" finds "mBanku"); a short name (three letters or less) only as it is.
 export function watchMatcher(list: string, allWhenEmpty = false): (text: string) => boolean {
   const names = list.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean)
   if (names.length === 0) return () => allWhenEmpty
   const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')
-  const re = new RegExp(`(?<![\\p{L}\\p{N}])(?:${names.map(esc).join('|')})(?![\\p{L}\\p{N}])`, 'iu')
+  const more = (s: string) => {
+    const extra = /\p{L}$/u.test(s) ? Math.min(2, Math.floor(s.replace(/[^\p{L}\p{N}]/gu, '').length / 4)) : 0
+    return extra ? `\\p{L}{0,${extra}}` : ''
+  }
+  const re = new RegExp(`(?<![\\p{L}\\p{N}])(?:${names.map((n) => esc(n) + more(n)).join('|')})(?![\\p{L}\\p{N}])`, 'iu')
   return (text) => re.test(text)
 }
 
