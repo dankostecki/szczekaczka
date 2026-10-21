@@ -11,12 +11,11 @@ export interface Instrument {
 }
 
 // CFDs of CMC Markets (CMCMARKETS:), which TradingView's widgets show (TradingView's own sample table has one) and which trade nearly all day
-// long, like futures: Poland 20 is CMC's CFD on the WIG20 futures (FW20). CMC has no WIG and no bitcoin on TradingView: those two come from
-// the exchange (the WIG only at the end of the day) and from Bitstamp
+// long, like futures. WIG20 is the futures contract FW20 of the exchange (GPW:FW201!, the front month); CMC has no bitcoin on TradingView,
+// so it comes from Bitstamp
 export const MARKET_GROUPS: { name: string; items: Instrument[] }[] = [
   { name: 'Polska', items: [
-    { symbol: 'CMCMARKETS:POLISH201!', name: 'WIG20 (FW20)', note: 'CFD CMC na kontrakt', also: 'Poland 20 FW20 kontrakt futures' },
-    { symbol: 'GPW:WIG', name: 'WIG', note: 'GPW', also: 'cały rynek' },
+    { symbol: 'GPW:FW201!', name: 'WIG20 (FW20)', note: 'kontrakt, GPW', also: 'FW20 kontrakt futures' },
   ] },
   { name: 'Waluty', items: [
     { symbol: 'CMCMARKETS:EURUSD', name: 'EUR/USD' },
@@ -47,7 +46,7 @@ const MORE: Instrument[] = [
     ['PGE', 'PGE'], ['JSW', 'JSW'], ['CPS', 'Cyfrowy Polsat', 'Polsat'], ['PCO', 'Pepco'], ['ZAB', 'Żabka'], ['ACP', 'Asseco Poland', 'Asseco'],
     ['TPE', 'Tauron'], ['ENA', 'Enea'], ['TXT', 'Text', 'LiveChat'], ['BFT', 'Benefit Systems'], ['ASB', 'Asbis', 'ASBISc'], ['XTB', 'XTB'],
     ['CCC', 'CCC'], ['MIL', 'Bank Millennium', 'Millennium'], ['BHW', 'Citi Handlowy', 'Handlowy'], ['ING', 'ING Bank Śląski', 'ING'],
-    ['WIG20', 'WIG20'], ['MWIG40', 'mWIG40'], ['SWIG80', 'sWIG80'], ['FW201!', 'FW20', 'kontrakt futures WIG20'], ['FW401!', 'FW40', 'kontrakt futures mWIG40'],
+    ['WIG', 'WIG', 'cały rynek'], ['WIG20', 'WIG20'], ['MWIG40', 'mWIG40'], ['SWIG80', 'sWIG80'], ['FW401!', 'FW40', 'kontrakt futures mWIG40'],
   ].map(([t, name, also]) => ({ symbol: `GPW:${t}`, name, note: 'GPW', also })),
   ...[
     ['NASDAQ:AAPL', 'Apple'], ['NASDAQ:MSFT', 'Microsoft'], ['NASDAQ:NVDA', 'Nvidia'], ['NASDAQ:AMZN', 'Amazon'], ['NASDAQ:GOOGL', 'Alphabet', 'Google'],
@@ -63,6 +62,7 @@ const MORE: Instrument[] = [
   { symbol: 'NYMEX:CL1!', name: 'Ropa WTI (kontrakt)', note: 'NYMEX', also: 'CL futures' },
   { symbol: 'INDEX:NKY', name: 'Nikkei 225', note: 'Japonia', also: 'Nikkei' },
   { symbol: 'CMCMARKETS:UK100', name: 'FTSE 100', note: 'Wielka Brytania', also: 'FTSE UK100' },
+  { symbol: 'CMCMARKETS:POLISH201!', name: 'Poland 20 (CFD)', note: 'CMC, na kontrakt WIG20', also: 'Poland 20 WIG20 FW20' },
   { symbol: 'TVC:DXY', name: 'Indeks dolara', note: 'DXY', also: 'DXY dollar' },
   { symbol: 'TVC:US10Y', name: 'Rentowność 10-letnich obligacji USA', note: '%', also: 'US10Y obligacje' },
   { symbol: 'TVC:PL10Y', name: 'Rentowność 10-letnich obligacji Polski', note: '%', also: 'PL10Y obligacje' },
@@ -114,6 +114,21 @@ export function symbolChoices(typed: string): (Instrument & { typed?: boolean })
 export function toSymbol(typed: string): string | null {
   const s = typed.trim().toUpperCase().replace(/\s*:\s*/g, ':').replace(/\//g, '').replace(/\s+/g, '')
   return /^(?:[A-Z0-9_]{1,20}:)?[A-Z0-9][A-Z0-9._!&-]{0,23}$/.test(s) ? s : null
+}
+
+// The symbol a link of TradingView's points to: "…/chart/?symbol=GPW%3AFW201!", "…?tvwidgetsymbol=…", "…/symbols/CMCMARKETS-EURUSD/",
+// "…/symbols/EURUSD/?exchange=CMCMARKETS"; null for a link without the exchange
+export function symbolOfLink(href: string): string | null {
+  try {
+    const u = new URL(href)
+    const q = u.searchParams.get('symbol') ?? u.searchParams.get('tvwidgetsymbol')
+    if (q) return toSymbol(q)
+    const m = u.pathname.match(/\/symbols\/(?:([A-Za-z0-9_]+)-)?([^/]+)\/?/)
+    const exchange = m?.[1] ?? u.searchParams.get('exchange')
+    return m && exchange ? toSymbol(`${exchange}:${decodeURIComponent(m[2])}`) : null
+  } catch {
+    return null
+  }
 }
 
 // The instrument a symbol stands for (one of ours, or just the symbol)

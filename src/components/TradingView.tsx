@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { symbolOfLink } from '@/lib/market'
 import type { Origin } from './Market'
 
 // TradingView's free widgets (tradingview.com/widget-docs). Loaded only once the reader has switched the charts on (the "Rynek" tab asks):
@@ -100,6 +101,76 @@ function fitTable(table: HTMLElement, sectors: Sector[]): () => void {
   return () => { window.clearTimeout(timer); resized.disconnect(); changed.disconnect() }
 }
 
+// A thumb on the table has to move the page, as everywhere else, and a tap on a row has to open its chart. The widget keeps the touches for itself
+// (the page does not scroll under a thumb on it), so where the page can see inside it, touches go past it to the box under it: the page scrolls
+// by itself, and a tap is looked up in the table where the finger was (the row's link gives the symbol; a row without one is clicked for the
+// widget to say which it is). Where the page cannot see inside, the widget keeps the taps, and a drag on it moves the page by hand
+// What is under a point inside the widget (and inside the widgets in it)
+function inside(table: HTMLElement, x: number, y: number): Element | null {
+  table.style.pointerEvents = 'auto'
+  try {
+    let el = table.shadowRoot?.elementFromPoint(x, y) ?? null
+    for (let depth = 0; el?.shadowRoot && depth < 5; depth++) {
+      const deeper = el.shadowRoot.elementFromPoint(x, y)
+      if (!deeper || deeper === el) break
+      el = deeper
+    }
+    return el
+  } finally {
+    table.style.pointerEvents = ''
+  }
+}
+
+// The page moved by hand under a vertical drag on the table, gliding on a little after the finger leaves, as a page does. Not when the page
+// scrolls by itself after all
+function scrollByHand(box: HTMLElement): () => void {
+  let x0 = 0, y0 = 0, last = 0, lastT = 0, speed = 0, expected = 0, frame = 0
+  let state: 'off' | 'wait' | 'drag' = 'off'
+  const start = (e: TouchEvent) => {
+    cancelAnimationFrame(frame)
+    if (e.touches.length !== 1) { state = 'off'; return }
+    x0 = e.touches[0].clientX; y0 = last = e.touches[0].clientY; lastT = e.timeStamp
+    speed = 0; expected = window.scrollY; state = 'wait'
+  }
+  const move = (e: TouchEvent) => {
+    if (state === 'off' || e.touches.length !== 1) return
+    const t = e.touches[0]
+    if (Math.abs(window.scrollY - expected) > 2) { state = 'off'; return }
+    if (state === 'wait') {
+      if (Math.abs(t.clientY - y0) < 8 || Math.abs(t.clientX - x0) > Math.abs(t.clientY - y0)) return // a tap, or a sideways move
+      state = 'drag'
+    }
+    const dy = last - t.clientY
+    window.scrollBy(0, dy)
+    expected = window.scrollY
+    speed = dy / Math.max(1, e.timeStamp - lastT)
+    last = t.clientY; lastT = e.timeStamp
+  }
+  const end = () => {
+    if (state !== 'drag') { state = 'off'; return }
+    state = 'off'
+    let v = speed * 16 // px a frame
+    const glide = () => {
+      if (Math.abs(v) < 0.5) return
+      window.scrollBy(0, v)
+      v *= 0.95
+      frame = requestAnimationFrame(glide)
+    }
+    frame = requestAnimationFrame(glide)
+  }
+  box.addEventListener('touchstart', start, { passive: true })
+  box.addEventListener('touchmove', move, { passive: true })
+  box.addEventListener('touchend', end)
+  box.addEventListener('touchcancel', end)
+  return () => {
+    cancelAnimationFrame(frame)
+    box.removeEventListener('touchstart', start)
+    box.removeEventListener('touchmove', move)
+    box.removeEventListener('touchend', end)
+    box.removeEventListener('touchcancel', end)
+  }
+}
+
 export function QuotesTable({ sectors, onOpen }: { sectors: Sector[]; onOpen: (symbol: string, from: Origin | null) => void }) {
   const box = useRef<HTMLDivElement>(null)
   const pressed = useRef<Origin | null>(null) // where the row was pressed: the chart window grows out of it
@@ -120,15 +191,35 @@ export function QuotesTable({ sectors, onOpen }: { sectors: Sector[]; onOpen: (s
     }
     table.addEventListener('tv-link-open', onLink)
     el.replaceChildren(table)
+    el.classList.remove('through')
     const unfit = fitTable(table, JSON.parse(settings) as Sector[])
-    let on = true
+    let on = true, unhand = () => {}
     setFailed(false)
     void loadTable().then((ok) => { if (on && !ok) setFailed(true) })
-    return () => { on = false; unfit(); table.removeEventListener('tv-link-open', onLink); el.replaceChildren() }
+    // A widget that opens itself to the page a moment later still gets the touches let past
+    let later: number | undefined
+    const pass = () => { if (on && table.shadowRoot) { unhand(); unhand = () => {}; el.classList.add('through') } }
+    void customElements.whenDefined(TABLE).then(() => {
+      if (!on) return
+      if (table.shadowRoot) pass()
+      else { unhand = scrollByHand(el); later = window.setTimeout(pass, 1500) }
+    })
+    return () => { on = false; window.clearTimeout(later); unfit(); unhand(); table.removeEventListener('tv-link-open', onLink); el.replaceChildren() }
   }, [settings])
+  // A tap that went past the widget: the row under the finger
+  const tap = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = box.current, table = el?.firstElementChild as HTMLElement | null
+    if (!el?.classList.contains('through') || !table) return
+    const at = inside(table, e.clientX, e.clientY)
+    if (!at) return
+    const link = at.closest('a[href]')
+    const symbol = link && symbolOfLink((link as HTMLAnchorElement).href)
+    if (symbol) open.current(symbol, { x: e.clientX, y: e.clientY })
+    else (at as HTMLElement).click() // the widget says which row it is ("tv-link-open")
+  }
   return (
     <>
-      <div ref={box} className="market-table" onPointerDown={(e) => { pressed.current = { x: e.clientX, y: e.clientY } }} />
+      <div ref={box} className="market-table" onPointerDown={(e) => { pressed.current = { x: e.clientX, y: e.clientY } }} onClick={tap} />
       {failed && <p className="chart-off">Nie udało się wczytać notowań. Spróbuj za chwilę.</p>}
     </>
   )

@@ -447,6 +447,9 @@ body.reading { overflow: hidden; padding-right: var(--scrollbar, 0px); }
 .market-names { display: flex; flex-wrap: wrap; gap: 6px; }
 .market-table { min-height: 360px; margin-top: 12px; --tv-widget-background-color: var(--bg); }
 .market-table > * { display: block; width: 100%; }
+/* the widget does not take touches and clicks: the page scrolls under a thumb on it, and a tap is found in the table (TradingView.tsx) */
+.market-table.through { cursor: pointer; }
+.market-table.through > * { pointer-events: none; }
 /* A frame from another site is painted white under a dark page unless it is told the colour scheme it was made for */
 .tradingview-widget-container iframe { color-scheme: normal; }
 .tradingview-widget-container, .tradingview-widget-container__widget { width: 100%; height: 100%; }
