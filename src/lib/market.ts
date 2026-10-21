@@ -1,11 +1,11 @@
-// The "Rynek" tab: quotes and charts from TradingView (its free widgets, components/TradingView.tsx). The tiles, and the names and
-// symbols the symbol field suggests. A symbol is TradingView's ("GPW:CDR", "FX_IDC:USDPLN"); only symbols TradingView lets widgets
+// The "Rynek" tab: quotes and charts from TradingView (its free widgets, components/TradingView.tsx). The quotes table in its sections, and the
+// names and symbols the symbol field suggests. A symbol is TradingView's ("GPW:CDR", "FX_IDC:USDPLN"); only symbols TradingView lets widgets
 // show work (some say "only available on TradingView" instead). Data in the widgets: currencies and crypto live, shares and
 // indices delayed, the Warsaw Stock Exchange (GPW) and Xetra only at the end of the day.
 
 export interface Instrument {
   symbol: string // TradingView's, "EXCHANGE:TICKER"
-  name: string   // as the tile and the suggestions show it
+  name: string   // as the suggestions and the chart window show it
   note?: string  // what the price is in, where it trades
   also?: string  // other names it is looked up by
 }
@@ -30,12 +30,12 @@ export const MARKET_GROUPS: { name: string; items: Instrument[] }[] = [
   { name: 'Surowce i krypto', items: [
     { symbol: 'TVC:GOLD', name: 'Złoto', note: 'USD za uncję', also: 'gold XAUUSD' },
     { symbol: 'TVC:UKOIL', name: 'Ropa Brent', note: 'USD za baryłkę', also: 'oil' },
-    { symbol: 'COMEX:HG1!', name: 'Miedź', note: 'USD za funt', also: 'copper' },
+    { symbol: 'CMCMARKETS:COPPER', name: 'Miedź', note: 'USD', also: 'copper' },
     { symbol: 'BITSTAMP:BTCUSD', name: 'Bitcoin', note: 'USD', also: 'BTC' },
   ] },
 ]
 
-// Looked up by name or ticker in the symbol field, besides the tiles
+// Looked up by name or ticker in the symbol field, besides the table's
 const MORE: Instrument[] = [
   ...[
     ['PKN', 'Orlen', 'PKN Orlen'], ['PKO', 'PKO BP', 'PKO Bank Polski'], ['PZU', 'PZU'], ['PEO', 'Pekao', 'Bank Pekao'], ['KGH', 'KGHM', 'KGHM Polska Miedź'],

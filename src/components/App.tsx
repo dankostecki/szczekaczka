@@ -34,7 +34,7 @@ type Filter = 'ALL' | 'MARKET' | Source | 'SAVED'
 const isSource = (f: Filter): f is Source => f !== 'ALL' && f !== 'MARKET' && f !== 'SAVED'
 const filterName = (f: Filter) => (f === 'ALL' ? 'Wszystko' : f === 'MARKET' ? 'Rynek' : f === 'SAVED' ? 'Zapisane' : sourceName(f))
 const filterColor = (f: Filter) => (isSource(f) ? `var(--src-${f.toLowerCase()})` : undefined)
-// The chart a computer shows beside the tiles until another is chosen
+// The chart a computer shows beside the table until another is chosen
 const FIRST_CHART = 'GPW:WIG'
 
 // A source tab (or one of its channels) with nothing on it: why. Its channels are shown,
@@ -81,7 +81,8 @@ export default function App() {
   const [choice,    setChoice]    = useState(0)      // the symbol suggestion picked with the arrow keys
   const [searching, setSearching] = useState(false)  // the search field has the focus (suggestions under it)
   const [chart,     setChart]     = useState<{ symbol: string; origin: Origin | null } | null>(null) // a chart in a window
-  const [picked,    setPicked]    = useState(FIRST_CHART) // the chart beside the tiles (a computer)
+  const [picked,    setPicked]    = useState(FIRST_CHART) // the chart beside the table (a computer)
+  const [marketSeen, setMarketSeen] = useState(false)     // the "Rynek" tab was opened: it stays loaded, hidden, while another tab is shown
   const [readIds,   setReadIds]   = useState<Set<string>>(new Set())
   const [saved,     setSaved]     = useState<Item[]>([])
   const [freshAt,   setFreshAt]   = useState<Record<string, number>>({})
@@ -99,7 +100,7 @@ export default function App() {
   useEffect(() => { live.current = { prefs, voiceOn, voices } }, [prefs, voiceOn, voices])
   const searchRef = useRef<HTMLInputElement>(null)
   const awake = useWakeLock(ready && prefs.keepAwake)
-  const wide = useMedia('(min-width: 1000px)') // room for the chart beside the market's tiles
+  const wide = useMedia('(min-width: 1000px)') // room for the chart beside the market's table
 
   // ── Restore state kept in this browser ──
   useEffect(() => {
@@ -290,6 +291,7 @@ export default function App() {
   const activeFilter: Filter = filters.includes(filter) ? filter : 'ALL'
   const activeLabel = label && isSource(activeFilter) && !hidden.has(`${activeFilter}:${label}`) ? label : null
   const market = activeFilter === 'MARKET'
+  useEffect(() => { if (market) setMarketSeen(true) }, [market])
 
   const visible = useMemo(() => {
     const base =
@@ -312,7 +314,7 @@ export default function App() {
 
   const subLabels = isSource(activeFilter) ? labelsShown(activeFilter) : []
 
-  // ── The market: a chart in a window (a phone) or beside the tiles (a computer); the symbols looked at last are remembered ──
+  // ── The market: a chart in a window (a phone) or beside the table (a computer); the symbols looked at last are remembered ──
   const openChart = useCallback((symbol: string, origin: Origin | null) => {
     if (prefs.charts) updatePrefs({ marketRecent: withRecent(prefs.marketRecent, symbol) })
     if (wide && filter === 'MARKET') setPicked(symbol)
@@ -461,8 +463,11 @@ export default function App() {
           </div>
         )}
 
-        {market && (
-          <Market charts={prefs.charts} onCharts={chartsOn} dark={dark} recent={prefs.marketRecent} wide={wide} picked={picked} onOpen={openChart} />
+        {/* Once opened, the market stays: back on its tab the quotes are there at once, not loaded again */}
+        {(market || marketSeen) && (
+          <div hidden={!market}>
+            <Market charts={prefs.charts} onCharts={chartsOn} dark={dark} recent={prefs.marketRecent} wide={wide} picked={picked} onOpen={openChart} />
+          </div>
         )}
 
         {!market && !loaded && Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton" />)}
