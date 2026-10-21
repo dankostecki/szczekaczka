@@ -2,8 +2,8 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react'
 import Link from 'next/link'
-import { MARKET_GROUPS, endOfDay, instrument, tradingViewUrl, type Instrument } from '@/lib/market'
-import { TradingViewWidget, chartConfig, miniConfig } from './TradingView'
+import { MARKET_GROUPS, endOfDay, instrument, tradingViewUrl } from '@/lib/market'
+import { QuotesTable, TradingViewWidget, chartConfig, type Sector } from './TradingView'
 import { External } from './Icons'
 
 export type Origin = { x: number; y: number }
@@ -55,38 +55,10 @@ export const OFFLINE = 'Notowania i wykresy wymagają internetu.'
 export const EOD_HINT = 'Notowania z GPW są tu z końca dnia.'
 const origin = (e: MouseEvent) => ({ x: e.clientX, y: e.clientY })
 
-// The quote on a tile, put in only when the tile is close to the screen (each one is a frame of its own)
-function Quote({ symbol, dark }: { symbol: string; dark: boolean }) {
-  const ref = useRef<HTMLSpanElement>(null)
-  const [near, setNear] = useState(false)
-  useEffect(() => {
-    const el = ref.current
-    if (!el || near) return
-    const seen = new IntersectionObserver((list) => { if (list.some((e) => e.isIntersecting)) setNear(true) }, { rootMargin: '300px 0px' })
-    seen.observe(el)
-    return () => seen.disconnect()
-  }, [near])
-  return (
-    <span ref={ref} className="market-quote">
-      {near && <TradingViewWidget kind="mini-symbol-overview" config={miniConfig(symbol, dark)} />}
-    </span>
-  )
-}
-
-function Tile({ it, live, dark, picked, onOpen }: { it: Instrument; live: boolean; dark: boolean; picked: boolean; onOpen: (symbol: string, from: Origin) => void }) {
-  return (
-    <button className={`market-tile${picked ? ' picked' : ''}${live ? '' : ' off'}`} onClick={(e) => onOpen(it.symbol, origin(e))}
-      aria-pressed={picked || undefined} title={`${it.name}: wykres`}>
-      <span className="market-name"><b>{it.name}</b>{it.note && <i>{it.note}</i>}</span>
-      {live && <Quote symbol={it.symbol} dark={dark} />}
-    </button>
-  )
-}
-
-// The chart beside the tiles (on a computer)
+// The chart beside the table (on a computer)
 function Panel({ symbol, dark, charts, online, onCharts }: { symbol: string; dark: boolean; charts: boolean; online: boolean; onCharts: () => void }) {
   const it = instrument(symbol)
-  // How tall the page's bar is, and what comes after the tiles (the footer): the panel fits between them however far the page is scrolled
+  // How tall the page's bar is, and what comes after the table (the footer): the panel fits between them however far the page is scrolled
   const ref = useRef<HTMLElement>(null)
   useLayoutEffect(() => {
     const el = ref.current, top = document.querySelector<HTMLElement>('.top')
@@ -124,29 +96,33 @@ interface Props {
   onCharts: () => void
   dark: boolean
   recent: string[]
-  wide: boolean   // a computer: the chart beside the tiles, not in a window
-  picked: string  // the symbol in the chart beside the tiles
-  onOpen: (symbol: string, from: Origin) => void
+  wide: boolean   // a computer: the chart beside the table, not in a window
+  picked: string  // the symbol in the chart beside the table
+  onOpen: (symbol: string, from: Origin | null) => void
 }
 
-// The "Rynek" tab: the instruments looked at last, the tiles in groups (a tap: the chart), where the data comes from
+// The table's sections, as TradingView's widget takes them
+const SECTORS: Sector[] = MARKET_GROUPS.map((g) => ({ sectionName: g.name, symbols: g.items.map((i) => i.symbol) }))
+
+// The "Rynek" tab: the instruments looked at last, TradingView's quotes table in sections (a click on a row: the chart), where the data comes from.
+// Before the reader switches the charts on: what is in the table, by name (a click asks in the chart window)
 export default function Market({ charts, onCharts, dark, recent, wide, picked, onOpen }: Props) {
   const online = useOnline()
-  const live = charts && online
-  const tiles = (
-    <div className="market-tiles">
-      {charts && !online && <p className="chart-off">{OFFLINE}</p>}
-      {MARKET_GROUPS.map((g) => (
+  const quotes = (
+    <div className="market-quotes">
+      {!charts ? MARKET_GROUPS.map((g) => (
         <section key={g.name} className="market-group">
           <h2 className="day">{g.name}</h2>
-          <div className="market-grid">
-            {g.items.map((it) => <Tile key={it.symbol} it={it} live={live} dark={dark} picked={wide && it.symbol === picked} onOpen={onOpen} />)}
+          <div className="market-names">
+            {g.items.map((it) => <button key={it.symbol} className="chip small" onClick={(e) => onOpen(it.symbol, origin(e))}>{it.name}</button>)}
           </div>
         </section>
-      ))}
+      ))
+        : !online ? <p className="chart-off">{OFFLINE}</p>
+        : <QuotesTable sectors={SECTORS} onOpen={onOpen} />}
       {charts && (
         <p className="market-note">
-          Waluty i kryptowaluty są na bieżąco, akcje i indeksy z opóźnieniem, a notowania z GPW z końca dnia. Kafelek otwiera wykres.
+          Waluty i kryptowaluty są na bieżąco, akcje i indeksy z opóźnieniem, a notowania z GPW z końca dnia. Kliknięcie wiersza otwiera wykres.
           {' '}Notowania i wykresy: <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView</a>.
         </p>
       )}
@@ -165,10 +141,10 @@ export default function Market({ charts, onCharts, dark, recent, wide, picked, o
       )}
       {wide ? (
         <div className="market-split">
-          {tiles}
+          {quotes}
           <Panel symbol={picked} dark={dark} charts={charts} online={online} onCharts={onCharts} />
         </div>
-      ) : tiles}
+      ) : quotes}
     </div>
   )
 }
