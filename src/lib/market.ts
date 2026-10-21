@@ -10,28 +10,30 @@ export interface Instrument {
   also?: string  // other names it is looked up by
 }
 
+// CFDs of CMC Markets (CMCMARKETS:), which TradingView's widgets show (TradingView's own sample table has one) and which trade nearly all day
+// long, like futures: Poland 20 is CMC's CFD on the WIG20 futures (FW20). CMC has no WIG and no bitcoin on TradingView: those two come from
+// the exchange (the WIG only at the end of the day) and from Bitstamp
 export const MARKET_GROUPS: { name: string; items: Instrument[] }[] = [
-  // FW20, the WIG20 futures (the front month, "1!"), not the index: what the market trades on before and after the session
   { name: 'Polska', items: [
-    { symbol: 'GPW:FW201!', name: 'FW20', note: 'kontrakt na WIG20', also: 'kontrakt futures WIG20' },
+    { symbol: 'CMCMARKETS:POLISH201!', name: 'WIG20 (FW20)', note: 'CFD CMC na kontrakt', also: 'Poland 20 FW20 kontrakt futures' },
     { symbol: 'GPW:WIG', name: 'WIG', note: 'GPW', also: 'cały rynek' },
   ] },
   { name: 'Waluty', items: [
-    { symbol: 'FX_IDC:EURUSD', name: 'EUR/USD' },
-    { symbol: 'FX_IDC:USDPLN', name: 'USD/PLN', also: 'dolar' },
-    { symbol: 'FX_IDC:EURPLN', name: 'EUR/PLN', also: 'euro' },
-    { symbol: 'FX_IDC:CHFPLN', name: 'CHF/PLN', also: 'frank' },
-    { symbol: 'FX_IDC:GBPPLN', name: 'GBP/PLN', also: 'funt' },
+    { symbol: 'CMCMARKETS:EURUSD', name: 'EUR/USD' },
+    { symbol: 'CMCMARKETS:USDPLN', name: 'USD/PLN', also: 'dolar' },
+    { symbol: 'CMCMARKETS:EURPLN', name: 'EUR/PLN', also: 'euro' },
+    { symbol: 'CMCMARKETS:CHFPLN', name: 'CHF/PLN', also: 'frank' },
+    { symbol: 'CMCMARKETS:GBPPLN', name: 'GBP/PLN', also: 'funt' },
   ] },
   { name: 'Świat', items: [
-    { symbol: 'FOREXCOM:SPXUSD', name: 'S&P 500', note: 'USA', also: 'SPX' },
-    { symbol: 'FOREXCOM:NSXUSD', name: 'Nasdaq 100', note: 'USA', also: 'NDX' },
-    { symbol: 'INDEX:DEU40', name: 'DAX', note: 'Niemcy', also: 'DE40' },
+    { symbol: 'CMCMARKETS:SPX500', name: 'S&P 500', note: 'USA', also: 'SPX US500' },
+    { symbol: 'CMCMARKETS:NDAQ100', name: 'Nasdaq 100', note: 'USA', also: 'NDX US100' },
+    { symbol: 'CMCMARKETS:GERMAN30', name: 'DAX', note: 'Niemcy', also: 'DE40 GER40 Germany 40' },
   ] },
   { name: 'Surowce i krypto', items: [
-    { symbol: 'TVC:GOLD', name: 'Złoto', note: 'USD za uncję', also: 'gold XAUUSD' },
-    { symbol: 'TVC:UKOIL', name: 'Ropa Brent', note: 'USD za baryłkę', also: 'oil' },
-    { symbol: 'CMCMARKETS:COPPER', name: 'Miedź', note: 'USD', also: 'copper' },
+    { symbol: 'CMCMARKETS:GOLD', name: 'Złoto', note: 'USD za uncję', also: 'gold XAUUSD' },
+    { symbol: 'CMCMARKETS:UKCRUDEOIL', name: 'Ropa Brent', note: 'USD za baryłkę', also: 'oil UKOIL' },
+    { symbol: 'CMCMARKETS:COPPER', name: 'Miedź', note: 'USD za funt', also: 'copper' },
     { symbol: 'BITSTAMP:BTCUSD', name: 'Bitcoin', note: 'USD', also: 'BTC' },
   ] },
 ]
@@ -45,7 +47,7 @@ const MORE: Instrument[] = [
     ['PGE', 'PGE'], ['JSW', 'JSW'], ['CPS', 'Cyfrowy Polsat', 'Polsat'], ['PCO', 'Pepco'], ['ZAB', 'Żabka'], ['ACP', 'Asseco Poland', 'Asseco'],
     ['TPE', 'Tauron'], ['ENA', 'Enea'], ['TXT', 'Text', 'LiveChat'], ['BFT', 'Benefit Systems'], ['ASB', 'Asbis', 'ASBISc'], ['XTB', 'XTB'],
     ['CCC', 'CCC'], ['MIL', 'Bank Millennium', 'Millennium'], ['BHW', 'Citi Handlowy', 'Handlowy'], ['ING', 'ING Bank Śląski', 'ING'],
-    ['WIG20', 'WIG20'], ['MWIG40', 'mWIG40'], ['SWIG80', 'sWIG80'], ['FW401!', 'FW40', 'kontrakt futures mWIG40'],
+    ['WIG20', 'WIG20'], ['MWIG40', 'mWIG40'], ['SWIG80', 'sWIG80'], ['FW201!', 'FW20', 'kontrakt futures WIG20'], ['FW401!', 'FW40', 'kontrakt futures mWIG40'],
   ].map(([t, name, also]) => ({ symbol: `GPW:${t}`, name, note: 'GPW', also })),
   ...[
     ['NASDAQ:AAPL', 'Apple'], ['NASDAQ:MSFT', 'Microsoft'], ['NASDAQ:NVDA', 'Nvidia'], ['NASDAQ:AMZN', 'Amazon'], ['NASDAQ:GOOGL', 'Alphabet', 'Google'],
@@ -60,7 +62,7 @@ const MORE: Instrument[] = [
   { symbol: 'COMEX:GC1!', name: 'Złoto (kontrakt)', note: 'COMEX', also: 'GC futures' },
   { symbol: 'NYMEX:CL1!', name: 'Ropa WTI (kontrakt)', note: 'NYMEX', also: 'CL futures' },
   { symbol: 'INDEX:NKY', name: 'Nikkei 225', note: 'Japonia', also: 'Nikkei' },
-  { symbol: 'FOREXCOM:UKXGBP', name: 'FTSE 100', note: 'Wielka Brytania', also: 'FTSE' },
+  { symbol: 'CMCMARKETS:UK100', name: 'FTSE 100', note: 'Wielka Brytania', also: 'FTSE UK100' },
   { symbol: 'TVC:DXY', name: 'Indeks dolara', note: 'DXY', also: 'DXY dollar' },
   { symbol: 'TVC:US10Y', name: 'Rentowność 10-letnich obligacji USA', note: '%', also: 'US10Y obligacje' },
   { symbol: 'TVC:PL10Y', name: 'Rentowność 10-letnich obligacji Polski', note: '%', also: 'PL10Y obligacje' },
