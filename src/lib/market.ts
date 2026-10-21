@@ -11,11 +11,13 @@ export interface Instrument {
 }
 
 export const MARKET_GROUPS: { name: string; items: Instrument[] }[] = [
+  // FW20, the WIG20 futures (the front month, "1!"), not the index: what the market trades on before and after the session
   { name: 'Polska', items: [
+    { symbol: 'GPW:FW201!', name: 'FW20', note: 'kontrakt na WIG20', also: 'kontrakt futures WIG20' },
     { symbol: 'GPW:WIG', name: 'WIG', note: 'GPW', also: 'cały rynek' },
-    { symbol: 'GPW:WIG20', name: 'WIG20', note: 'GPW' },
   ] },
   { name: 'Waluty', items: [
+    { symbol: 'FX_IDC:EURUSD', name: 'EUR/USD' },
     { symbol: 'FX_IDC:USDPLN', name: 'USD/PLN', also: 'dolar' },
     { symbol: 'FX_IDC:EURPLN', name: 'EUR/PLN', also: 'euro' },
     { symbol: 'FX_IDC:CHFPLN', name: 'CHF/PLN', also: 'frank' },
@@ -25,7 +27,6 @@ export const MARKET_GROUPS: { name: string; items: Instrument[] }[] = [
     { symbol: 'FOREXCOM:SPXUSD', name: 'S&P 500', note: 'USA', also: 'SPX' },
     { symbol: 'FOREXCOM:NSXUSD', name: 'Nasdaq 100', note: 'USA', also: 'NDX' },
     { symbol: 'INDEX:DEU40', name: 'DAX', note: 'Niemcy', also: 'DE40' },
-    { symbol: 'FX_IDC:EURUSD', name: 'EUR/USD' },
   ] },
   { name: 'Surowce i krypto', items: [
     { symbol: 'TVC:GOLD', name: 'Złoto', note: 'USD za uncję', also: 'gold XAUUSD' },
@@ -44,7 +45,7 @@ const MORE: Instrument[] = [
     ['PGE', 'PGE'], ['JSW', 'JSW'], ['CPS', 'Cyfrowy Polsat', 'Polsat'], ['PCO', 'Pepco'], ['ZAB', 'Żabka'], ['ACP', 'Asseco Poland', 'Asseco'],
     ['TPE', 'Tauron'], ['ENA', 'Enea'], ['TXT', 'Text', 'LiveChat'], ['BFT', 'Benefit Systems'], ['ASB', 'Asbis', 'ASBISc'], ['XTB', 'XTB'],
     ['CCC', 'CCC'], ['MIL', 'Bank Millennium', 'Millennium'], ['BHW', 'Citi Handlowy', 'Handlowy'], ['ING', 'ING Bank Śląski', 'ING'],
-    ['MWIG40', 'mWIG40'], ['SWIG80', 'sWIG80'],
+    ['WIG20', 'WIG20'], ['MWIG40', 'mWIG40'], ['SWIG80', 'sWIG80'], ['FW401!', 'FW40', 'kontrakt futures mWIG40'],
   ].map(([t, name, also]) => ({ symbol: `GPW:${t}`, name, note: 'GPW', also })),
   ...[
     ['NASDAQ:AAPL', 'Apple'], ['NASDAQ:MSFT', 'Microsoft'], ['NASDAQ:NVDA', 'Nvidia'], ['NASDAQ:AMZN', 'Amazon'], ['NASDAQ:GOOGL', 'Alphabet', 'Google'],
@@ -52,6 +53,12 @@ const MORE: Instrument[] = [
     ['NASDAQ:PLTR', 'Palantir'], ['NYSE:BRK.B', 'Berkshire Hathaway', 'Berkshire'], ['NYSE:JPM', 'JPMorgan'], ['NYSE:KO', 'Coca-Cola'], ['NYSE:XOM', 'Exxon Mobil', 'Exxon'],
   ].map(([symbol, name, also]) => ({ symbol, name, note: symbol.split(':')[0], also })),
   { symbol: 'FOREXCOM:DJI', name: 'Dow Jones', note: 'USA', also: 'DJIA' },
+  // Futures of other exchanges, to look up (TradingView's widgets show Eurex only at the end of the day, CME and COMEX maybe not at all)
+  { symbol: 'CME_MINI:ES1!', name: 'S&P 500 (kontrakt)', note: 'CME', also: 'ES futures' },
+  { symbol: 'CME_MINI:NQ1!', name: 'Nasdaq 100 (kontrakt)', note: 'CME', also: 'NQ futures' },
+  { symbol: 'EUREX:FDAX1!', name: 'DAX (kontrakt)', note: 'Eurex', also: 'FDAX futures' },
+  { symbol: 'COMEX:GC1!', name: 'Złoto (kontrakt)', note: 'COMEX', also: 'GC futures' },
+  { symbol: 'NYMEX:CL1!', name: 'Ropa WTI (kontrakt)', note: 'NYMEX', also: 'CL futures' },
   { symbol: 'INDEX:NKY', name: 'Nikkei 225', note: 'Japonia', also: 'Nikkei' },
   { symbol: 'FOREXCOM:UKXGBP', name: 'FTSE 100', note: 'Wielka Brytania', also: 'FTSE' },
   { symbol: 'TVC:DXY', name: 'Indeks dolara', note: 'DXY', also: 'DXY dollar' },
@@ -110,8 +117,8 @@ export function toSymbol(typed: string): string | null {
 // The instrument a symbol stands for (one of ours, or just the symbol)
 export const instrument = (symbol: string): Instrument => BY_SYMBOL.get(symbol) ?? { symbol, name: tickerOf(symbol) }
 
-// Shares and indices of these exchanges are in the widgets only at the end of the day
-export const endOfDay = (symbol: string) => /^(?:GPW|NEWCONNECT|XETR|FWB):/.test(symbol)
+// Shares, indices and futures of these exchanges are in the widgets only at the end of the day
+export const endOfDay = (symbol: string) => /^(?:GPW|NEWCONNECT|XETR|FWB|EUREX):/.test(symbol)
 
 // The full chart on TradingView's site (or in its app on a phone)
 export const tradingViewUrl = (symbol: string) => `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(symbol)}`
