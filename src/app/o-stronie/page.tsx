@@ -91,8 +91,7 @@ export default function About() {
       <p>
         Newsy z Waltera Bloomberga, Seeking Alpha, Stooq i PAP MediaRoom mają w oknie newsa, pod tekstem, notowania tego, o czym piszą:
         spółek (po tickerze, np. $TSLA albo „(NASDAQ:TSLA)”, i po nazwie, także odmienionej: „akcje Tesli”), indeksów, par walutowych,
-        surowców, kryptowalut i rentowności obligacji skarbowych (np. „rentowność 10-letnich obligacji USA”), najwyżej trzech. Przy ropie
-        (także zapasach ropy i OPEC) są zawsze dwa wiersze: Brent i WTI. Kliknięcie wiersza otwiera pełny wykres. Pod akcjami jest dopisek, że ich kursy są opóźnione
+        surowców i kryptowalut, najwyżej trzech. Przy ropie (także zapasach ropy i OPEC) są zawsze dwa wiersze: Brent i WTI. Kliknięcie wiersza otwiera pełny wykres. Pod akcjami jest dopisek, że ich kursy są opóźnione
         (zwykle o 15 minut). Spółki z GPW i z giełdy we Frankfurcie mają tylko przycisk do wykresu, bo ich notowania są w widżetach z końca dnia. Instrumenty są dobierane automatycznie, więc czasem
         któregoś zabraknie albo pojawi się niewłaściwy.
       </p>
