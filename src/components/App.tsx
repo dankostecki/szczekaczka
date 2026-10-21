@@ -35,7 +35,7 @@ const isSource = (f: Filter): f is Source => f !== 'ALL' && f !== 'MARKET' && f 
 const filterName = (f: Filter) => (f === 'ALL' ? 'Wszystko' : f === 'MARKET' ? 'Rynek' : f === 'SAVED' ? 'Zapisane' : sourceName(f))
 const filterColor = (f: Filter) => (isSource(f) ? `var(--src-${f.toLowerCase()})` : undefined)
 // The chart a computer shows beside the table until another is chosen
-const FIRST_CHART = 'CMCMARKETS:POLISH201!'
+const FIRST_CHART = 'GPW:FW201!'
 
 // A source tab (or one of its channels) with nothing on it: why. Its channels are shown,
 // or the tab would not be there; errors are named "PAP · BIZNES".
