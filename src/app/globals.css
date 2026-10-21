@@ -382,9 +382,9 @@ body.reading { overflow: hidden; padding-right: var(--scrollbar, 0px); }
   font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.5;
 }
 .reader-fig em { font-style: normal; font-weight: 500; color: var(--text-3); }
-.reader-title, .reader-body > *, .reader-list > li { animation: reader-line 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both; animation-delay: calc(0.12s + min(var(--i, 0), 12) * 32ms); }
+.reader-title, .reader-quotes, .reader-body > *, .reader-list > li { animation: reader-line 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both; animation-delay: calc(0.12s + min(var(--i, 0), 12) * 32ms); }
 .reader-body > ul { animation: none; }
-.reader-overlay[data-closing] .reader-title, .reader-overlay[data-closing] .reader-body > *, .reader-overlay[data-closing] .reader-list > li { animation: none; }
+.reader-overlay[data-closing] .reader-title, .reader-overlay[data-closing] .reader-quotes, .reader-overlay[data-closing] .reader-body > *, .reader-overlay[data-closing] .reader-list > li { animation: none; }
 
 .reader-foot { flex: none; display: flex; align-items: center; gap: 8px; padding: 12px 12px 14px 20px; border-top: 1px solid var(--border); background: var(--surface); }
 .reader-open {
@@ -447,6 +447,12 @@ body.reading { overflow: hidden; padding-right: var(--scrollbar, 0px); }
 .market-names { display: flex; flex-wrap: wrap; gap: 6px; }
 .market-table { min-height: 360px; margin-top: 12px; --tv-widget-background-color: var(--bg); }
 .market-table > * { display: block; width: 100%; }
+/* A few rows in a news (components/NewsQuotes.tsx): as tall as they are likely to be, on the window's colour */
+.market-table.compact { min-height: var(--h); margin-top: 0; --tv-widget-background-color: var(--surface); }
+.news-quotes { margin: 0 0 16px; }
+.news-charts { display: flex; flex-wrap: wrap; gap: 6px; }
+.market-table + .news-charts { margin-top: 8px; }
+.news-charts .chip { gap: 5px; }
 /* the widget does not take touches and clicks: the page scrolls under a thumb on it, and a tap is found in the table (TradingView.tsx) */
 .market-table.through { cursor: pointer; }
 .market-table.through > * { pointer-events: none; }

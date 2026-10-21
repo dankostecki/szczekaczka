@@ -38,7 +38,7 @@ export default function PrivacyNotice() {
         <ul>
           <li>
             <b>Bez cookies i bez śledzenia.</b> Nie ma tu analityki, reklam ani skryptów z innych serwerów. Wyjątkiem są wykresy
-            TradingView w zakładce Rynek, które ładują się dopiero po ich włączeniu.
+            TradingView w zakładce Rynek i przy newsach, które ładują się dopiero po ich włączeniu.
           </li>
           <li>
             <b>Ustawienia zostają u Ciebie.</b> Motyw, głos, przeczytane i zapisane newsy zapisujemy tylko w pamięci

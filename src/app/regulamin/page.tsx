@@ -49,7 +49,7 @@ export default function Terms() {
             <li>czytania newsów na głos syntezatorem mowy przeglądarki,</li>
             <li>powiadomień na pulpicie o nowych newsach,</li>
             <li>zapisywania newsów na później, oznaczania przeczytanych i listy obserwowanych spółek,</li>
-            <li>podglądu notowań i wykresów instrumentów finansowych z serwisu TradingView (zakładka Rynek), po ich włączeniu przez Użytkownika.</li>
+            <li>podglądu notowań i wykresów instrumentów finansowych z serwisu TradingView (zakładka Rynek i notowania przy newsach), po ich włączeniu przez Użytkownika.</li>
           </ul>
         </li>
         <li>
@@ -105,9 +105,10 @@ export default function Terms() {
           kanałach (system ESPI/EBI, strony spółek, strona GPW).
         </li>
         <li>
-          Notowania i wykresy w zakładce Rynek pochodzą z serwisu TradingView i są pokazywane w jego widżetach. Notowania akcji i indeksów
+          Notowania i wykresy w zakładce Rynek i przy newsach pochodzą z serwisu TradingView i są pokazywane w jego widżetach. Notowania akcji i indeksów
           są opóźnione, a notowania z Giełdy Papierów Wartościowych w Warszawie pochodzą z końca dnia; niektórych instrumentów widżety
-          nie pokazują wcale. Usługodawca nie odpowiada za poprawność, kompletność ani dostępność tych danych.
+          nie pokazują wcale. Usługodawca nie odpowiada za poprawność, kompletność ani dostępność tych danych. Instrumenty przy newsie
+          Serwis dobiera automatycznie po nazwach i tickerach w jego treści, więc może pominąć instrument albo pokazać niewłaściwy.
         </li>
         <li>
           Newsy mogą pojawiać się z opóźnieniem albo wcale, np. gdy serwis źródłowy jest niedostępny lub zmieni format

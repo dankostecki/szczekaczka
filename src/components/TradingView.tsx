@@ -76,8 +76,9 @@ export type Sector = { sectionName: string; symbols: string[] }
 // moves the table, not the page. Where TradingView lets the page see inside the widget, the height grows by what its inner part would scroll;
 // where not, the box is as tall as the rows are likely to be
 const ROW_PX = 52, SECTION_PX = 44, HEAD_PX = 64
+export const tableHeight = (sectors: Sector[]) => HEAD_PX + sectors.length * SECTION_PX + sectors.reduce((n, s) => n + s.symbols.length, 0) * ROW_PX
 function fitTable(table: HTMLElement, sectors: Sector[]): () => void {
-  const guess = HEAD_PX + sectors.length * SECTION_PX + sectors.reduce((n, s) => n + s.symbols.length, 0) * ROW_PX
+  const guess = tableHeight(sectors)
   let timer: number | undefined
   const fit = () => {
     const root = table.shadowRoot, shown = table.getBoundingClientRect().height
@@ -121,28 +122,41 @@ function inside(table: HTMLElement, x: number, y: number): Element | null {
   }
 }
 
-// The page moved by hand under a vertical drag on the table, gliding on a little after the finger leaves, as a page does. Not when the page
-// scrolls by itself after all
+// What scrolls around the table: the text of the window it is in (the reading window), else the page
+function scrollerOf(el: HTMLElement): { top: () => number; by: (dy: number) => void } {
+  for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+    if (/auto|scroll/.test(getComputedStyle(p).overflowY) && p.scrollHeight > p.clientHeight) {
+      const box = p
+      return { top: () => box.scrollTop, by: (dy) => box.scrollBy(0, dy) }
+    }
+  }
+  return { top: () => window.scrollY, by: (dy) => window.scrollBy(0, dy) }
+}
+
+// The page (or the window's text) moved by hand under a vertical drag on the table, gliding on a little after the finger leaves, as a page
+// does. Not when it scrolls by itself after all
 function scrollByHand(box: HTMLElement): () => void {
   let x0 = 0, y0 = 0, last = 0, lastT = 0, speed = 0, expected = 0, frame = 0
   let state: 'off' | 'wait' | 'drag' = 'off'
+  let scroller = scrollerOf(box)
   const start = (e: TouchEvent) => {
     cancelAnimationFrame(frame)
     if (e.touches.length !== 1) { state = 'off'; return }
     x0 = e.touches[0].clientX; y0 = last = e.touches[0].clientY; lastT = e.timeStamp
-    speed = 0; expected = window.scrollY; state = 'wait'
+    scroller = scrollerOf(box)
+    speed = 0; expected = scroller.top(); state = 'wait'
   }
   const move = (e: TouchEvent) => {
     if (state === 'off' || e.touches.length !== 1) return
     const t = e.touches[0]
-    if (Math.abs(window.scrollY - expected) > 2) { state = 'off'; return }
+    if (Math.abs(scroller.top() - expected) > 2) { state = 'off'; return }
     if (state === 'wait') {
       if (Math.abs(t.clientY - y0) < 8 || Math.abs(t.clientX - x0) > Math.abs(t.clientY - y0)) return // a tap, or a sideways move
       state = 'drag'
     }
     const dy = last - t.clientY
-    window.scrollBy(0, dy)
-    expected = window.scrollY
+    scroller.by(dy)
+    expected = scroller.top()
     speed = dy / Math.max(1, e.timeStamp - lastT)
     last = t.clientY; lastT = e.timeStamp
   }
@@ -152,7 +166,7 @@ function scrollByHand(box: HTMLElement): () => void {
     let v = speed * 16 // px a frame
     const glide = () => {
       if (Math.abs(v) < 0.5) return
-      window.scrollBy(0, v)
+      scroller.by(v)
       v *= 0.95
       frame = requestAnimationFrame(glide)
     }
@@ -171,7 +185,8 @@ function scrollByHand(box: HTMLElement): () => void {
   }
 }
 
-export function QuotesTable({ sectors, onOpen }: { sectors: Sector[]; onOpen: (symbol: string, from: Origin | null) => void }) {
+// `compact`: a few rows in a news (components/NewsQuotes.tsx), as tall as they are likely to be, not the market tab's table
+export function QuotesTable({ sectors, onOpen, compact = false }: { sectors: Sector[]; onOpen: (symbol: string, from: Origin | null) => void; compact?: boolean }) {
   const box = useRef<HTMLDivElement>(null)
   const pressed = useRef<Origin | null>(null) // where the row was pressed: the chart window grows out of it
   const open = useRef(onOpen)
@@ -219,7 +234,8 @@ export function QuotesTable({ sectors, onOpen }: { sectors: Sector[]; onOpen: (s
   }
   return (
     <>
-      <div ref={box} className="market-table" onPointerDown={(e) => { pressed.current = { x: e.clientX, y: e.clientY } }} onClick={tap} />
+      <div ref={box} className={`market-table${compact ? ' compact' : ''}`} style={compact ? { ['--h' as string]: `${tableHeight(sectors)}px` } : undefined}
+        onPointerDown={(e) => { pressed.current = { x: e.clientX, y: e.clientY } }} onClick={tap} />
       {failed && <p className="chart-off">Nie udało się wczytać notowań. Spróbuj za chwilę.</p>}
     </>
   )

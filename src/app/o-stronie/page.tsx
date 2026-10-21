@@ -19,7 +19,7 @@ export default function About() {
         Wartościowych w Warszawie, wiadomości Stooq, krótkie wiadomości z rynków świata z kanału Walter Bloomberg na Telegramie i z serwisu Seeking Alpha,
         komunikaty prasowe z PAP MediaRoom, a także zapowiedzi danych makro
         (10 minut przed publikacją) i wydarzeń giełdowych z kalendarium MacroNext. Nowe newsy może czytać na głos i pokazywać jako powiadomienia
-        na pulpicie. W zakładce Rynek pokazuje notowania i wykresy z TradingView. Autor: <a href={AUTHOR.url} target="_blank" rel="noopener noreferrer">{AUTHOR.name}</a>.
+        na pulpicie. W zakładce Rynek i przy newsach pokazuje notowania i wykresy z TradingView. Autor: <a href={AUTHOR.url} target="_blank" rel="noopener noreferrer">{AUTHOR.name}</a>.
       </p>
 
       <h2>Skąd są newsy</h2>
@@ -81,12 +81,19 @@ export default function About() {
 
       <h2>Rynek: notowania i wykresy</h2>
       <p>
-        Zakładka Rynek pokazuje notowania wybranych instrumentów (WIG, WIG20, kursy złotego, indeksy z USA i Niemiec, złoto, ropa,
-        miedź, bitcoin) i ich wykresy z bezpłatnych widżetów serwisu{' '}
+        Zakładka Rynek pokazuje notowania wybranych instrumentów (kursy walut, indeksy z USA, Niemiec i Japonii, złoto, srebro, ropa,
+        miedź, bitcoin i ethereum) i ich wykresy z bezpłatnych widżetów serwisu{' '}
         <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView</a>. Ładują się dopiero po włączeniu
         wykresów (zob. <Link href="/polityka-prywatnosci">Polityka prywatności</Link>). Waluty i kryptowaluty są na bieżąco, akcje
         i indeksy z opóźnieniem, a notowania z GPW z końca dnia. Wykres innego instrumentu pokaże symbol wpisany w pole na górze
         zakładki, np. CDR, AAPL, EURUSD albo pełny symbol TradingView, jak GPW:CDR czy NASDAQ:AAPL.
+      </p>
+      <p>
+        Newsy z Waltera Bloomberga, Seeking Alpha, Stooq i PAP MediaRoom mają w oknie newsa notowania tego, o czym piszą: spółek
+        (po tickerze, np. $TSLA albo „(NASDAQ:TSLA)”, i po nazwie, także odmienionej: „akcje Tesli”), indeksów, par walutowych,
+        surowców i kryptowalut, najwyżej trzech. Kliknięcie wiersza otwiera pełny wykres. Spółki z GPW i z giełdy we Frankfurcie mają
+        tylko przycisk do wykresu, bo ich notowania są w widżetach z końca dnia. Instrumenty są dobierane automatycznie, więc czasem
+        któregoś zabraknie albo pojawi się niewłaściwy.
       </p>
 
       <h2>Jak newsy trafiają na stronę</h2>
