@@ -97,8 +97,6 @@ const MORE: Instrument[] = [
   { symbol: 'CMCMARKETS:POLISH201!', name: 'Poland 20 (CFD)', note: 'CMC, na kontrakt WIG20', also: 'Poland 20 WIG20 FW20' },
   { symbol: 'TVC:DXY', name: 'Indeks dolara', note: 'DXY', also: 'DXY dollar' },
   { symbol: 'TVC:VIX', name: 'VIX', note: 'zmienność S&P 500', also: 'indeks strachu' },
-  { symbol: 'TVC:US10Y', name: 'Rentowność 10-letnich obligacji USA', note: '%', also: 'US10Y obligacje' },
-  { symbol: 'TVC:PL10Y', name: 'Rentowność 10-letnich obligacji Polski', note: '%', also: 'PL10Y obligacje' },
   ...[
     ['USDJPY', 'USD/JPY', 'jen'], ['GBPUSD', 'GBP/USD'], ['USDCHF', 'USD/CHF'], ['EURCHF', 'EUR/CHF'], ['EURGBP', 'EUR/GBP'], ['JPYPLN', 'JPY/PLN'],
     ['NOKPLN', 'NOK/PLN'], ['SEKPLN', 'SEK/PLN'], ['CZKPLN', 'CZK/PLN', 'korona'], ['HUFPLN', 'HUF/PLN', 'forint'], ['CADPLN', 'CAD/PLN'], ['AUDPLN', 'AUD/PLN'],
