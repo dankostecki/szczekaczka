@@ -1,12 +1,15 @@
 'use client'
 
-import { useRef, useState, type CSSProperties } from 'react'
+import { useMemo, useRef, useState, type CSSProperties } from 'react'
 import { type Item, tagOf, clock, ago, fullDate, originalOf } from '@/lib/news'
 import { itemLang } from '@/lib/lang'
 import { linkOf } from '@/lib/sources'
 import { bodyText, parseBody, splitItem } from '@/lib/body'
+import { newsInstruments } from '@/lib/news-instruments'
 import { Close, Star, Speaker, External } from './Icons'
 import { useSheet } from './useSheet'
+import NewsQuotes from './NewsQuotes'
+import type { Origin } from './Market'
 
 interface Props {
   item: Item
@@ -17,13 +20,16 @@ interface Props {
   onClose: () => void
   onSave: (item: Item) => void
   onSpeak?: (item: Item) => void
+  charts: boolean // TradingView switched on: the quotes of what the news names
+  onChart: (symbol: string, from: Origin | null) => void
 }
 
 const line = (i: number) => ({ '--i': i }) as CSSProperties
 
 // The whole lead of a news in a window of its own: the title, the text with its lines (paragraphs, lists, MacroNext's rows), the way to the source.
-// The text scrolls inside the window and the page behind it stays where it was. Closed with the X, Esc, a click outside or a pull down (useSheet).
-export default function Reader({ item, origin, now, saved, speaking, onClose, onSave, onSpeak }: Props) {
+// Under the title, the quotes of the companies, indices, currencies and commodities it names (NewsQuotes). The text scrolls inside the window
+// and the page behind it stays where it was. Closed with the X, Esc, a click outside or a pull down (useSheet).
+export default function Reader({ item, origin, now, saved, speaking, onClose, onSave, onSpeak, charts, onChart }: Props) {
   const [original, setOriginal] = useState(false) // a translation: the original beside it
   const panel = useRef<HTMLDivElement>(null)
   const scroller = useRef<HTMLDivElement>(null)
@@ -34,6 +40,7 @@ export default function Reader({ item, origin, now, saved, speaking, onClose, on
   const link = linkOf(item)
   const since = ago(item.time, now)
   const blocks = parseBody(bodyText(shown))
+  const named = useMemo(() => newsInstruments(originalOf(item), !!item.translated && !original), [item, original])
 
   let n = 0 // the order the lines come in
   return (
@@ -56,6 +63,7 @@ export default function Reader({ item, origin, now, saved, speaking, onClose, on
           {item.translated && (
             <button className="reader-switch" onClick={() => setOriginal((o) => !o)}>{original ? 'Pokaż tłumaczenie' : 'Pokaż oryginał'}</button>
           )}
+          {named.length > 0 && <div style={line(n++)} className="reader-quotes"><NewsQuotes symbols={named} charts={charts} onOpen={onChart} /></div>}
           <div className="reader-body" lang={lang === 'pl' ? undefined : lang}>
             {blocks.map((b, i) => b.t === 'h' ? <h3 key={i} style={line(n++)}>{b.text}</h3>
               : b.t === 'p' ? <p key={i} style={line(n++)}>{b.text}</p>

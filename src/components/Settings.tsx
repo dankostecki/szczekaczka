@@ -361,7 +361,7 @@ export default function Settings(p: Props) {
           <h3>Rynek</h3>
           <Switch checked={prefs.charts} onChange={() => onChange({ charts: !prefs.charts })} label="Wykresy TradingView" />
           <p className="hint">
-            Notowania i wykresy w zakładce Rynek pokazuje serwis TradingView. Gdy są włączone, przeglądarka łączy się z jego serwerami, które
+            Notowania i wykresy w zakładce Rynek i przy newsach pokazuje serwis TradingView. Gdy są włączone, przeglądarka łączy się z jego serwerami, które
             widzą Twój adres IP i mogą zapisać swoje pliki cookies (usuniesz je w ustawieniach przeglądarki).
           </p>
           {prefs.marketRecent.length > 0 && (
@@ -403,7 +403,7 @@ export default function Settings(p: Props) {
           <h3>Prywatność</h3>
           <p className="hint">
             Szczekaczka nie używa cookies ani narzędzi śledzących. Ustawienia, przeczytane i zapisane newsy są tylko
-            w pamięci tej przeglądarki. Wykresy TradingView w zakładce Rynek ładują się dopiero po ich włączeniu.
+            w pamięci tej przeglądarki. Wykresy TradingView w zakładce Rynek i przy newsach ładują się dopiero po ich włączeniu.
           </p>
           <div className="row-buttons">
             <button className="btn danger" onClick={() => void clearAllData()}>Usuń wszystkie dane z tej przeglądarki</button>

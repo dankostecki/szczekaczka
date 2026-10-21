@@ -318,6 +318,11 @@ export default function App() {
     if (wide && filter === 'MARKET') setPicked(symbol)
     else setChart({ symbol, origin })
   }, [prefs.charts, prefs.marketRecent, updatePrefs, wide, filter])
+  // From a news: always in a window, over the news (closing it goes back to the news)
+  const openNewsChart = useCallback((symbol: string, origin: Origin | null) => {
+    if (prefs.charts) updatePrefs({ marketRecent: withRecent(prefs.marketRecent, symbol) })
+    setChart({ symbol, origin })
+  }, [prefs.charts, prefs.marketRecent, updatePrefs])
   const closeChart = useCallback(() => setChart(null), [])
   const chartsOn = useCallback(() => updatePrefs({ charts: true }), [updatePrefs])
   const choices = market ? symbolChoices(symbolQuery) : []
@@ -512,7 +517,7 @@ export default function App() {
         const it = visible.find((i) => i.id === reader.item.id) ?? reader.item
         return (
           <Reader key={reader.item.id} item={it} origin={reader.origin} now={now} saved={savedIds.has(it.id)} speaking={speakingId === it.id}
-            onClose={closeReader} onSave={toggleSaved} onSpeak={canSpeak ? readAloud : undefined} />
+            onClose={closeReader} onSave={toggleSaved} onSpeak={canSpeak ? readAloud : undefined} charts={prefs.charts} onChart={openNewsChart} />
         )
       })()}
 

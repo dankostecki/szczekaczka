@@ -5,16 +5,21 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Keyboar
 // How long a window takes to leave (globals.css, reader-out); it is unmounted after that
 const EXIT_MS = 200
 const FOCUSABLE = 'a[href], button:not(:disabled)'
+// The windows open now, the last one on top (the chart window over the news it was opened from): only the top one answers Esc and keeps
+// the focus, and the page behind scrolls again when the last one closes
+const open: object[] = []
+const onTop = (me: object) => open[open.length - 1] === me
 
 // A window over the page (the reading window, the chart window): closed with the X, Esc, a click outside, and on a phone by pulling it down.
 // While it is open the page behind does not scroll and focus stays inside; it grows out of `origin` (where it was opened from).
-// `scroller`: the part that scrolls (a pull from there closes the window only when it is at its top).
+// `scroller`: the part that scrolls (a pull from there closes the window only when it is at its top). A window can open over another one.
 export function useSheet(panel: RefObject<HTMLDivElement | null>, scroller: RefObject<HTMLDivElement | null> | null,
   origin: { x: number; y: number } | null, onClose: () => void) {
   const [closing, setClosing] = useState(false)
   const [opener] = useState(() => document.activeElement)
   const timer = useRef<number | undefined>(undefined)
   const pressedOutside = useRef(false) // a click outside counts only if it also began outside (not the end of selecting text)
+  const [me] = useState(() => ({}))
 
   const close = useCallback(() => {
     if (timer.current !== undefined) return
@@ -25,10 +30,10 @@ export function useSheet(panel: RefObject<HTMLDivElement | null>, scroller: RefO
   useEffect(() => () => window.clearTimeout(timer.current), [])
 
   useEffect(() => {
-    const onKey = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); close() } }
+    const onKey = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape' && onTop(me)) { e.preventDefault(); close() } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [close])
+  }, [close, me])
 
   // On a phone the window is pulled down to close it, as a sheet usually is: from the bar and the buttons, or from the text when it is at its top. It follows the
   // finger, leaves when it is pulled far or fast enough, and comes back otherwise. The X, Esc and a click outside stay.
@@ -84,22 +89,28 @@ export function useSheet(panel: RefObject<HTMLDivElement | null>, scroller: RefO
 
   // Focus does not leave the window (a click outside the text, a Tab from the page behind it)
   useEffect(() => {
-    const back = (e: FocusEvent) => { if (panel.current && e.target instanceof Node && !panel.current.contains(e.target)) panel.current.focus({ preventScroll: true }) }
+    const back = (e: FocusEvent) => {
+      if (onTop(me) && panel.current && e.target instanceof Node && !panel.current.contains(e.target)) panel.current.focus({ preventScroll: true })
+    }
     document.addEventListener('focusin', back)
     return () => document.removeEventListener('focusin', back)
-  }, [panel])
+  }, [panel, me])
 
   // The page behind does not scroll (and does not jump where the scrollbar goes); focus goes in, and back to the button when it closes
   useEffect(() => {
-    document.body.style.setProperty('--scrollbar', `${window.innerWidth - document.documentElement.clientWidth}px`)
+    if (!open.length) document.body.style.setProperty('--scrollbar', `${window.innerWidth - document.documentElement.clientWidth}px`)
     document.body.classList.add('reading')
+    open.push(me)
     panel.current?.focus({ preventScroll: true })
     return () => {
-      document.body.classList.remove('reading')
-      document.body.style.removeProperty('--scrollbar')
+      open.splice(open.indexOf(me), 1)
+      if (!open.length) {
+        document.body.classList.remove('reading')
+        document.body.style.removeProperty('--scrollbar')
+      }
       if (opener instanceof HTMLElement && opener.isConnected) opener.focus({ preventScroll: true })
     }
-  }, [opener, panel])
+  }, [opener, panel, me])
 
   // The window grows out of where it was clicked: that point in the window's own coordinates
   useLayoutEffect(() => {

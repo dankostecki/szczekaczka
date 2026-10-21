@@ -17,7 +17,7 @@ export default function PrivacyPolicy() {
           <li>Nie zakładasz konta i nie podajesz nam żadnych danych.</li>
           <li>Nie używamy plików cookies, analityki, reklam ani żadnych narzędzi śledzących.</li>
           <li>
-            Wyjątkiem są notowania i wykresy TradingView w zakładce Rynek: ładują się dopiero, gdy je włączysz, i wtedy Twoja przeglądarka łączy się
+            Wyjątkiem są notowania i wykresy TradingView w zakładce Rynek i przy newsach: ładują się dopiero, gdy je włączysz, i wtedy Twoja przeglądarka łączy się
             z serwerami TradingView, które mogą zapisać swoje pliki cookies (pkt 4).
           </li>
           <li>Twoje ustawienia, przeczytane i zapisane newsy są tylko w pamięci Twojej przeglądarki. Nie wysyłamy ich na serwer.</li>
@@ -72,12 +72,12 @@ export default function PrivacyPolicy() {
         (np. Google Analytics, Cloudflare Web Analytics), pikseli reklamowych, wtyczek serwisów społecznościowych, zewnętrznych
         czcionek ani innych skryptów ładowanych z cudzych serwerów. Przeglądarka łączy się wyłącznie z serwerami Serwisu
         (Cloudflare, a w wersji pod adresem dankostecki.github.io także GitHub Pages). Jedynym wyjątkiem są notowania i wykresy
-        TradingView w zakładce Rynek, które ładują się dopiero po ich włączeniu (pkt 4).
+        TradingView w zakładce Rynek i przy newsach, które ładują się dopiero po ich włączeniu (pkt 4).
       </p>
 
       <h2>3. Cookies i pamięć przeglądarki</h2>
       <p>
-        <b>Serwis nie zapisuje plików cookies.</b> Może je zapisać TradingView, jeśli włączysz wykresy w zakładce Rynek (pkt 4). Do zapamiętania Twoich ustawień używa pamięci przeglądarki
+        <b>Serwis nie zapisuje plików cookies.</b> Może je zapisać TradingView, jeśli włączysz wykresy (pkt 4). Do zapamiętania Twoich ustawień używa pamięci przeglądarki
         (localStorage), a żeby działać także bez sieci, pamięci podręcznej przeglądarki (Cache Storage). Te informacje
         zostają na Twoim urządzeniu, nie są wysyłane na serwer i Administrator nie ma do nich dostępu.
       </p>
@@ -167,12 +167,14 @@ export default function PrivacyPolicy() {
         autora Szczekaczki w serwisie X.
       </p>
 
-      <h3>Notowania i wykresy: TradingView (zakładka Rynek)</h3>
+      <h3>Notowania i wykresy: TradingView (zakładka Rynek i newsy)</h3>
       <p>
-        Zakładka Rynek pokazuje notowania i wykresy z bezpłatnych widżetów serwisu TradingView (TradingView, Inc., USA). Ładują się one
-        dopiero wtedy, gdy włączysz wykresy: przyciskiem „Włącz wykresy” w zakładce Rynek albo przełącznikiem „Wykresy TradingView”
-        w ustawieniach. Od tej chwili przy każdym otwarciu zakładki Rynek lub wykresu Twoja przeglądarka pobiera skrypty i okna widżetów
-        z serwerów TradingView. TradingView otrzymuje wtedy Twój adres IP, informacje o przeglądarce i urządzeniu oraz symbol
+        Zakładka Rynek i okno newsa pokazują notowania i wykresy z bezpłatnych widżetów serwisu TradingView (TradingView, Inc., USA). Ładują się one
+        dopiero wtedy, gdy włączysz wykresy: przyciskiem „Włącz wykresy” w zakładce Rynek lub w oknie wykresu albo przełącznikiem „Wykresy TradingView”
+        w ustawieniach. Od tej chwili przy każdym otwarciu zakładki Rynek, wykresu lub newsa, w którym jest nazwa spółki, indeksu, waluty,
+        surowca albo kryptowaluty, Twoja przeglądarka pobiera skrypty i okna widżetów z serwerów TradingView. Które instrumenty pasują do newsa,
+        Serwis ustala w Twojej przeglądarce z samego tekstu newsa, bez wysyłania go gdziekolwiek; TradingView dostaje symbole tych instrumentów,
+        a nie treść newsa. TradingView otrzymuje wtedy Twój adres IP, informacje o przeglądarce i urządzeniu oraz symbol
         instrumentu, którego notowania lub wykres oglądasz, i może zapisywać na Twoim urządzeniu swoje pliki cookies i podobne dane.
         Administrator tych danych nie otrzymuje. Za ich dalsze przetwarzanie odpowiada TradingView, na zasadach opisanych w swojej 
         <a href="https://www.tradingview.com/privacy-policy/" target="_blank" rel="noopener noreferrer">polityce prywatności</a> i 
