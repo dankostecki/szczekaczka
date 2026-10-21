@@ -3,7 +3,8 @@
 // crypto it names, as Polish and English write them ("Tesla", "akcje Tesli", "cena złota", "Nasdaq 100"). No AI and nothing from the network:
 // the names are in this file and the symbols in lib/market.ts. A name that is also a word or another thing is taken only where its
 // surroundings fit (VISA in capitals is a visa, "Nikkei Asia" a newspaper, "na Nasdaq" the exchange). Oil, of any kind, is both Brent and WTI.
-import { INSTRUMENTS, MARKET_GROUPS } from './market'
+// Government bonds by their yield: "rentowność 10-letnich obligacji USA" → TVC:US10Y (bondHits).
+import { BOND_TERMS, INSTRUMENTS, MARKET_GROUPS, bondSymbol } from './market'
 
 // The channels whose news get quotes; ESPI and GPW (the Warsaw exchange, in the widgets only at the end of the day) and MacroNext not yet
 export const QUOTED_SOURCES: readonly string[] = ['WALTER', 'SEEKINGALPHA', 'STOOQ', 'PAP']
@@ -183,11 +184,64 @@ function hitsIn(text: string): Hit[] {
       hits.push({ start, end, symbols: r.symbols })
     }
   }
+  hits.push(...bondHits(text))
   // Where names overlap, the longer one ("PKO BP", not "BP"; "(NASDAQ:TSLA)", not "Nasdaq"), in the order they come in
   hits.sort((a, b) => a.start - b.start || b.end - a.end)
   const kept: Hit[] = []
   for (const h of hits) if (!kept.some((k) => h.start < k.end && k.start < h.end)) kept.push(h)
   return kept
+}
+
+// ── Government bonds: "rentowność 10-letnich obligacji USA", "US 10-YEAR YIELD", "rentowności Bundów", "polskich 10-latek" ──
+// A word about government bonds, the country nearest to it (or the one its bonds are named for: Treasuries, Bund, gilt, JGB, BTP, OAT) and
+// the term nearest to it (2, 5, 10 or 30 years; 10 when none is given or TradingView has no such term) → the yield, TVC:US10Y. Not without a
+// country ("obligacje Orlenu", "obligacje skarbowe"); "rentowność" only before a term ("rentowność 10-latek", not a company's "rentowność
+// netto"); "Treasury" only as bonds ("Treasury yields", not "Treasury Secretary"); not other kinds of bonds or yields (corporate, convertible,
+// "dividend yield", "corn yield"). Words and the country or term for them within NEAR characters
+const NEAR = 50
+const W = String.raw`(?<![\p{L}\p{N}])`
+const BOND_WORD = new RegExp(W + String.raw`(?:obligacj\p{L}*|rentowno\p{L}*(?=[^.;!?\n]{0,30}?\d{1,2}\s?-?\s?(?:lat(?:k|ek)|letni))|yields?|treasuries|treasury(?=\s+(?:yields?|notes?|bonds?|bills?|market|auction|curve|futures|prices))|t-?notes?|bonds?|bund(?:s|y|ów|om|ach)?|gilt(?:s|y|ów)?|schatz\p{L}*|JGBs?|BTPs?|OATs?)(?![\p{L}])`, 'giu')
+const NOT_BEFORE = /(?:dividend|earnings|crop|corn|wheat|soy\p{L}*|high|junk|corporate|convertible|green|municipal|catastrophe|cat)[\s-]*$/iu
+const NOT_AFTER = /^\s+(?:skarbow\p{L}*\s+)?(?:korporacyjn|komunaln|zamienn|hipoteczn|detaliczn|oszczędnoś|spółk|emitowan|seri|banku|firm)/iu
+// The country's words in any letters; its abbreviations (US, UK, JGB…) only in capitals
+const COUNTRIES: { code: string; re: RegExp; abbr?: RegExp }[] = [
+  { code: 'US', re: new RegExp(W + String.raw`(?:amerykańsk\p{L}*|stan(?:ów|ach|y)\s+zjednoczon\p{L}*|american|treasur(?:y|ies)|t-?notes?)`, 'giu'),
+    abbr: /(?<![\p{L}\p{N}])(?:USA|US|U\.S\.)(?![\p{L}\p{N}])/gu },
+  { code: 'PL', re: new RegExp(W + String.raw`(?:polsk(?:ie|ich|im|imi|iego|iej|a|ą)\s+(?:\d{1,2}\s?-?\s?\p{L}+\s+)?(?:obligacj|rentowno|dług|papier|skarbow)|polskich\s+\d{1,2}-?latek|polish)|(?<=obligacj\p{L}*\s+(?:skarbow\p{L}*\s+)?)Polski(?![\p{L}])`, 'giu') },
+  { code: 'DE', re: new RegExp(W + String.raw`(?:niemieck\p{L}*|niemiec|niemcy|niemczech|german\p{L}*|bund(?:s|y|ów|om|ach)?(?![\p{L}])|schatz\p{L}*)`, 'giu') },
+  { code: 'GB', re: new RegExp(W + String.raw`(?:brytyjsk\p{L}*|wielk\p{L}*\s+brytani\p{L}*|british|britain|gilt(?:s|y|ów)?(?![\p{L}]))`, 'giu'),
+    abbr: /(?<![\p{L}\p{N}])UK(?![\p{L}\p{N}])/gu },
+  { code: 'JP', re: new RegExp(W + String.raw`(?:japońsk\p{L}*|japoni\p{L}*|japan\p{L}*)`, 'giu'), abbr: /(?<![\p{L}\p{N}])JGBs?(?![\p{L}\p{N}])/gu },
+  { code: 'IT', re: new RegExp(W + String.raw`(?:włosk\p{L}*|włoch\p{L}*|italian|italy)`, 'giu'), abbr: /(?<![\p{L}\p{N}])BTPs?(?![\p{L}\p{N}])/gu },
+  { code: 'FR', re: new RegExp(W + String.raw`(?:francusk\p{L}*|francj\p{L}*|french|france)`, 'giu'), abbr: /(?<![\p{L}\p{N}])OATs?(?![\p{L}\p{N}])/gu },
+]
+const TERM = new RegExp(W + String.raw`(?:(\d{1,2})\s?-?\s?(?:letni\p{L}*|lat(?:k|ek)\p{L}*|year(?![\p{L}])|yr(?![\p{L}])|y(?![\p{L}]))|(dwu|pięcio|dziesięcio|trzydziesto)letni\p{L}*|(two|five|ten|thirty)[- ]year)`, 'giu')
+const TERM_WORDS: Record<string, number> = { dwu: 2, 'pięcio': 5, 'dziesięcio': 10, trzydziesto: 30, two: 2, five: 5, ten: 10, thirty: 30 }
+
+type Span = { start: number; end: number }
+const gap = (a: Span, b: Span) => (b.start >= a.end ? b.start - a.end : a.start >= b.end ? a.start - b.end : 0)
+function nearest<T extends Span>(word: Span, list: T[]): T | undefined {
+  let best: T | undefined
+  for (const c of list) if (gap(word, c) <= NEAR && (!best || gap(word, c) < gap(word, best))) best = c
+  return best
+}
+
+function bondHits(text: string): Hit[] {
+  const words = [...text.matchAll(BOND_WORD)].map((m) => ({ start: m.index, end: m.index + m[0].length, word: m[0] }))
+    .filter((w) => !/^(?:jgbs?|btps?|oats?)$/i.test(w.word) || /^(?:JGB|BTP|OAT)s?$/.test(w.word)) // JGB, BTP, OAT in capitals: not "oats"
+    .filter((w) => !NOT_BEFORE.test(text.slice(Math.max(0, w.start - 25), w.start)) && !NOT_AFTER.test(text.slice(w.end, w.end + 40)))
+  if (!words.length) return []
+  const countries = COUNTRIES.flatMap(({ code, re, abbr }) => [...text.matchAll(re), ...(abbr ? text.matchAll(abbr) : [])]
+    .map((m) => ({ start: m.index, end: m.index + m[0].length, code })))
+  const terms = [...text.matchAll(TERM)].map((m) => ({ start: m.index, end: m.index + m[0].length, years: Number(m[1] ?? TERM_WORDS[(m[2] ?? m[3]).toLowerCase()]) }))
+  const hits: Hit[] = []
+  for (const w of words) {
+    const country = nearest(w, countries)?.code
+    if (!country) continue
+    const years = nearest(w, terms)?.years
+    hits.push({ start: w.start, end: w.end, symbols: [bondSymbol(country, years && BOND_TERMS[country].includes(years) ? years : 10)] })
+  }
+  return hits
 }
 
 // The symbols named in these texts (the one shown first: its order wins), each once, at most MAX_QUOTED
