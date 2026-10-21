@@ -12,7 +12,7 @@ import { notifyPermission, requestNotifyPermission, notifyHeadlines, testNotific
 import { useWakeLock } from '@/lib/wakeLock'
 import { useNewVersion } from '@/lib/version'
 import { AUTHOR } from '@/lib/site'
-import { symbolChoices, withRecent } from '@/lib/market'
+import { FIRST_SYMBOL, symbolChoices, withRecent } from '@/lib/market'
 import NewsRow from './NewsRow'
 import Settings from './Settings'
 import Reader from './Reader'
@@ -34,8 +34,6 @@ type Filter = 'ALL' | 'MARKET' | Source | 'SAVED'
 const isSource = (f: Filter): f is Source => f !== 'ALL' && f !== 'MARKET' && f !== 'SAVED'
 const filterName = (f: Filter) => (f === 'ALL' ? 'Wszystko' : f === 'MARKET' ? 'Rynek' : f === 'SAVED' ? 'Zapisane' : sourceName(f))
 const filterColor = (f: Filter) => (isSource(f) ? `var(--src-${f.toLowerCase()})` : undefined)
-// The chart a computer shows beside the table until another is chosen
-const FIRST_CHART = 'GPW:FW201!'
 
 // A source tab (or one of its channels) with nothing on it: why. Its channels are shown,
 // or the tab would not be there; errors are named "PAP · BIZNES".
@@ -81,7 +79,7 @@ export default function App() {
   const [choice,    setChoice]    = useState(0)      // the symbol suggestion picked with the arrow keys
   const [searching, setSearching] = useState(false)  // the search field has the focus (suggestions under it)
   const [chart,     setChart]     = useState<{ symbol: string; origin: Origin | null } | null>(null) // a chart in a window
-  const [picked,    setPicked]    = useState(FIRST_CHART) // the chart beside the table (a computer)
+  const [picked,    setPicked]    = useState(FIRST_SYMBOL) // the chart beside the table (a computer)
   const [marketSeen, setMarketSeen] = useState(false)     // the "Rynek" tab was opened: it stays loaded, hidden, while another tab is shown
   const [readIds,   setReadIds]   = useState<Set<string>>(new Set())
   const [saved,     setSaved]     = useState<Item[]>([])
