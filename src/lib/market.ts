@@ -37,11 +37,6 @@ export const MARKET_GROUPS: { name: string; items: Instrument[] }[] = [
   ] },
 ]
 
-// Government bonds whose yields TradingView has (TVC:US10Y), and their terms in years; the name of the country as "obligacji …" has it
-export const BOND_TERMS: Record<string, number[]> = { US: [2, 5, 10, 30], PL: [2, 5, 10], DE: [2, 5, 10, 30], GB: [2, 5, 10, 30], JP: [2, 5, 10, 30], IT: [2, 5, 10, 30], FR: [2, 5, 10, 30] }
-const BOND_COUNTRY: Record<string, string> = { US: 'USA', PL: 'Polski', DE: 'Niemiec', GB: 'Wielkiej Brytanii', JP: 'Japonii', IT: 'Włoch', FR: 'Francji' }
-export const bondSymbol = (country: string, years: number) => `TVC:${country}${String(years).padStart(2, '0')}Y`
-
 // The first row of the table: the chart a computer shows beside it until another is chosen
 export const FIRST_SYMBOL = MARKET_GROUPS[0].items[0].symbol
 
@@ -102,10 +97,8 @@ const MORE: Instrument[] = [
   { symbol: 'CMCMARKETS:POLISH201!', name: 'Poland 20 (CFD)', note: 'CMC, na kontrakt WIG20', also: 'Poland 20 WIG20 FW20' },
   { symbol: 'TVC:DXY', name: 'Indeks dolara', note: 'DXY', also: 'DXY dollar' },
   { symbol: 'TVC:VIX', name: 'VIX', note: 'zmienność S&P 500', also: 'indeks strachu' },
-  // Yields of government bonds, as TradingView computes them (TVC, from Refinitiv's data): BONDS in lib/news-instruments.ts finds them in a news
-  ...Object.entries(BOND_TERMS).flatMap(([country, terms]) => terms.map((t) => ({
-    symbol: bondSymbol(country, t), name: `Rentowność ${t}-letnich obligacji ${BOND_COUNTRY[country]}`, note: '%', also: `${country}${String(t).padStart(2, '0')}Y obligacje`,
-  }))),
+  { symbol: 'TVC:US10Y', name: 'Rentowność 10-letnich obligacji USA', note: '%', also: 'US10Y obligacje' },
+  { symbol: 'TVC:PL10Y', name: 'Rentowność 10-letnich obligacji Polski', note: '%', also: 'PL10Y obligacje' },
   ...[
     ['USDJPY', 'USD/JPY', 'jen'], ['GBPUSD', 'GBP/USD'], ['USDCHF', 'USD/CHF'], ['EURCHF', 'EUR/CHF'], ['EURGBP', 'EUR/GBP'], ['JPYPLN', 'JPY/PLN'],
     ['NOKPLN', 'NOK/PLN'], ['SEKPLN', 'SEK/PLN'], ['CZKPLN', 'CZK/PLN', 'korona'], ['HUFPLN', 'HUF/PLN', 'forint'], ['CADPLN', 'CAD/PLN'], ['AUDPLN', 'AUD/PLN'],
