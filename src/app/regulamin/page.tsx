@@ -105,8 +105,8 @@ export default function Terms() {
           kanałach (system ESPI/EBI, strony spółek, strona GPW).
         </li>
         <li>
-          Notowania i wykresy w zakładce Rynek i przy newsach pochodzą z serwisu TradingView i są pokazywane w jego widżetach. Notowania akcji i indeksów
-          są opóźnione, a notowania z Giełdy Papierów Wartościowych w Warszawie pochodzą z końca dnia; niektórych instrumentów widżety
+          Notowania i wykresy w zakładce Rynek i przy newsach pochodzą z serwisu TradingView i są pokazywane w jego widżetach. Notowania akcji
+          są opóźnione (zwykle o 15 minut), a notowania z Giełdy Papierów Wartościowych w Warszawie pochodzą z końca dnia; niektórych instrumentów widżety
           nie pokazują wcale. Usługodawca nie odpowiada za poprawność, kompletność ani dostępność tych danych. Instrumenty przy newsie
           Serwis dobiera automatycznie po nazwach i tickerach w jego treści, więc może pominąć instrument albo pokazać niewłaściwy.
         </li>

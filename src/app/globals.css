@@ -453,7 +453,8 @@ body.reading { overflow: hidden; padding-right: var(--scrollbar, 0px); }
 .market-table.compact > :not(:defined) { min-height: var(--h); }
 .news-quotes { margin: 4px 0 8px; }
 .news-charts { display: flex; flex-wrap: wrap; gap: 6px; }
-.market-table + .news-charts { margin-top: 8px; }
+.news-hint { margin: 6px 2px 0; }
+.market-table + .news-charts, .news-hint + .news-charts { margin-top: 8px; }
 .news-charts .chip { gap: 5px; }
 /* the widget does not take touches and clicks: the page scrolls under a thumb on it, and a tap is found in the table (TradingView.tsx) */
 .market-table.through { cursor: pointer; }

@@ -1,9 +1,9 @@
 'use client'
 
 import { useRef } from 'react'
-import { endOfDay, instrument, tradingViewUrl } from '@/lib/market'
+import { instrument, tradingViewUrl } from '@/lib/market'
 import { TradingViewWidget, chartConfig } from './TradingView'
-import { ChartsConsent, EOD_HINT, OFFLINE, useMedia, useOnline, type Origin } from './Market'
+import { ChartsConsent, OFFLINE, hintOf, useMedia, useOnline, type Origin } from './Market'
 import { Close, External } from './Icons'
 import { useSheet } from './useSheet'
 
@@ -40,7 +40,7 @@ export default function ChartWindow({ symbol, origin, dark, charts, onCharts, on
           {!charts ? <ChartsConsent onCharts={onCharts} />
             : !online ? <p className="chart-off">{OFFLINE}</p>
             : <TradingViewWidget kind="advanced-chart" config={chartConfig(symbol, dark, small)} className="chart-frame" />}
-          {charts && endOfDay(symbol) && <p className="chart-hint">{EOD_HINT}</p>}
+          {charts && hintOf(symbol) && <p className="chart-hint">{hintOf(symbol)}</p>}
         </div>
         <div className="reader-foot">
           <a className="reader-open" href={tradingViewUrl(symbol)} target="_blank" rel="noopener noreferrer">Otwórz w TradingView <External size={16} /></a>

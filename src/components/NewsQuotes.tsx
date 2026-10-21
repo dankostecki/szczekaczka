@@ -1,9 +1,9 @@
 'use client'
 
 import type { MouseEvent } from 'react'
-import { endOfDay, instrument } from '@/lib/market'
+import { delayed, endOfDay, instrument } from '@/lib/market'
 import { QuotesTable } from './TradingView'
-import { useOnline, type Origin } from './Market'
+import { DELAY_HINT, useOnline, type Origin } from './Market'
 import { Chart } from './Icons'
 
 interface Props {
@@ -14,7 +14,7 @@ interface Props {
 
 // The quotes of what a news names, under its title: TradingView's table with a row each (a tap on a row: the full chart). Before the charts
 // are switched on, without a network, and for the exchanges the widgets have only at the end of the day (the Warsaw exchange, Xetra):
-// the names alone, as buttons to the chart window (which asks first, or says why there is nothing)
+// the names alone, as buttons to the chart window (which asks first, or says why there is nothing). Under shares: that their prices are delayed
 export default function NewsQuotes({ symbols, charts, onOpen }: Props) {
   const online = useOnline()
   if (!symbols.length) return null
@@ -24,6 +24,7 @@ export default function NewsQuotes({ symbols, charts, onOpen }: Props) {
   return (
     <div className="news-quotes">
       {rows.length > 0 && <QuotesTable sectors={[{ sectionName: 'Notowania', symbols: rows }]} onOpen={onOpen} compact />}
+      {rows.some(delayed) && <p className="chart-hint news-hint">{DELAY_HINT}</p>}
       {named.length > 0 && (
         <div className="news-charts">
           {named.map((s) => (
