@@ -77,12 +77,15 @@ export type Sector = { sectionName: string; symbols: string[] }
 // where not, the box is as tall as the rows are likely to be
 const ROW_PX = 52, SECTION_PX = 44, HEAD_PX = 64
 export const tableHeight = (sectors: Sector[]) => HEAD_PX + sectors.length * SECTION_PX + sectors.reduce((n, s) => n + s.symbols.length, 0) * ROW_PX
-function fitTable(table: HTMLElement, sectors: Sector[]): () => void {
+// A few rows (a news): as tall as they are, once the widget is there (globals.css); this only keeps their place until it is
+const COMPACT_ROW_PX = 32, COMPACT_REST_PX = 64
+const compactHeight = (sectors: Sector[]) => COMPACT_REST_PX + sectors.reduce((n, s) => n + s.symbols.length, 0) * COMPACT_ROW_PX
+function fitTable(table: HTMLElement, sectors: Sector[], compact: boolean): () => void {
   const guess = tableHeight(sectors)
   let timer: number | undefined
   const fit = () => {
     const root = table.shadowRoot, shown = table.getBoundingClientRect().height
-    if (!root) { if (customElements.get(TABLE)) table.style.minHeight = `${guess}px`; return } // working, but closed to the page
+    if (!root) { if (customElements.get(TABLE) && !compact) table.style.minHeight = `${guess}px`; return } // working, but closed to the page
     if (!shown) return // hidden (another tab): measured when it is shown again
     let more = 0
     for (const el of root.querySelectorAll<HTMLElement>('*')) {
@@ -185,7 +188,7 @@ function scrollByHand(box: HTMLElement): () => void {
   }
 }
 
-// `compact`: a few rows in a news (components/NewsQuotes.tsx), as tall as they are likely to be, not the market tab's table
+// `compact`: a few rows in a news (components/NewsQuotes.tsx), as tall as they are, not the market tab's table
 export function QuotesTable({ sectors, onOpen, compact = false }: { sectors: Sector[]; onOpen: (symbol: string, from: Origin | null) => void; compact?: boolean }) {
   const box = useRef<HTMLDivElement>(null)
   const pressed = useRef<Origin | null>(null) // where the row was pressed: the chart window grows out of it
@@ -207,7 +210,7 @@ export function QuotesTable({ sectors, onOpen, compact = false }: { sectors: Sec
     table.addEventListener('tv-link-open', onLink)
     el.replaceChildren(table)
     el.classList.remove('through')
-    const unfit = fitTable(table, JSON.parse(settings) as Sector[])
+    const unfit = fitTable(table, JSON.parse(settings) as Sector[], compact)
     let on = true, unhand = () => {}
     setFailed(false)
     void loadTable().then((ok) => { if (on && !ok) setFailed(true) })
@@ -220,7 +223,7 @@ export function QuotesTable({ sectors, onOpen, compact = false }: { sectors: Sec
       else { unhand = scrollByHand(el); later = window.setTimeout(pass, 1500) }
     })
     return () => { on = false; window.clearTimeout(later); unfit(); unhand(); table.removeEventListener('tv-link-open', onLink); el.replaceChildren() }
-  }, [settings])
+  }, [settings, compact])
   // A tap that went past the widget: the row under the finger
   const tap = (e: React.MouseEvent<HTMLDivElement>) => {
     const el = box.current, table = el?.firstElementChild as HTMLElement | null
@@ -234,7 +237,7 @@ export function QuotesTable({ sectors, onOpen, compact = false }: { sectors: Sec
   }
   return (
     <>
-      <div ref={box} className={`market-table${compact ? ' compact' : ''}`} style={compact ? { ['--h' as string]: `${tableHeight(sectors)}px` } : undefined}
+      <div ref={box} className={`market-table${compact ? ' compact' : ''}`} style={compact ? { ['--h' as string]: `${compactHeight(sectors)}px` } : undefined}
         onPointerDown={(e) => { pressed.current = { x: e.clientX, y: e.clientY } }} onClick={tap} />
       {failed && <p className="chart-off">Nie udało się wczytać notowań. Spróbuj za chwilę.</p>}
     </>

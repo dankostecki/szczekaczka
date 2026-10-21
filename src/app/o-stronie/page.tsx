@@ -89,9 +89,9 @@ export default function About() {
         zakładki, np. CDR, AAPL, EURUSD albo pełny symbol TradingView, jak GPW:CDR czy NASDAQ:AAPL.
       </p>
       <p>
-        Newsy z Waltera Bloomberga, Seeking Alpha, Stooq i PAP MediaRoom mają w oknie newsa notowania tego, o czym piszą: spółek
-        (po tickerze, np. $TSLA albo „(NASDAQ:TSLA)”, i po nazwie, także odmienionej: „akcje Tesli”), indeksów, par walutowych,
-        surowców i kryptowalut, najwyżej trzech. Kliknięcie wiersza otwiera pełny wykres. Spółki z GPW i z giełdy we Frankfurcie mają
+        Newsy z Waltera Bloomberga, Seeking Alpha, Stooq i PAP MediaRoom mają w oknie newsa, pod tekstem, notowania tego, o czym piszą:
+        spółek (po tickerze, np. $TSLA albo „(NASDAQ:TSLA)”, i po nazwie, także odmienionej: „akcje Tesli”), indeksów, par walutowych,
+        surowców i kryptowalut, najwyżej trzech. Przy ropie (także zapasach ropy i OPEC) są zawsze dwa wiersze: Brent i WTI. Kliknięcie wiersza otwiera pełny wykres. Spółki z GPW i z giełdy we Frankfurcie mają
         tylko przycisk do wykresu, bo ich notowania są w widżetach z końca dnia. Instrumenty są dobierane automatycznie, więc czasem
         któregoś zabraknie albo pojawi się niewłaściwy.
       </p>

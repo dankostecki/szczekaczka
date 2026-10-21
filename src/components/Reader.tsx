@@ -27,7 +27,7 @@ interface Props {
 const line = (i: number) => ({ '--i': i }) as CSSProperties
 
 // The whole lead of a news in a window of its own: the title, the text with its lines (paragraphs, lists, MacroNext's rows), the way to the source.
-// Under the title, the quotes of the companies, indices, currencies and commodities it names (NewsQuotes). The text scrolls inside the window
+// After the text, the quotes of the companies, indices, currencies and commodities it names (NewsQuotes). The text scrolls inside the window
 // and the page behind it stays where it was. Closed with the X, Esc, a click outside or a pull down (useSheet).
 export default function Reader({ item, origin, now, saved, speaking, onClose, onSave, onSpeak, charts, onChart }: Props) {
   const [original, setOriginal] = useState(false) // a translation: the original beside it
@@ -63,7 +63,6 @@ export default function Reader({ item, origin, now, saved, speaking, onClose, on
           {item.translated && (
             <button className="reader-switch" onClick={() => setOriginal((o) => !o)}>{original ? 'Pokaż tłumaczenie' : 'Pokaż oryginał'}</button>
           )}
-          {named.length > 0 && <div style={line(n++)} className="reader-quotes"><NewsQuotes symbols={named} charts={charts} onOpen={onChart} /></div>}
           <div className="reader-body" lang={lang === 'pl' ? undefined : lang}>
             {blocks.map((b, i) => b.t === 'h' ? <h3 key={i} style={line(n++)}>{b.text}</h3>
               : b.t === 'p' ? <p key={i} style={line(n++)}>{b.text}</p>
@@ -85,6 +84,7 @@ export default function Reader({ item, origin, now, saved, speaking, onClose, on
                 </ul>
               ))}
           </div>
+          {named.length > 0 && <div style={line(n++)} className="reader-quotes"><NewsQuotes symbols={named} charts={charts} onOpen={onChart} /></div>}
         </div>
 
         <div className="reader-foot">

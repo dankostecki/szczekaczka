@@ -447,9 +447,11 @@ body.reading { overflow: hidden; padding-right: var(--scrollbar, 0px); }
 .market-names { display: flex; flex-wrap: wrap; gap: 6px; }
 .market-table { min-height: 360px; margin-top: 12px; --tv-widget-background-color: var(--bg); }
 .market-table > * { display: block; width: 100%; }
-/* A few rows in a news (components/NewsQuotes.tsx): as tall as they are likely to be, on the window's colour */
-.market-table.compact { min-height: var(--h); margin-top: 0; --tv-widget-background-color: var(--surface); }
-.news-quotes { margin: 0 0 16px; }
+/* A few rows in a news (components/NewsQuotes.tsx), after its text: as tall as the rows are (their place is kept only until the widget is
+   there), on the window's colour */
+.market-table.compact { min-height: 0; margin-top: 0; --tv-widget-background-color: var(--surface); }
+.market-table.compact > :not(:defined) { min-height: var(--h); }
+.news-quotes { margin: 4px 0 8px; }
 .news-charts { display: flex; flex-wrap: wrap; gap: 6px; }
 .market-table + .news-charts { margin-top: 8px; }
 .news-charts .chip { gap: 5px; }

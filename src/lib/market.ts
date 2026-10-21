@@ -103,7 +103,7 @@ const MORE: Instrument[] = [
     ['USDJPY', 'USD/JPY', 'jen'], ['GBPUSD', 'GBP/USD'], ['USDCHF', 'USD/CHF'], ['EURCHF', 'EUR/CHF'], ['EURGBP', 'EUR/GBP'], ['JPYPLN', 'JPY/PLN'],
     ['NOKPLN', 'NOK/PLN'], ['SEKPLN', 'SEK/PLN'], ['CZKPLN', 'CZK/PLN', 'korona'], ['HUFPLN', 'HUF/PLN', 'forint'], ['CADPLN', 'CAD/PLN'], ['AUDPLN', 'AUD/PLN'],
   ].map(([t, name, also]) => ({ symbol: `FX_IDC:${t}`, name, also })),
-  { symbol: 'TVC:USOIL', name: 'Ropa WTI', note: 'USD za baryłkę', also: 'oil' },
+  { symbol: 'CMCMARKETS:USCRUDEOIL', name: 'Ropa WTI', note: 'USD za baryłkę', also: 'oil USOIL' },
   { symbol: 'TVC:PLATINUM', name: 'Platyna', note: 'USD za uncję' },
   { symbol: 'NYMEX:NG1!', name: 'Gaz ziemny', note: 'USD za MMBtu', also: 'gas' },
   { symbol: 'BITSTAMP:XRPUSD', name: 'XRP', note: 'USD', also: 'Ripple' },
