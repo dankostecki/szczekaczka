@@ -17,7 +17,7 @@ export interface NewsItem {
   // "## text". Only where it says more than `description` (several lines, or a lead cut short there); `description` is the same text as one line
   body?: string
   // The Polish translation of a channel in English (FeedConfig.translate, worker/translate.ts); null: the post could not be
-  // translated (shown as it is, not tried again)
+  // translated, or is not translated (Seeking Alpha in the evening after the US close): shown as it is, not tried again
   pl?: { title: string; description: string; body?: string } | null
 }
 

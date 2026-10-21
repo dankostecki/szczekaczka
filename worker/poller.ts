@@ -162,7 +162,7 @@ export class Poller extends DurableObject<Env> {
     const r = feed.format?.startsWith('macronext') ? await checkMacro(feed, prev, url, Date.now()) : await checkFeed(feed, prev, url, Date.now(), leads)
     // A channel in English: its new posts are translated before they go out (translate.ts)
     if (feed.translate && this.env.AI) {
-      const said = await translateNew(this.env.AI, r, Date.now())
+      const said = await translateNew(this.env.AI, r, Date.now(), feed.untranslatedUsEvening)
       if (said) console.log(`feed ${key}: ${said}`)
     }
     this.feeds.set(key, r.state)

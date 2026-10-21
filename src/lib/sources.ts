@@ -46,6 +46,9 @@ export interface FeedConfig {
   // Entries are translated into Polish on the server (worker/translate.ts); the page shows the translation unless the
   // reader chose the original (prefs.originalFeeds)
   translate?: boolean
+  // Entries of the evening after the close of the session in New York, until midnight in Poland, stay in English (worker/translate.ts,
+  // usEvening): Seeking Alpha's flood of results and dividends would use up the day's translations
+  untranslatedUsEvening?: boolean
 }
 
 export const FEEDS: FeedConfig[] = [
@@ -65,7 +68,7 @@ export const FEEDS: FeedConfig[] = [
     linkTo: 'https://x.com/DeItaone', translate: true },
   // Seeking Alpha's market news ("Market Currents"): the feed holds only the latest few, so they are kept by the rules of every channel (24 hours
   // from publication, retain in worker/feeds.ts); the title and the lead in English are translated like Walter's posts
-  { source: 'SEEKINGALPHA', label: 'MARKET CURRENTS', url: 'https://seekingalpha.com/market_currents.xml', lang: 'en', translate: true },
+  { source: 'SEEKINGALPHA', label: 'MARKET CURRENTS', url: 'https://seekingalpha.com/market_currents.xml', lang: 'en', translate: true, untranslatedUsEvening: true },
   { source: 'PAP',   label: 'BIZNES',      url: 'https://pap-mediaroom.pl/kategoria/biznes-i-finanse/rss.xml' },
   { source: 'PAP',   label: 'NAUKA',       url: 'https://pap-mediaroom.pl/kategoria/nauka-i-technologie/rss.xml' },
   { source: 'PAP',   label: 'POLITYKA',    url: 'https://pap-mediaroom.pl/kategoria/polityka-i-społeczenstwo/rss.xml' },
@@ -140,7 +143,7 @@ export const SOURCE_INFO: Record<Source, { name: string; publisher: string; site
     name: 'Seeking Alpha: Market Currents',
     publisher: 'Seeking Alpha',
     site: 'https://seekingalpha.com/market-news',
-    about: 'Krótkie wiadomości z rynków świata z kanału RSS „Market Currents” serwisu Seeking Alpha (tytuł i zajawka). Seeking Alpha pisze po angielsku; Szczekaczka pokazuje je domyślnie po polsku, w tłumaczeniu maszynowym (model AI Gemma 4 w Cloudflare Workers AI), które może zawierać błędy. Oryginał po angielsku, czytany angielskim głosem, można wybrać w ustawieniach. Każda wiadomość prowadzi do artykułu w serwisie Seeking Alpha; Szczekaczka nie pobiera ani nie tłumaczy treści artykułów, tylko to, co podaje kanał. Kanał zachowuje tylko kilka ostatnich wiadomości, dlatego Szczekaczka trzyma każdą przez dobę od publikacji. To niezależny serwis, niezwiązany ze Seeking Alpha.',
+    about: 'Krótkie wiadomości z rynków świata z kanału RSS „Market Currents” serwisu Seeking Alpha (tytuł i zajawka). Seeking Alpha pisze po angielsku; Szczekaczka pokazuje je domyślnie po polsku, w tłumaczeniu maszynowym (model AI Gemma 4 w Cloudflare Workers AI), które może zawierać błędy. Wiadomości z wieczora po zamknięciu sesji w Nowym Jorku (w dni robocze od 22:00, a w tygodniach, gdy w USA i w Polsce czas zmienia się w różnych terminach, od 21:00, do północy), kiedy przychodzi bardzo dużo krótkich wiadomości o wynikach i dywidendach, zostają po angielsku. Oryginał po angielsku, czytany angielskim głosem, można wybrać w ustawieniach. Każda wiadomość prowadzi do artykułu w serwisie Seeking Alpha; Szczekaczka nie pobiera ani nie tłumaczy treści artykułów, tylko to, co podaje kanał. Kanał zachowuje tylko kilka ostatnich wiadomości, dlatego Szczekaczka trzyma każdą przez dobę od publikacji. To niezależny serwis, niezwiązany ze Seeking Alpha.',
   },
   MACRONEXT: {
     name: 'MacroNext – kalendarium danych makro i kalendarium giełdowe',

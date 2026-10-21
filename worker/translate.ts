@@ -98,17 +98,40 @@ async function inTurns<T, R>(list: T[], n: number, f: (x: T) => Promise<R>, stop
   return out
 }
 
+// The evening after the close of the session in New York (16:00 there) until midnight in Poland, on the weekdays of New York: 22:00–24:00
+// in Poland, and 21:00–24:00 in the weeks of March and of October/November when only one of the two has changed its clock. Seeking Alpha
+// (FeedConfig.untranslatedUsEvening) then sends a flood of results and dividends; its posts of that time stay in English
+const clock = (t: number, timeZone: string) => Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short', hour: 'numeric',
+  minute: 'numeric', hourCycle: 'h23' }).formatToParts(t).map((p) => [p.type, p.value]))
+export function usEvening(t: number): boolean {
+  const ny = clock(t, 'America/New_York'), pl = clock(t, 'Europe/Warsaw')
+  return ny.weekday !== 'Sat' && ny.weekday !== 'Sun' && Number(ny.hour) * 60 + Number(ny.minute) >= 16 * 60 && Number(pl.hour) >= 12
+}
+
 // Translates the posts on the channel's page that have no translation yet, newest first, and adds them to the check's
 // result: the new posts go out already translated, and an older one translated now goes out again, with its translation.
-// Returns a line for the logs, or nothing when there was nothing to do.
-export async function translateNew(ai: Ai, r: CheckResult, now: number): Promise<string | undefined> {
+// `usEveningInEnglish`: the posts published in the evening after the close in New York (usEvening) are left in English for good (null),
+// without asking the model. Returns a line for the logs, or nothing when there was nothing to do.
+export async function translateNew(ai: Ai, r: CheckResult, now: number, usEveningInEnglish = false): Promise<string | undefined> {
   const s = r.state
-  if ((s.ai?.retryAt ?? 0) > now) return
+  const onPage = new Set(s.current ?? [])
+  let evening = 0
+  if (usEveningInEnglish) {
+    const left = new Set(s.items.filter((i) => i.pl === undefined && onPage.has(i.id) && usEvening(i.pubDate ? Date.parse(i.pubDate) : now)).map((i) => i.id))
+    if (left.size) {
+      const english = (i: NewsItem): NewsItem => (left.has(i.id) ? { ...i, pl: null } : i)
+      s.items = s.items.map(english)
+      r.add = r.add.map(english)
+      if (!r.changed) r.dirty = true // saved; the pages have them without a translation already
+      evening = left.size
+    }
+  }
+  const leftLog = evening ? `left in English (the evening after the US close): ${evening}` : undefined
+  if ((s.ai?.retryAt ?? 0) > now) return leftLog
   const day = new Date(now).toISOString().slice(0, 10)
   const used = s.ai?.day === day ? s.ai.n : 0
-  const onPage = new Set(s.current ?? [])
   const todo = s.items.filter((i) => i.pl === undefined && onPage.has(i.id)).slice(0, Math.max(0, Math.min(PER_CHECK, PER_DAY - used)))
-  if (todo.length === 0) return used >= PER_DAY ? `translations: the limit of ${PER_DAY} a day is reached` : undefined
+  if (todo.length === 0) return used >= PER_DAY ? `translations: the limit of ${PER_DAY} a day is reached` + (leftLog ? `; ${leftLog}` : '') : leftLog
 
   const results = await inTurns(todo, PARALLEL, (it) => translateOne(ai, it), (res) => res.pl === undefined)
   const done = new Map<string, NewsItem>()
@@ -131,5 +154,5 @@ export async function translateNew(ai: Ai, r: CheckResult, now: number): Promise
   else r.dirty = true // only the count and the pause changed: saved, nothing sent
   const translated = [...done.values()].filter((i) => i.pl).length
   return `translated ${translated}/${asked} (${tokensIn} tokens in, ${tokensOut} out; ${s.ai.n} today)` +
-    (failed ? `, ${failed} failed: paused ${PAUSE_MS / 60_000} min` : '') + (errors.length ? ` | ${errors[0]}` : '')
+    (failed ? `, ${failed} failed: paused ${PAUSE_MS / 60_000} min` : '') + (leftLog ? `; ${leftLog}` : '') + (errors.length ? ` | ${errors[0]}` : '')
 }

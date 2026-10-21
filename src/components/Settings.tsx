@@ -240,7 +240,9 @@ export default function Settings(p: Props) {
           {FEEDS.some((f) => f.translate) && (
             <p className="hint">
               Wiadomości Waltera Bloomberga i Seeking Alpha są po angielsku. Po polsku pokazuje je tłumaczenie maszynowe (AI), które może
-              zawierać błędy; czyta je wtedy polski głos. Wiadomość, której nie udało się przetłumaczyć, jest po angielsku.
+              zawierać błędy; czyta je wtedy polski głos. Wiadomość, której nie udało się przetłumaczyć, jest po angielsku. Seeking Alpha
+              po zamknięciu sesji w USA (od 22:00, w niektóre tygodnie marca, października i listopada od 21:00, do północy) zostaje
+              po angielsku, bo wtedy przychodzi bardzo dużo krótkich wiadomości o wynikach i dywidendach.
             </p>
           )}
         </section>
