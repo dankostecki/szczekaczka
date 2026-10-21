@@ -2,7 +2,7 @@
 // ("$TSLA" in Walter Bloomberg, "(NASDAQ:TSLA)" in Seeking Alpha), a currency pair ("EUR/USD"), and the companies, indices, commodities and
 // crypto it names, as Polish and English write them ("Tesla", "akcje Tesli", "cena złota", "Nasdaq 100"). No AI and nothing from the network:
 // the names are in this file and the symbols in lib/market.ts. A name that is also a word or another thing is taken only where its
-// surroundings fit (VISA in capitals is a visa, "Nikkei Asia" a newspaper, "na Nasdaq" the exchange).
+// surroundings fit (VISA in capitals is a visa, "Nikkei Asia" a newspaper, "na Nasdaq" the exchange). Oil, of any kind, is both Brent and WTI.
 import { INSTRUMENTS, MARKET_GROUPS } from './market'
 
 // The channels whose news get quotes; ESPI and GPW (the Warsaw exchange, in the widgets only at the end of the day) and MacroNext not yet
@@ -17,7 +17,7 @@ interface Alias {
   after?: RegExp  // not when the text after it begins like this
   need?: RegExp   // only when the text before it ends like this
 }
-type Named = [symbol: string, ...names: (string | Alias)[]]
+type Named = [symbol: string | string[], ...names: (string | Alias)[]]
 
 // Before an exchange's name: a listing on it, not its index
 const ON_EXCHANGE = /(?:\bna|\bw|\bz|\bon|\bat|\bthe|\blisted|giełd\p{L}*|debiut\p{L}*|notowan\p{L}*)\s+$/iu
@@ -25,6 +25,7 @@ const ON_EXCHANGE = /(?:\bna|\bw|\bz|\bon|\bat|\bthe|\blisted|giełd\p{L}*|debiu
 const OF_COMMODITY = new RegExp(String.raw`(?:(?:cen|uncj|kurs|notowa|rynk|sztab|zapas|rezerw|wydobyci|produkcj|popyt|podaż|zakup|sprzeda|import|eksport|wartoś|kopal|ton|kilogram|ETF|fundusz|inwestycj|posiadacz)\p{L}*|rynek|kg|(?:złot|srebr|rop|miedz|platyn)\p{L}*\s+(?:i|oraz|lub|czy|a))\s+$`, 'iu')
 // Before a name that is also a surname: the company, not a person ("akcje Kruka", "spółka Kruk")
 const OF_COMPANY = /(?:spółk|akcj|kurs|notowa|walor|windykac|zysk|wynik|dywidend|emitent|giełdow|kapitalizacj|przychod|zarząd|prezes)\p{L}*\s+$/iu
+const OIL = ['CMCMARKETS:UKCRUDEOIL', 'CMCMARKETS:USCRUDEOIL']
 const fixed = (names: string[], more: Omit<Alias, 'name' | 'fixed'> = {}): Alias[] => names.map((name) => ({ name, fixed: true, ...more }))
 
 const NAMED: Named[] = [
@@ -84,9 +85,8 @@ const NAMED: Named[] = [
   // ── Commodities and crypto ──
   ['CMCMARKETS:GOLD', ...fixed(['złoto', 'złotem', 'złocie']), { name: 'złota', fixed: true, need: OF_COMMODITY }, 'gold', 'XAU/USD', 'XAUUSD'],
   ['CMCMARKETS:SILVER', ...fixed(['srebro', 'srebrem', 'srebrze']), { name: 'srebra', fixed: true, need: OF_COMMODITY }, 'silver', 'XAG/USD', 'XAGUSD'],
-  ['CMCMARKETS:UKCRUDEOIL', ...fixed(['ropa', 'ropy', 'ropę', 'ropą', 'ropie'], { after: /^\s+(?:naftowa\s+|naftowej\s+|naftową\s+)?(?:WTI|Brent)/iu }),
-    'Brent', { name: 'crude', before: /(?:WTI|Brent)\s+$/iu }],
-  ['TVC:USOIL', 'WTI'],
+  // Oil, its stocks, OPEC, the price of a barrel: Brent and WTI, both from CMC
+  [OIL, ...fixed(['ropa', 'ropy', 'ropę', 'ropą', 'ropie', 'baryłka', 'baryłki', 'baryłkę', 'baryłką', 'baryłce', 'baryłek']), 'Brent', 'WTI', 'crude', 'OPEC'],
   ['CMCMARKETS:COPPER', ...fixed(['miedź', 'miedzi', 'miedzią'], { before: /Polsk\p{L}*\s+$/iu }), 'copper'],
   ['TVC:PLATINUM', ...fixed(['platyna', 'platyny', 'platynę', 'platyną', 'platynie']), 'platinum'],
   ['BITSTAMP:BTCUSD', 'bitcoin', 'BTC'], ['BITSTAMP:ETHUSD', 'ethereum', 'ETH'], ['BITSTAMP:XRPUSD', 'XRP'],
@@ -142,14 +142,15 @@ function formsOf(a: Alias): { source: string; stem: string } {
   return { source: `${esc(name)}(?:u|a|owi|em|iem|ie|y|i|ów|om)?`, stem: name }
 }
 
-interface Rule { symbol: string; re: RegExp; stem: string; alias: Alias }
+interface Rule { symbols: string[]; re: RegExp; stem: string; alias: Alias }
 let rules: Rule[] | null = null
 function allRules(): Rule[] {
   rules ??= NAMED.flatMap(([symbol, ...names]) => names.map((n) => {
+    const symbols = typeof symbol === 'string' ? [symbol] : symbol
     const alias = typeof n === 'string' ? { name: n, exact: ACRONYM.test(n) } : { exact: ACRONYM.test(n.name), ...n }
     const { source, stem } = formsOf(alias)
     // not inside a word, a ticker or a compound ("WIG-banki", "BACK-UPS")
-    return { symbol, alias, stem, re: new RegExp(`(?<![\\p{L}\\p{N}$]|\\p{L}-)(?:${source})(?![\\p{L}\\p{N}]|-\\p{L})`, 'giu') }
+    return { symbols, alias, stem, re: new RegExp(`(?<![\\p{L}\\p{N}$]|\\p{L}-)(?:${source})(?![\\p{L}\\p{N}]|-\\p{L})`, 'giu') }
   }))
   return rules
 }
@@ -161,7 +162,7 @@ function caseFits(found: string, r: Rule): boolean {
   return first.toLowerCase() === first || found[0] === first
 }
 
-interface Hit { start: number; end: number; symbol: string }
+interface Hit { start: number; end: number; symbols: string[] }
 
 function hitsIn(text: string): Hit[] {
   const hits: Hit[] = []
@@ -169,17 +170,17 @@ function hitsIn(text: string): Hit[] {
     const exchange = EXCHANGES[m[1].toUpperCase()]
     const ticker = /^(?:NYSE|NASDAQ|AMEX)$/.test(exchange) ? m[2].toUpperCase().replace(/-/g, '.') : m[2].toUpperCase()
     const symbol = `${exchange}:${ticker}`
-    hits.push({ start: m.index, end: m.index + m[0].length, symbol: SAME[symbol] ?? symbol })
+    hits.push({ start: m.index, end: m.index + m[0].length, symbols: [SAME[symbol] ?? symbol] })
   }
-  for (const m of text.matchAll(CASHTAG)) hits.push({ start: m.index, end: m.index + m[0].length, symbol: tickerSymbol(m[1]) })
-  for (const m of text.matchAll(PAIR)) if (m[1] !== m[2]) hits.push({ start: m.index, end: m.index + m[0].length, symbol: pairSymbol(m[1], m[2]) })
+  for (const m of text.matchAll(CASHTAG)) hits.push({ start: m.index, end: m.index + m[0].length, symbols: [tickerSymbol(m[1])] })
+  for (const m of text.matchAll(PAIR)) if (m[1] !== m[2]) hits.push({ start: m.index, end: m.index + m[0].length, symbols: [pairSymbol(m[1], m[2])] })
   for (const r of allRules()) {
     for (const m of text.matchAll(r.re)) {
       const start = m.index, end = start + m[0].length
       if (!caseFits(m[0], r)) continue
       const before = text.slice(Math.max(0, start - 40), start), after = text.slice(end, end + 40)
       if (r.alias.before?.test(before) || r.alias.after?.test(after) || (r.alias.need && !r.alias.need.test(before))) continue
-      hits.push({ start, end, symbol: r.symbol })
+      hits.push({ start, end, symbols: r.symbols })
     }
   }
   // Where names overlap, the longer one ("PKO BP", not "BP"; "(NASDAQ:TSLA)", not "Nasdaq"), in the order they come in
@@ -192,7 +193,7 @@ function hitsIn(text: string): Hit[] {
 // The symbols named in these texts (the one shown first: its order wins), each once, at most MAX_QUOTED
 export function instrumentsIn(texts: string[]): string[] {
   const out: string[] = []
-  for (const t of texts) for (const h of hitsIn(t)) if (!out.includes(h.symbol)) out.push(h.symbol)
+  for (const t of texts) for (const h of hitsIn(t)) for (const s of h.symbols) if (!out.includes(s)) out.push(s)
   return out.slice(0, MAX_QUOTED)
 }
 
