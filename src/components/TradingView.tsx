@@ -71,6 +71,35 @@ function loadTable(): Promise<boolean> {
 
 export type Sector = { sectionName: string; symbols: string[] }
 
+// The table as tall as all its rows. Left to itself it fills the box it is given and scrolls inside it, and on a phone a thumb on the table then
+// moves the table, not the page. Where TradingView lets the page see inside the widget, the height grows by what its inner part would scroll;
+// where not, the box is as tall as the rows are likely to be
+const ROW_PX = 52, SECTION_PX = 44, HEAD_PX = 64
+function fitTable(table: HTMLElement, sectors: Sector[]): () => void {
+  const guess = HEAD_PX + sectors.length * SECTION_PX + sectors.reduce((n, s) => n + s.symbols.length, 0) * ROW_PX
+  let timer: number | undefined
+  const fit = () => {
+    const root = table.shadowRoot, shown = table.getBoundingClientRect().height
+    if (!root) { if (customElements.get(TABLE)) table.style.minHeight = `${guess}px`; return } // working, but closed to the page
+    if (!shown) return // hidden (another tab): measured when it is shown again
+    let more = 0
+    for (const el of root.querySelectorAll<HTMLElement>('*')) {
+      const over = el.scrollHeight - el.clientHeight
+      if (over > 1 && over > more && /auto|scroll/.test(getComputedStyle(el).overflowY)) more = over
+    }
+    if (more) table.style.height = `${Math.ceil(shown + more)}px`
+  }
+  // at most a few times a second, also while the prices keep changing the rows
+  const soon = () => { if (timer === undefined) timer = window.setTimeout(() => { timer = undefined; fit() }, 300) }
+  const resized = new ResizeObserver(soon)
+  resized.observe(table)
+  const changed = new MutationObserver(soon)
+  let watching = false
+  const watch = () => { if (!watching && table.shadowRoot) { changed.observe(table.shadowRoot, { childList: true, subtree: true }); watching = true } }
+  void customElements.whenDefined(TABLE).then(() => { watch(); soon() })
+  return () => { window.clearTimeout(timer); resized.disconnect(); changed.disconnect() }
+}
+
 export function QuotesTable({ sectors, onOpen }: { sectors: Sector[]; onOpen: (symbol: string, from: Origin | null) => void }) {
   const box = useRef<HTMLDivElement>(null)
   const pressed = useRef<Origin | null>(null) // where the row was pressed: the chart window grows out of it
@@ -91,10 +120,11 @@ export function QuotesTable({ sectors, onOpen }: { sectors: Sector[]; onOpen: (s
     }
     table.addEventListener('tv-link-open', onLink)
     el.replaceChildren(table)
+    const unfit = fitTable(table, JSON.parse(settings) as Sector[])
     let on = true
     setFailed(false)
     void loadTable().then((ok) => { if (on && !ok) setFailed(true) })
-    return () => { on = false; table.removeEventListener('tv-link-open', onLink); el.replaceChildren() }
+    return () => { on = false; unfit(); table.removeEventListener('tv-link-open', onLink); el.replaceChildren() }
   }, [settings])
   return (
     <>
