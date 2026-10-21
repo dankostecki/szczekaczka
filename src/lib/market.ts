@@ -11,12 +11,9 @@ export interface Instrument {
 }
 
 // CFDs of CMC Markets (CMCMARKETS:), which TradingView's widgets show (TradingView's own sample table has one) and which trade nearly all day
-// long, like futures. WIG20 is the futures contract FW20 of the exchange (GPW:FW201!, the front month); CMC has no bitcoin on TradingView,
-// so it comes from Bitstamp
+// long, like futures. CMC has no Korean index (KOSPI comes from the Korea Exchange) and no crypto on TradingView (bitcoin and ethereum come
+// from Bitstamp). Nothing from the Warsaw exchange: its data are in the widgets only at the end of the day
 export const MARKET_GROUPS: { name: string; items: Instrument[] }[] = [
-  { name: 'Polska', items: [
-    { symbol: 'GPW:FW201!', name: 'WIG20 (FW20)', note: 'kontrakt, GPW', also: 'FW20 kontrakt futures' },
-  ] },
   { name: 'Waluty', items: [
     { symbol: 'CMCMARKETS:EURUSD', name: 'EUR/USD' },
     { symbol: 'CMCMARKETS:USDPLN', name: 'USD/PLN', also: 'dolar' },
@@ -28,14 +25,21 @@ export const MARKET_GROUPS: { name: string; items: Instrument[] }[] = [
     { symbol: 'CMCMARKETS:SPX500', name: 'S&P 500', note: 'USA', also: 'SPX US500' },
     { symbol: 'CMCMARKETS:NDAQ100', name: 'Nasdaq 100', note: 'USA', also: 'NDX US100' },
     { symbol: 'CMCMARKETS:GERMAN30', name: 'DAX', note: 'Niemcy', also: 'DE40 GER40 Germany 40' },
+    { symbol: 'CMCMARKETS:JAPAN225', name: 'Nikkei 225', note: 'Japonia', also: 'Japan 225 JP225 NKY' },
+    { symbol: 'KRX:KOSPI', name: 'KOSPI', note: 'Korea Płd.', also: 'Korea' },
   ] },
   { name: 'Surowce i krypto', items: [
     { symbol: 'CMCMARKETS:GOLD', name: 'Złoto', note: 'USD za uncję', also: 'gold XAUUSD' },
+    { symbol: 'CMCMARKETS:SILVER', name: 'Srebro', note: 'USD za uncję', also: 'silver XAGUSD' },
     { symbol: 'CMCMARKETS:UKCRUDEOIL', name: 'Ropa Brent', note: 'USD za baryłkę', also: 'oil UKOIL' },
     { symbol: 'CMCMARKETS:COPPER', name: 'Miedź', note: 'USD za funt', also: 'copper' },
     { symbol: 'BITSTAMP:BTCUSD', name: 'Bitcoin', note: 'USD', also: 'BTC' },
+    { symbol: 'BITSTAMP:ETHUSD', name: 'Ethereum', note: 'USD', also: 'ETH' },
   ] },
 ]
+
+// The first row of the table: the chart a computer shows beside it until another is chosen
+export const FIRST_SYMBOL = MARKET_GROUPS[0].items[0].symbol
 
 // Looked up by name or ticker in the symbol field, besides the table's
 const MORE: Instrument[] = [
@@ -46,7 +50,7 @@ const MORE: Instrument[] = [
     ['PGE', 'PGE'], ['JSW', 'JSW'], ['CPS', 'Cyfrowy Polsat', 'Polsat'], ['PCO', 'Pepco'], ['ZAB', 'Żabka'], ['ACP', 'Asseco Poland', 'Asseco'],
     ['TPE', 'Tauron'], ['ENA', 'Enea'], ['TXT', 'Text', 'LiveChat'], ['BFT', 'Benefit Systems'], ['ASB', 'Asbis', 'ASBISc'], ['XTB', 'XTB'],
     ['CCC', 'CCC'], ['MIL', 'Bank Millennium', 'Millennium'], ['BHW', 'Citi Handlowy', 'Handlowy'], ['ING', 'ING Bank Śląski', 'ING'],
-    ['WIG', 'WIG', 'cały rynek'], ['WIG20', 'WIG20'], ['MWIG40', 'mWIG40'], ['SWIG80', 'sWIG80'], ['FW401!', 'FW40', 'kontrakt futures mWIG40'],
+    ['WIG', 'WIG', 'cały rynek'], ['WIG20', 'WIG20'], ['MWIG40', 'mWIG40'], ['SWIG80', 'sWIG80'], ['FW201!', 'FW20', 'kontrakt futures WIG20'], ['FW401!', 'FW40', 'kontrakt futures mWIG40'],
   ].map(([t, name, also]) => ({ symbol: `GPW:${t}`, name, note: 'GPW', also })),
   ...[
     ['NASDAQ:AAPL', 'Apple'], ['NASDAQ:MSFT', 'Microsoft'], ['NASDAQ:NVDA', 'Nvidia'], ['NASDAQ:AMZN', 'Amazon'], ['NASDAQ:GOOGL', 'Alphabet', 'Google'],
@@ -60,7 +64,6 @@ const MORE: Instrument[] = [
   { symbol: 'EUREX:FDAX1!', name: 'DAX (kontrakt)', note: 'Eurex', also: 'FDAX futures' },
   { symbol: 'COMEX:GC1!', name: 'Złoto (kontrakt)', note: 'COMEX', also: 'GC futures' },
   { symbol: 'NYMEX:CL1!', name: 'Ropa WTI (kontrakt)', note: 'NYMEX', also: 'CL futures' },
-  { symbol: 'INDEX:NKY', name: 'Nikkei 225', note: 'Japonia', also: 'Nikkei' },
   { symbol: 'CMCMARKETS:UK100', name: 'FTSE 100', note: 'Wielka Brytania', also: 'FTSE UK100' },
   { symbol: 'CMCMARKETS:POLISH201!', name: 'Poland 20 (CFD)', note: 'CMC, na kontrakt WIG20', also: 'Poland 20 WIG20 FW20' },
   { symbol: 'TVC:DXY', name: 'Indeks dolara', note: 'DXY', also: 'DXY dollar' },
@@ -70,11 +73,9 @@ const MORE: Instrument[] = [
     ['USDJPY', 'USD/JPY', 'jen'], ['GBPUSD', 'GBP/USD'], ['USDCHF', 'USD/CHF'], ['EURCHF', 'EUR/CHF'], ['EURGBP', 'EUR/GBP'], ['JPYPLN', 'JPY/PLN'],
     ['NOKPLN', 'NOK/PLN'], ['SEKPLN', 'SEK/PLN'], ['CZKPLN', 'CZK/PLN', 'korona'], ['HUFPLN', 'HUF/PLN', 'forint'], ['CADPLN', 'CAD/PLN'], ['AUDPLN', 'AUD/PLN'],
   ].map(([t, name, also]) => ({ symbol: `FX_IDC:${t}`, name, also })),
-  { symbol: 'TVC:SILVER', name: 'Srebro', note: 'USD za uncję', also: 'silver XAGUSD' },
   { symbol: 'TVC:USOIL', name: 'Ropa WTI', note: 'USD za baryłkę', also: 'oil' },
   { symbol: 'TVC:PLATINUM', name: 'Platyna', note: 'USD za uncję' },
   { symbol: 'NYMEX:NG1!', name: 'Gaz ziemny', note: 'USD za MMBtu', also: 'gas' },
-  { symbol: 'BITSTAMP:ETHUSD', name: 'Ethereum', note: 'USD', also: 'ETH' },
   { symbol: 'BITSTAMP:XRPUSD', name: 'XRP', note: 'USD', also: 'Ripple' },
 ]
 
