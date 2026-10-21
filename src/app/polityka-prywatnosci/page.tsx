@@ -16,6 +16,10 @@ export default function PrivacyPolicy() {
         <ul>
           <li>Nie zakładasz konta i nie podajesz nam żadnych danych.</li>
           <li>Nie używamy plików cookies, analityki, reklam ani żadnych narzędzi śledzących.</li>
+          <li>
+            Wyjątkiem są notowania i wykresy TradingView w zakładce Rynek: ładują się dopiero, gdy je włączysz, i wtedy Twoja przeglądarka łączy się
+            z serwerami TradingView, które mogą zapisać swoje pliki cookies (pkt 4).
+          </li>
           <li>Twoje ustawienia, przeczytane i zapisane newsy są tylko w pamięci Twojej przeglądarki. Nie wysyłamy ich na serwer.</li>
           <li>
             Serwery, które dostarczają stronę (Cloudflare, a pod adresem dankostecki.github.io także GitHub), technicznie
@@ -67,12 +71,13 @@ export default function PrivacyPolicy() {
         Serwis nie ma kont użytkowników, formularzy, newslettera ani płatności. Nie korzysta z narzędzi analitycznych
         (np. Google Analytics, Cloudflare Web Analytics), pikseli reklamowych, wtyczek serwisów społecznościowych, zewnętrznych
         czcionek ani innych skryptów ładowanych z cudzych serwerów. Przeglądarka łączy się wyłącznie z serwerami Serwisu
-        (Cloudflare, a w wersji pod adresem dankostecki.github.io także GitHub Pages).
+        (Cloudflare, a w wersji pod adresem dankostecki.github.io także GitHub Pages). Jedynym wyjątkiem są notowania i wykresy
+        TradingView w zakładce Rynek, które ładują się dopiero po ich włączeniu (pkt 4).
       </p>
 
       <h2>3. Cookies i pamięć przeglądarki</h2>
       <p>
-        <b>Serwis nie zapisuje plików cookies.</b> Do zapamiętania Twoich ustawień używa pamięci przeglądarki
+        <b>Serwis nie zapisuje plików cookies.</b> Może je zapisać TradingView, jeśli włączysz wykresy w zakładce Rynek (pkt 4). Do zapamiętania Twoich ustawień używa pamięci przeglądarki
         (localStorage), a żeby działać także bez sieci, pamięci podręcznej przeglądarki (Cache Storage). Te informacje
         zostają na Twoim urządzeniu, nie są wysyłane na serwer i Administrator nie ma do nich dostępu.
       </p>
@@ -83,7 +88,7 @@ export default function PrivacyPolicy() {
         <tbody>
           <tr>
             <td><code>szczekaczka:prefs</code></td>
-            <td>Ustawienia: motyw, głos, tempo, dźwięk przed czytaniem, co czytać, wybrane kanały, kolejność źródeł (zakładek), język kanałów Walter Bloomberg i Seeking Alpha, powiadomienia, lista obserwowanych spółek.</td>
+            <td>Ustawienia: motyw, głos, tempo, dźwięk przed czytaniem, co czytać, wybrane kanały, kolejność źródeł (zakładek), język kanałów Walter Bloomberg i Seeking Alpha, powiadomienia, lista obserwowanych spółek, włączenie wykresów TradingView w zakładce Rynek i ostatnio oglądane tam symbole (najwyżej 8).</td>
             <td>Do czasu usunięcia</td>
           </tr>
           <tr>
@@ -116,12 +121,14 @@ export default function PrivacyPolicy() {
       <p>
         Zapisujemy tylko to, co jest niezbędne do działania funkcji, z których korzystasz. Zgodnie z art. 5 ust. 3
         dyrektywy 2002/58/WE (tzw. dyrektywy ePrivacy), wdrożonym w polskim Prawie komunikacji elektronicznej, takie
-        przechowywanie nie wymaga zgody. Dlatego Serwis pokazuje okno informacyjne, a nie prośbę o zgodę.
+        przechowywanie nie wymaga zgody. Dlatego Serwis pokazuje okno informacyjne, a nie prośbę o zgodę. O zgodę pyta tylko przed
+        włączeniem wykresów TradingView (pkt 4), bo wtedy Twoja przeglądarka łączy się z serwerami innego serwisu.
       </p>
       <p>
         <b>Jak usunąć te dane:</b> w ustawieniach Serwisu (ikona koła zębatego) kliknij „Usuń wszystkie dane z tej
         przeglądarki”. Możesz też wyczyścić dane witryny w ustawieniach przeglądarki. Wtedy Serwis wróci do ustawień
-        domyślnych. Ten przycisk usuwa też kopię do pracy bez sieci.
+        domyślnych. Ten przycisk usuwa też kopię do pracy bez sieci. Nie usuwa plików cookies TradingView: usuniesz je
+        w ustawieniach przeglądarki (dane witryn tradingview.com).
       </p>
 
       <h2>4. Komu przekazujemy dane</h2>
@@ -160,6 +167,25 @@ export default function PrivacyPolicy() {
         autora Szczekaczki w serwisie X.
       </p>
 
+      <h3>Notowania i wykresy: TradingView (zakładka Rynek)</h3>
+      <p>
+        Zakładka Rynek pokazuje notowania i wykresy z bezpłatnych widżetów serwisu TradingView (TradingView, Inc., USA). Ładują się one
+        dopiero wtedy, gdy włączysz wykresy: przyciskiem „Włącz wykresy” w zakładce Rynek albo przełącznikiem „Wykresy TradingView”
+        w ustawieniach. Od tej chwili przy każdym otwarciu zakładki Rynek lub wykresu Twoja przeglądarka pobiera skrypty i okna widżetów
+        z serwerów TradingView. TradingView otrzymuje wtedy Twój adres IP, informacje o przeglądarce i urządzeniu oraz symbol
+        instrumentu, którego notowania lub wykres oglądasz, i może zapisywać na Twoim urządzeniu swoje pliki cookies i podobne dane.
+        Administrator tych danych nie otrzymuje. Za ich dalsze przetwarzanie odpowiada TradingView, na zasadach opisanych w swojej 
+        <a href="https://www.tradingview.com/privacy-policy/" target="_blank" rel="noopener noreferrer">polityce prywatności</a> i 
+        <a href="https://www.tradingview.com/cookies-policy/" target="_blank" rel="noopener noreferrer">polityce cookies</a>. Dane mogą być przekazywane do USA.
+      </p>
+      <p>
+        <b>Podstawa prawna:</b> Twoja zgoda (art. 6 ust. 1 lit. a RODO), którą wyrażasz, włączając wykresy. Możesz ją wycofać w każdej
+        chwili, wyłączając „Wykresy TradingView” w ustawieniach Serwisu; wtedy Serwis przestaje ładować widżety. Wycofanie zgody nie
+        wpływa na zgodność z prawem tego, co działo się wcześniej, i nie usuwa plików cookies, które TradingView już zapisał: usuniesz je
+        w ustawieniach przeglądarki. Gdy klikniesz „Otwórz w TradingView”, przechodzisz na stronę TradingView i obowiązuje jej polityka
+        prywatności.
+      </p>
+
       <h3>Czytanie na głos (funkcja przeglądarki)</h3>
       <p>
         Czytanie na głos korzysta z syntezatora mowy wbudowanego w przeglądarkę lub system. Część głosów działa
@@ -188,6 +214,7 @@ export default function PrivacyPolicy() {
           z nią roszczenia.
         </li>
         <li><b>Pamięć przeglądarki:</b> do czasu, aż ją usuniesz (pkt 3).</li>
+        <li><b>Pliki cookies TradingView</b> (tylko po włączeniu wykresów): przez okres określony przez TradingView albo do czasu, aż je usuniesz w przeglądarce.</li>
       </ul>
 
       <h2>6. Twoje prawa</h2>
@@ -197,6 +224,7 @@ export default function PrivacyPolicy() {
         <li>sprostowania danych (art. 16 RODO),</li>
         <li>usunięcia danych (art. 17 RODO),</li>
         <li>ograniczenia przetwarzania (art. 18 RODO),</li>
+        <li>wycofania zgody na wykresy TradingView w dowolnym momencie (art. 7 ust. 3 RODO),</li>
         <li>
           wniesienia sprzeciwu wobec przetwarzania opartego na prawnie uzasadnionym interesie, z przyczyn
           związanych z Twoją szczególną sytuacją (art. 21 RODO),

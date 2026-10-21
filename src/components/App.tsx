@@ -12,13 +12,16 @@ import { notifyPermission, requestNotifyPermission, notifyHeadlines, testNotific
 import { useWakeLock } from '@/lib/wakeLock'
 import { useNewVersion } from '@/lib/version'
 import { AUTHOR } from '@/lib/site'
+import { symbolChoices, withRecent } from '@/lib/market'
 import NewsRow from './NewsRow'
 import Settings from './Settings'
 import Reader from './Reader'
+import Market, { useMedia, type Origin } from './Market'
+import ChartWindow from './ChartWindow'
 import PrivacyNotice from './PrivacyNotice'
 import ScrollRow from './ScrollRow'
 import { SiteFooter } from './LegalPage'
-import { Logo, Speaker, Bell, Refresh, Sun, Moon, Gear, Search, Close, Star } from './Icons'
+import { Logo, Speaker, Bell, Refresh, Sun, Moon, Gear, Search, Close, Star, Chart } from './Icons'
 
 const READ_KEY  = 'szczekaczka:read'
 const SAVED_KEY = 'szczekaczka:saved'
@@ -26,9 +29,13 @@ const MAX_READ  = 5000
 const FRESH_MS  = 10 * 60_000 // how long a new headline keeps its NOWE badge
 const TITLE = 'Szczekaczka'
 
-type Filter = 'ALL' | Source | 'SAVED'
-const filterName = (f: Filter) => (f === 'ALL' ? 'Wszystko' : f === 'SAVED' ? 'Zapisane' : sourceName(f))
-const filterColor = (f: Filter) => (f === 'ALL' || f === 'SAVED' ? undefined : `var(--src-${f.toLowerCase()})`)
+// The tabs: everything, the market (quotes and charts, components/Market.tsx), each source, the saved news
+type Filter = 'ALL' | 'MARKET' | Source | 'SAVED'
+const isSource = (f: Filter): f is Source => f !== 'ALL' && f !== 'MARKET' && f !== 'SAVED'
+const filterName = (f: Filter) => (f === 'ALL' ? 'Wszystko' : f === 'MARKET' ? 'Rynek' : f === 'SAVED' ? 'Zapisane' : sourceName(f))
+const filterColor = (f: Filter) => (isSource(f) ? `var(--src-${f.toLowerCase()})` : undefined)
+// The chart a computer shows beside the tiles until another is chosen
+const FIRST_CHART = 'GPW:WIG'
 
 // A source tab (or one of its channels) with nothing on it: why. Its channels are shown,
 // or the tab would not be there; errors are named "PAP · BIZNES".
@@ -70,6 +77,11 @@ export default function App() {
   const [filter,    setFilter]    = useState<Filter>('ALL')
   const [label,     setLabel]     = useState<string | null>(null)
   const [query,     setQuery]     = useState('')
+  const [symbolQuery, setSymbolQuery] = useState('') // the search field on the "Rynek" tab: a symbol
+  const [choice,    setChoice]    = useState(0)      // the symbol suggestion picked with the arrow keys
+  const [searching, setSearching] = useState(false)  // the search field has the focus (suggestions under it)
+  const [chart,     setChart]     = useState<{ symbol: string; origin: Origin | null } | null>(null) // a chart in a window
+  const [picked,    setPicked]    = useState(FIRST_CHART) // the chart beside the tiles (a computer)
   const [readIds,   setReadIds]   = useState<Set<string>>(new Set())
   const [saved,     setSaved]     = useState<Item[]>([])
   const [freshAt,   setFreshAt]   = useState<Record<string, number>>({})
@@ -87,6 +99,7 @@ export default function App() {
   useEffect(() => { live.current = { prefs, voiceOn, voices } }, [prefs, voiceOn, voices])
   const searchRef = useRef<HTMLInputElement>(null)
   const awake = useWakeLock(ready && prefs.keepAwake)
+  const wide = useMedia('(min-width: 1000px)') // room for the chart beside the market's tiles
 
   // ── Restore state kept in this browser ──
   useEffect(() => {
@@ -271,16 +284,18 @@ export default function App() {
   const listed = useMemo(() => onWatchlist(prefs.watchlist), [prefs.watchlist])
   const shown = useMemo(() => items.filter((i) => !hidden.has(keyOf(i)) && listed(i)).map((i) => inLanguage(i, original)), [items, hidden, listed, original])
   const labelsShown = (src: Source) => labelsOf(src).filter((l) => !hidden.has(`${src}:${l}`))
-  // the tabs: everything, the sources in the order the reader set in the settings, the saved
-  const filters = (['ALL', ...orderedSources(prefs.sourceOrder), 'SAVED'] as Filter[]).filter((f) => f === 'ALL' || f === 'SAVED' || labelsShown(f).length > 0)
+  // the tabs: everything, the market, the sources in the order the reader set in the settings, the saved
+  const filters = (['ALL', 'MARKET', ...orderedSources(prefs.sourceOrder), 'SAVED'] as Filter[]).filter((f) => !isSource(f) || labelsShown(f).length > 0)
   // A tab or channel chip whose channels were just hidden falls back to everything
   const activeFilter: Filter = filters.includes(filter) ? filter : 'ALL'
-  const activeLabel = label && activeFilter !== 'ALL' && activeFilter !== 'SAVED' && !hidden.has(`${activeFilter}:${label}`) ? label : null
+  const activeLabel = label && isSource(activeFilter) && !hidden.has(`${activeFilter}:${label}`) ? label : null
+  const market = activeFilter === 'MARKET'
 
   const visible = useMemo(() => {
     const base =
       activeFilter === 'SAVED' ? saved.map((i) => inLanguage(i, original)).sort((a, b) => b.time - a.time)
       : activeFilter === 'ALL' ? shown
+      : activeFilter === 'MARKET' ? []
       : shown.filter((i) => i.source === activeFilter && (!activeLabel || i.label === activeLabel))
     return q ? base.filter((i) => `${i.title} ${i.description} ${i.source} ${i.label}`.toLowerCase().includes(q)) : base
   }, [shown, saved, original, activeFilter, activeLabel, q])
@@ -295,7 +310,38 @@ export default function App() {
   // Errors of hidden channels are not shown either ("STOOQ · BIZNES" is the channel STOOQ:BIZNES)
   const shownErrors = errors.filter((e) => !hidden.has(e.feed.replace(' · ', ':')))
 
-  const subLabels = activeFilter !== 'ALL' && activeFilter !== 'SAVED' ? labelsShown(activeFilter) : []
+  const subLabels = isSource(activeFilter) ? labelsShown(activeFilter) : []
+
+  // ── The market: a chart in a window (a phone) or beside the tiles (a computer); the symbols looked at last are remembered ──
+  const openChart = useCallback((symbol: string, origin: Origin | null) => {
+    if (prefs.charts) updatePrefs({ marketRecent: withRecent(prefs.marketRecent, symbol) })
+    if (wide && filter === 'MARKET') setPicked(symbol)
+    else setChart({ symbol, origin })
+  }, [prefs.charts, prefs.marketRecent, updatePrefs, wide, filter])
+  const closeChart = useCallback(() => setChart(null), [])
+  const chartsOn = useCallback(() => updatePrefs({ charts: true }), [updatePrefs])
+  const choices = market ? symbolChoices(symbolQuery) : []
+  const pick = (i: number) => {
+    const c = choices[i]
+    if (!c) return
+    const box = searchRef.current?.getBoundingClientRect()
+    setSymbolQuery(''); setChoice(0)
+    searchRef.current?.blur()
+    openChart(c.symbol, box ? { x: box.left + 24, y: box.top + box.height / 2 } : null)
+  }
+  function onSearchKey(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Escape') { if (market) setSymbolQuery(''); else setQuery(''); e.currentTarget.blur(); return }
+    if (!market || !choices.length) return
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      setChoice((c) => (c + (e.key === 'ArrowDown' ? 1 : choices.length - 1)) % choices.length)
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      pick(Math.min(choice, choices.length - 1))
+    }
+  }
+  const searchValue = market ? symbolQuery : query
+  const setSearch = (v: string) => { if (market) { setSymbolQuery(v); setChoice(0) } else setQuery(v) }
 
   function choose(f: Filter) {
     setFilter(f); setLabel(null)
@@ -359,18 +405,33 @@ export default function App() {
             {filters.map((f) => (
               <button key={f} role="tab" aria-selected={activeFilter === f} className={`chip ${activeFilter === f ? 'on' : ''}`}
                 style={{ ['--c' as string]: filterColor(f) }} onClick={() => choose(f)}>
-                {f === 'SAVED' ? <Star filled={activeFilter === f} size={13} /> : f !== 'ALL' && <i className="dot" />}
+                {f === 'SAVED' ? <Star filled={activeFilter === f} size={13} /> : f === 'MARKET' ? <Chart size={14} /> : f !== 'ALL' && <i className="dot" />}
                 {filterName(f)}
               </button>
             ))}
           </ScrollRow>
           <label className="search">
             <Search size={16} />
-            <input ref={searchRef} value={query} onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Escape') { setQuery(''); e.currentTarget.blur() } }}
-              placeholder="Szukaj" aria-label="Szukaj" spellCheck={false} autoComplete="off" />
-            {query && <button onClick={() => setQuery('')} title="Wyczyść"><Close size={14} /></button>}
+            <input ref={searchRef} value={searchValue} onChange={(e) => setSearch(e.target.value)} onKeyDown={onSearchKey}
+              onFocus={() => setSearching(true)} onBlur={() => setSearching(false)}
+              placeholder={market ? 'Symbol, np. CDR, AAPL, EURUSD' : 'Szukaj'} aria-label={market ? 'Symbol' : 'Szukaj'}
+              spellCheck={false} autoComplete="off" autoCapitalize={market ? 'characters' : undefined} enterKeyHint={market ? 'go' : undefined}
+              role={market ? 'combobox' : undefined} aria-expanded={market ? searching && choices.length > 0 : undefined}
+              aria-controls={market ? 'symbol-choices' : undefined} aria-activedescendant={market && searching && choices.length ? `symbol-${Math.min(choice, choices.length - 1)}` : undefined} />
+            {searchValue && <button onClick={() => setSearch('')} title="Wyczyść"><Close size={14} /></button>}
           </label>
+          {market && searching && choices.length > 0 && (
+            <ul id="symbol-choices" className="symbol-choices" role="listbox" aria-label="Podpowiedzi">
+              {choices.map((c, i) => (
+                <li key={c.symbol + (c.typed ? '*' : '')} id={`symbol-${i}`} role="option" aria-selected={i === Math.min(choice, choices.length - 1)}
+                  className={i === Math.min(choice, choices.length - 1) ? 'on' : undefined}
+                  onPointerDown={(e) => e.preventDefault()} onClick={() => pick(i)} onPointerEnter={() => setChoice(i)}>
+                  {c.typed ? <span className="typed">Pokaż wykres „{c.symbol}”</span> : <span>{c.name}</span>}
+                  <em>{c.typed ? 'Enter' : c.symbol.replace(':', ' · ')}</em>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {subLabels.length > 1 && (
@@ -386,7 +447,7 @@ export default function App() {
       </header>
 
       <main className="list wrap">
-        {shownErrors.length > 0 && (
+        {!market && shownErrors.length > 0 && (
           <div className="errors" role="status">
             Chwilowo nie działa: {shownErrors.map((e) => `${feedName(e.feed)} (${e.message})`).join(', ')}.
             Widać ostatnio pobrane newsy, kolejna próba za chwilę.
@@ -400,13 +461,17 @@ export default function App() {
           </div>
         )}
 
-        {!loaded && Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton" />)}
+        {market && (
+          <Market charts={prefs.charts} onCharts={chartsOn} dark={dark} recent={prefs.marketRecent} wide={wide} picked={picked} onOpen={openChart} />
+        )}
 
-        {loaded && visible.length === 0 && (
+        {!market && !loaded && Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton" />)}
+
+        {!market && loaded && visible.length === 0 && (
           <p className="empty">
             {activeFilter === 'SAVED' && !q ? 'Nic jeszcze nie zapisano. Kliknij gwiazdkę przy newsie, żeby go tu odłożyć.'
               : q ? 'Brak wyników dla tego wyszukiwania.'
-              : activeFilter !== 'ALL' && activeFilter !== 'SAVED' ? emptyTab(activeFilter, activeLabel, shownErrors, prefs.watchlist.trim() !== '')
+              : isSource(activeFilter) ? emptyTab(activeFilter, activeLabel, shownErrors, prefs.watchlist.trim() !== '')
               : items.some((i) => !hidden.has(keyOf(i))) ? 'Na razie brak raportów ESPI obserwowanych spółek. Listę spółek zmienisz w ustawieniach.'
               : items.length > 0 ? 'Kanały z newsami są ukryte. Pokaż je w ustawieniach (kolumna z okiem).'
               : 'Brak newsów.'}
@@ -447,6 +512,11 @@ export default function App() {
             onClose={closeReader} onSave={toggleSaved} onSpeak={canSpeak ? readAloud : undefined} />
         )
       })()}
+
+      {chart && (
+        <ChartWindow key={chart.symbol} symbol={chart.symbol} origin={chart.origin} dark={dark} charts={prefs.charts}
+          onCharts={chartsOn} onClose={closeChart} />
+      )}
 
       {settingsOpen && (
         <Settings

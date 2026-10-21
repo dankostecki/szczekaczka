@@ -358,6 +358,20 @@ export default function Settings(p: Props) {
         </section>
 
         <section>
+          <h3>Rynek</h3>
+          <Switch checked={prefs.charts} onChange={() => onChange({ charts: !prefs.charts })} label="Wykresy TradingView" />
+          <p className="hint">
+            Notowania i wykresy w zakładce Rynek pokazuje serwis TradingView. Gdy są włączone, przeglądarka łączy się z jego serwerami, które
+            widzą Twój adres IP i mogą zapisać swoje pliki cookies (usuniesz je w ustawieniach przeglądarki).
+          </p>
+          {prefs.marketRecent.length > 0 && (
+            <div className="row-buttons">
+              <button className="btn" onClick={() => onChange({ marketRecent: [] })}>Wyczyść ostatnio oglądane ({prefs.marketRecent.length})</button>
+            </div>
+          )}
+        </section>
+
+        <section>
           <h3>Inne</h3>
           <div className="setting">
             <span>Połączenie</span>
@@ -389,7 +403,7 @@ export default function Settings(p: Props) {
           <h3>Prywatność</h3>
           <p className="hint">
             Szczekaczka nie używa cookies ani narzędzi śledzących. Ustawienia, przeczytane i zapisane newsy są tylko
-            w pamięci tej przeglądarki.
+            w pamięci tej przeglądarki. Wykresy TradingView w zakładce Rynek ładują się dopiero po ich włączeniu.
           </p>
           <div className="row-buttons">
             <button className="btn danger" onClick={() => void clearAllData()}>Usuń wszystkie dane z tej przeglądarki</button>
@@ -402,6 +416,7 @@ export default function Settings(p: Props) {
         <p className="foot">
           Szczekaczka by <a href={AUTHOR.url} target="_blank" rel="noopener noreferrer">{AUTHOR.name}</a>.
           Źródła: <Link href="/o-stronie">Bankier.pl (ESPI/EBI), GPW, Stooq, Walter Bloomberg (Telegram), Seeking Alpha, PAP MediaRoom, MacroNext</Link>.
+          Notowania i wykresy: TradingView.
         </p>
       </aside>
     </div>

@@ -48,3 +48,5 @@ export const ArrowUp = (p: P) => <Svg {...p}><path d="M6 15l6-6 6 6" /></Svg>
 export const ArrowDown = (p: P) => <Svg {...p}><path d="M6 9l6 6 6-6" /></Svg>
 // Leave for the source's page
 export const External = (p: P) => <Svg {...p}><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" /></Svg>
+// The "Rynek" tab (quotes and charts)
+export const Chart = (p: P) => <Svg {...p}><path d="M3 3v18h18" /><path d="M7 15l4-4 3 3 5-6" /></Svg>

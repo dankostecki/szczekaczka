@@ -7,6 +7,7 @@ import Duck from './Duck'
 
 // Shown once on the first visit (and once more after it changes). The site has no cookies and
 // nothing optional to agree to (only storage the features need), so this informs rather than asks for consent.
+// The one thing that needs consent, TradingView's charts, asks where they are (the "Rynek" tab, components/Market.tsx).
 export default function PrivacyNotice() {
   const [open, setOpen] = useState(false)
   const button = useRef<HTMLButtonElement>(null)
@@ -35,7 +36,10 @@ export default function PrivacyNotice() {
         </p>
         <h2 id="notice-title">Prywatność w Szczekaczce</h2>
         <ul>
-          <li><b>Bez cookies i bez śledzenia.</b> Nie ma tu analityki, reklam ani skryptów z innych serwerów.</li>
+          <li>
+            <b>Bez cookies i bez śledzenia.</b> Nie ma tu analityki, reklam ani skryptów z innych serwerów. Wyjątkiem są wykresy
+            TradingView w zakładce Rynek, które ładują się dopiero po ich włączeniu.
+          </li>
           <li>
             <b>Ustawienia zostają u Ciebie.</b> Motyw, głos, przeczytane i zapisane newsy zapisujemy tylko w pamięci
             tej przeglądarki (localStorage). Nie trafiają na serwer.
