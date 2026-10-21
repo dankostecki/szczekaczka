@@ -32,7 +32,9 @@ export default function About() {
         Szczekaczka składa je z kalendarium danych makro (kraj, nazwa danych, okres, prognoza jako konsensus, poprzedni
         odczyt) i z kalendarium giełdowego (wydarzenia spółek, wyniki spółek z Nowego Jorku); prowadzą do kalendarium
         MacroNext na dziś. Drugim wyjątkiem są wiadomości Waltera Bloomberga i Seeking Alpha (tytuł i zajawka z kanału RSS; artykułów Szczekaczka nie pobiera): pisane po angielsku, są domyślnie pokazywane
-        w tłumaczeniu maszynowym na polski (z oznaczeniem „tłumaczenie AI”); oryginał można wybrać w ustawieniach.
+        w tłumaczeniu maszynowym na polski (z oznaczeniem „tłumaczenie AI”); oryginał można wybrać w ustawieniach. Wiadomości Seeking
+        Alpha z wieczora po zamknięciu sesji w Nowym Jorku (od 22:00, a w tygodniach, gdy w USA i w Polsce czas zmienia się w różnych
+        terminach, od 21:00, do północy) zostają po angielsku.
       </p>
 
       {SOURCES.map((src) => {
