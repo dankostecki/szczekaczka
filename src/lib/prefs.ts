@@ -1,5 +1,6 @@
 // User settings, kept in this browser (localStorage).
 import { FEED_KEYS, SOURCES, orderedSources, renamedKey, type Source } from './sources'
+import { MAX_RECENT } from './market'
 
 export type Theme = 'system' | 'light' | 'dark'
 
@@ -20,6 +21,8 @@ export interface Prefs {
   originalFeeds: string[] // translated channels (FeedConfig.translate) shown in their own language, not in Polish
   watchlist: string      // ESPI: with a list, only the reports of these companies are shown, read aloud and notified; empty, every report is shown and read aloud (none notified)
   sourceOrder: Source[]  // the order of the sources: the tabs on the page and the rows in settings (the reader moves them there)
+  charts: boolean        // the "Rynek" tab shows TradingView's quotes and charts (the reader switched them on: the browser then connects to TradingView)
+  marketRecent: string[] // the TradingView symbols whose charts were looked at last, newest first
   v: number              // the version of the settings: older ones are brought up to date when loaded (PREFS_VERSION)
 }
 // 2: Seeking Alpha is read aloud and notified like any channel (for a short while it began switched off, and stayed so in the settings saved then)
@@ -45,6 +48,8 @@ export const DEFAULT_PREFS: Prefs = {
   originalFeeds: [],
   watchlist: '',
   sourceOrder: SOURCES,
+  charts: false,
+  marketRecent: [],
   v: PREFS_VERSION,
 }
 
@@ -80,7 +85,8 @@ export function loadPrefs(): Prefs {
     // Settings of version 1 (or saved before there was one) get Seeking Alpha read aloud and notified, once
     const brought = (saved.v ?? 1) < 2 && FEED_KEYS.includes(SEEKING_ALPHA) ? [SEEKING_ALPHA] : []
     const cleaned: Prefs = {
-      ...p, v: PREFS_VERSION, sourceOrder: orderedSources(p.sourceOrder), hiddenFeeds: existing(p.hiddenFeeds), originalFeeds: existing(p.originalFeeds), knownFeeds: FEED_KEYS,
+      ...p, v: PREFS_VERSION, sourceOrder: orderedSources(p.sourceOrder), charts: p.charts === true,
+      marketRecent: Array.isArray(p.marketRecent) ? p.marketRecent.filter((s) => typeof s === 'string').slice(0, MAX_RECENT) : [], hiddenFeeds: existing(p.hiddenFeeds), originalFeeds: existing(p.originalFeeds), knownFeeds: FEED_KEYS,
       leadFeeds: [...existing(p.leadFeeds), ...added.filter((k) => DEFAULT_PREFS.leadFeeds.includes(k) && !p.leadFeeds.includes(k))],
       speakFeeds: [...existing(p.speakFeeds), ...[...added, ...brought].filter((k) => !p.speakFeeds.includes(k))],
       notifyFeeds: [...existing(p.notifyFeeds), ...[...added, ...brought].filter((k) => !p.notifyFeeds.includes(k))],

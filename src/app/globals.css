@@ -425,6 +425,86 @@ body.reading { overflow: hidden; padding-right: var(--scrollbar, 0px); }
   .reader-title { font-size: 20px; }
 }
 
+/* ── Market: quotes and charts from TradingView (components/Market.tsx, ChartWindow.tsx) ─────────────────────────────
+   Tiles two in a row on a phone, four on a wider screen; a tap opens the chart in a window like the reading window. On a computer the chart
+   stands beside the tiles. TradingView's frames fill the boxes they are put in; the tiles' frames do not take taps (the tile does). */
+.filters { position: relative; }
+.symbol-choices {
+  position: absolute; z-index: 12; top: 100%; right: 0; width: min(440px, 100%); margin: -6px 0 0; padding: 4px 0; list-style: none;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden;
+}
+.symbol-choices li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; font-size: 15px; cursor: pointer; }
+.symbol-choices li.on { background: var(--hover); }
+.symbol-choices li > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.symbol-choices em { flex: none; font-style: normal; font-size: 12.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.symbol-choices .typed { color: var(--accent); font-weight: 600; }
+
+.market { padding-bottom: 8px; }
+.market-recent { display: flex; align-items: center; gap: 6px; padding-top: 14px; overflow-x: auto; scrollbar-width: none; }
+.market-recent::-webkit-scrollbar { display: none; }
+.market-recent > span { flex: none; margin-right: 2px; font-size: 11.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+.market-group .day { margin-bottom: 8px; }
+.market-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 720px) { .market-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.market-split .market-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.market-tile {
+  display: flex; flex-direction: column; gap: 2px; height: 172px; padding: 10px 4px 4px; overflow: hidden; text-align: left;
+  border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text);
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+.market-tile.off { height: auto; min-height: 58px; padding-bottom: 10px; opacity: 0.75; }
+.market-tile:active { transform: scale(0.98); }
+.market-tile.picked { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.market-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.market-name { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; padding: 0 8px; font-size: 13px; min-width: 0; }
+.market-name b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.market-name i { font-style: normal; font-size: 11.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.market-quote { display: block; flex: 1; min-height: 0; pointer-events: none; }
+.market-quote iframe { pointer-events: none !important; }
+.tradingview-widget-container, .tradingview-widget-container__widget { width: 100%; height: 100%; }
+.market-note { margin: 18px 0 6px; font-size: 12.5px; line-height: 1.55; color: var(--text-3); }
+.market-note a { color: inherit; }
+
+.charts-consent { margin: 14px 0 4px; padding: 16px; border: 1px solid var(--border); border-radius: 16px; background: var(--bg-soft); }
+.charts-consent h3 { margin: 0 0 6px; font-size: 16px; }
+.charts-consent p { margin: 0 0 14px; font-size: 14px; line-height: 1.55; color: var(--text-2); }
+.charts-consent-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.charts-consent-row a { font-size: 14px; color: var(--text-2); }
+.charts-on {
+  height: 40px; padding: 0 16px; border-radius: 11px; background: var(--accent); color: #fff; font-size: 14.5px; font-weight: 600;
+  transition: filter 0.15s, transform 0.15s;
+}
+.charts-on:hover { filter: brightness(1.07); }
+.charts-on:active { transform: scale(0.97); }
+.chart-off { margin: 14px 2px; font-size: 14px; color: var(--text-3); }
+.chart-hint { margin: 0; font-size: 12.5px; color: var(--text-3); }
+
+@media (min-width: 561px) { .reader.chart-window { width: min(980px, 100%); height: min(86dvh, 760px); } }
+.chart-title { margin: 0; font-size: 17px; font-weight: 700; color: var(--text); }
+.chart-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 0 12px 10px; }
+.chart-body .charts-consent { margin: 4px 0 0; }
+.chart-body .chart-hint { padding: 0 4px; }
+.chart-frame { flex: 1 1 auto; min-height: 0; border-radius: 10px; overflow: hidden; }
+
+.market-split { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 20px; align-items: start; }
+.market-panel {
+  /* stays in view under the page's bar while the tiles scroll, and clear of the footer at the end of the page (Market.tsx measures both) */
+  position: sticky; top: calc(var(--above, 140px) + 12px); margin-top: 22px; min-height: 380px;
+  height: calc(100vh - var(--above, 140px) - var(--below, 0px) - 24px); height: calc(100dvh - var(--above, 140px) - var(--below, 0px) - 24px);
+  display: flex; flex-direction: column; gap: 10px; padding: 14px 14px 12px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface);
+}
+.market-panel-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 0 2px; }
+.market-panel-head h2 { margin: 0; font-size: 19px; }
+.market-panel-head span { font-size: 13px; color: var(--text-3); }
+.market-panel .charts-consent { margin: 0; }
+.market-panel-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: auto; }
+.market-panel-foot .reader-open { margin-left: auto; flex: none; white-space: nowrap; }
+
+@media (max-width: 560px) {
+  .symbol-choices { left: 0; right: 0; width: auto; margin-top: -4px; }
+  .chart-body { padding: 0 6px 8px; }
+}
+
 /* ── Settings panel ────────────────────────────────────────────────────── */
 .overlay {
   position: fixed; inset: 0; z-index: 20;

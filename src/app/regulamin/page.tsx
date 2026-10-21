@@ -48,7 +48,8 @@ export default function Terms() {
             <li>dostarczania nowych newsów na bieżąco (bez odświeżania strony) i oznaczania ich jako nowe,</li>
             <li>czytania newsów na głos syntezatorem mowy przeglądarki,</li>
             <li>powiadomień na pulpicie o nowych newsach,</li>
-            <li>zapisywania newsów na później, oznaczania przeczytanych i listy obserwowanych spółek.</li>
+            <li>zapisywania newsów na później, oznaczania przeczytanych i listy obserwowanych spółek,</li>
+            <li>podglądu notowań i wykresów instrumentów finansowych z serwisu TradingView (zakładka Rynek), po ich włączeniu przez Użytkownika.</li>
           </ul>
         </li>
         <li>
@@ -102,6 +103,11 @@ export default function Terms() {
           w chwili jego pobrania; godziny publikacji, prognozy, poprzednie odczyty i wydarzenia spółek mogą się potem zmienić. Usługodawca nie odpowiada za ich
           treść, kompletność ani aktualność. Wiążące są wyłącznie raporty i komunikaty opublikowane w oficjalnych
           kanałach (system ESPI/EBI, strony spółek, strona GPW).
+        </li>
+        <li>
+          Notowania i wykresy w zakładce Rynek pochodzą z serwisu TradingView i są pokazywane w jego widżetach. Notowania akcji i indeksów
+          są opóźnione, a notowania z Giełdy Papierów Wartościowych w Warszawie pochodzą z końca dnia; niektórych instrumentów widżety
+          nie pokazują wcale. Usługodawca nie odpowiada za poprawność, kompletność ani dostępność tych danych.
         </li>
         <li>
           Newsy mogą pojawiać się z opóźnieniem albo wcale, np. gdy serwis źródłowy jest niedostępny lub zmieni format
