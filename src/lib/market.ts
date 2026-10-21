@@ -11,8 +11,8 @@ export interface Instrument {
 }
 
 // CFDs of CMC Markets (CMCMARKETS:), which TradingView's widgets show (TradingView's own sample table has one) and which trade nearly all day
-// long, like futures. CMC has no Korean index (KOSPI comes from the Korea Exchange) and no crypto on TradingView (bitcoin and ethereum come
-// from Bitstamp). Nothing from the Warsaw exchange: its data are in the widgets only at the end of the day
+// long, like futures. CMC has no crypto on TradingView (bitcoin and ethereum come from Bitstamp). Nothing from the Warsaw exchange: its data
+// are in the widgets only at the end of the day
 export const MARKET_GROUPS: { name: string; items: Instrument[] }[] = [
   { name: 'Waluty', items: [
     { symbol: 'CMCMARKETS:EURUSD', name: 'EUR/USD' },
@@ -26,7 +26,6 @@ export const MARKET_GROUPS: { name: string; items: Instrument[] }[] = [
     { symbol: 'CMCMARKETS:NDAQ100', name: 'Nasdaq 100', note: 'USA', also: 'NDX US100' },
     { symbol: 'CMCMARKETS:GERMAN30', name: 'DAX', note: 'Niemcy', also: 'DE40 GER40 Germany 40' },
     { symbol: 'CMCMARKETS:JAPAN225', name: 'Nikkei 225', note: 'Japonia', also: 'Japan 225 JP225 NKY' },
-    { symbol: 'KRX:KOSPI', name: 'KOSPI', note: 'Korea Płd.', also: 'Korea' },
   ] },
   { name: 'Surowce i krypto', items: [
     { symbol: 'CMCMARKETS:GOLD', name: 'Złoto', note: 'USD za uncję', also: 'gold XAUUSD' },
