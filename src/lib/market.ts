@@ -169,6 +169,10 @@ export const instrument = (symbol: string): Instrument => BY_SYMBOL.get(symbol) 
 // Shares, indices and futures of these exchanges are in the widgets only at the end of the day
 export const endOfDay = (symbol: string) => /^(?:GPW|NEWCONNECT|XETR|FWB|EUREX):/.test(symbol)
 
+// Shares and funds of these exchanges, and a bare ticker (TradingView finds its listing), are in the widgets with a delay (TradingView's widget
+// docs: NYSE, Nasdaq and NYSE Arca "delayed", usually by 15 minutes); CMC's CFDs, currencies and crypto are live
+export const delayed = (symbol: string) => !symbol.includes(':') || /^(?:NASDAQ|NYSE|AMEX|OTC|CBOE|TSX|TSXV|LSE|ASX|HKEX|EURONEXT|SIX|TSE|KRX):/.test(symbol)
+
 // The full chart on TradingView's site (or in its app on a phone)
 export const tradingViewUrl = (symbol: string) => `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(symbol)}`
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react'
 import Link from 'next/link'
-import { MARKET_GROUPS, endOfDay, instrument, tradingViewUrl } from '@/lib/market'
+import { MARKET_GROUPS, delayed, endOfDay, instrument, tradingViewUrl } from '@/lib/market'
 import { QuotesTable, TradingViewWidget, chartConfig, type Sector } from './TradingView'
 import { External } from './Icons'
 
@@ -53,6 +53,9 @@ export function ChartsConsent({ onCharts }: { onCharts: () => void }) {
 
 export const OFFLINE = 'Notowania i wykresy wymagają internetu.'
 export const EOD_HINT = 'Notowania z GPW są tu z końca dnia.'
+export const DELAY_HINT = 'Kursy akcji są opóźnione (zwykle o 15 minut) zgodnie z zasadami TradingView.'
+// What a chart of this symbol has to say about its data: the end of the day, a delay, or nothing (live)
+export const hintOf = (symbol: string): string | null => (endOfDay(symbol) ? EOD_HINT : delayed(symbol) ? DELAY_HINT : null)
 const origin = (e: MouseEvent) => ({ x: e.clientX, y: e.clientY })
 
 // The chart beside the table (on a computer)
@@ -84,7 +87,7 @@ function Panel({ symbol, dark, charts, online, onCharts }: { symbol: string; dar
         : !online ? <p className="chart-off">{OFFLINE}</p>
         : <TradingViewWidget kind="advanced-chart" config={chartConfig(symbol, dark, false)} className="chart-frame" />}
       <div className="market-panel-foot">
-        {charts && endOfDay(symbol) && <span className="chart-hint">{EOD_HINT}</span>}
+        {charts && hintOf(symbol) && <span className="chart-hint">{hintOf(symbol)}</span>}
         <a className="reader-open" href={tradingViewUrl(symbol)} target="_blank" rel="noopener noreferrer">Otwórz w TradingView <External size={16} /></a>
       </div>
     </aside>
@@ -122,7 +125,8 @@ export default function Market({ charts, onCharts, dark, recent, wide, picked, o
         : <QuotesTable sectors={SECTORS} onOpen={onOpen} />}
       {charts && (
         <p className="market-note">
-          Waluty i kryptowaluty są na bieżąco, akcje i indeksy z opóźnieniem, a notowania z GPW z końca dnia. Kliknięcie wiersza otwiera wykres.
+          Waluty, kryptowaluty i kontrakty CFD na indeksy i surowce są na bieżąco, akcje z opóźnieniem (zwykle 15 minut), a notowania z GPW
+          z końca dnia. Kliknięcie wiersza otwiera wykres.
           {' '}Notowania i wykresy: <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView</a>.
         </p>
       )}

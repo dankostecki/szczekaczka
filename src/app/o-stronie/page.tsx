@@ -84,15 +84,15 @@ export default function About() {
         Zakładka Rynek pokazuje notowania wybranych instrumentów (kursy walut, indeksy z USA, Niemiec i Japonii, złoto, srebro, ropa,
         miedź, bitcoin i ethereum) i ich wykresy z bezpłatnych widżetów serwisu{' '}
         <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView</a>. Ładują się dopiero po włączeniu
-        wykresów (zob. <Link href="/polityka-prywatnosci">Polityka prywatności</Link>). Waluty i kryptowaluty są na bieżąco, akcje
-        i indeksy z opóźnieniem, a notowania z GPW z końca dnia. Wykres innego instrumentu pokaże symbol wpisany w pole na górze
+        wykresów (zob. <Link href="/polityka-prywatnosci">Polityka prywatności</Link>). Waluty, kryptowaluty i kontrakty CFD
+        na indeksy i surowce są na bieżąco, akcje z opóźnieniem (zwykle 15 minut), a notowania z GPW z końca dnia. Wykres innego instrumentu pokaże symbol wpisany w pole na górze
         zakładki, np. CDR, AAPL, EURUSD albo pełny symbol TradingView, jak GPW:CDR czy NASDAQ:AAPL.
       </p>
       <p>
         Newsy z Waltera Bloomberga, Seeking Alpha, Stooq i PAP MediaRoom mają w oknie newsa, pod tekstem, notowania tego, o czym piszą:
         spółek (po tickerze, np. $TSLA albo „(NASDAQ:TSLA)”, i po nazwie, także odmienionej: „akcje Tesli”), indeksów, par walutowych,
-        surowców i kryptowalut, najwyżej trzech. Przy ropie (także zapasach ropy i OPEC) są zawsze dwa wiersze: Brent i WTI. Kliknięcie wiersza otwiera pełny wykres. Spółki z GPW i z giełdy we Frankfurcie mają
-        tylko przycisk do wykresu, bo ich notowania są w widżetach z końca dnia. Instrumenty są dobierane automatycznie, więc czasem
+        surowców i kryptowalut, najwyżej trzech. Przy ropie (także zapasach ropy i OPEC) są zawsze dwa wiersze: Brent i WTI. Kliknięcie wiersza otwiera pełny wykres. Pod akcjami jest dopisek, że ich kursy są opóźnione
+        (zwykle o 15 minut). Spółki z GPW i z giełdy we Frankfurcie mają tylko przycisk do wykresu, bo ich notowania są w widżetach z końca dnia. Instrumenty są dobierane automatycznie, więc czasem
         któregoś zabraknie albo pojawi się niewłaściwy.
       </p>
 
