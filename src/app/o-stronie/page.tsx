@@ -81,6 +81,13 @@ export default function About() {
         był tu pokazywany, może się skontaktować: <Contact />.
       </p>
 
+      <h2>Przyciski źródeł</h2>
+      <p>
+        Nazwa źródła pod nagłówkiem pokazuje tylko jego newsy. Kropka przed nazwą wyłącza źródło w widoku Wszystko (przygasza przycisk)
+        i włącza z powrotem, bez wchodzenia w ustawienia. Wyłączone źródło nie jest też czytane na głos ani pokazywane w powiadomieniach,
+        ale jego zakładka zostaje i pokazuje wszystkie jego newsy.
+      </p>
+
       <h2>Rynek: notowania i wykresy</h2>
       <p>
         Zakładka Rynek pokazuje notowania wybranych instrumentów (kursy walut, indeksy z USA, Niemiec i Japonii, złoto, srebro, ropa,
