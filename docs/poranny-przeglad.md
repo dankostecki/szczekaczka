@@ -10,7 +10,7 @@
   - potrzebne są **co najmniej 2 niezależne źródła**, w tym **pierwotne** (instytucja, spółka, giełda, agencja komunikatów) dla danych, decyzji, cytatów i zdarzeń.
 - **Nic nie jest publikowane częściowo.** Gdy któryś etap zawiedzie (OpenAI, wyszukiwanie, weryfikacja, Google TTS, zapis), wydanie się nie ukazuje, a strona pokazuje poprzednie.
 - Szacunkowy koszt jednego wydania to **0,4–1 USD** przy `gpt-6.1-sol`, z czego około 0,25 USD to wyszukiwanie. Głos mieści się w darmowym milionie znaków miesięcznie Google. Twarde limity: domyślnie 2 USD na wydanie i 40 USD na miesiąc.
-- **Nic tu nie było testowane na żywych usługach.** Nie było kluczy, a sieć środowiska nie miała dostępu do OpenAI, Google ani do stron źródeł. Testy (108) sprawdzają logikę i kształt zapytań na symulowanych odpowiedziach. Pierwsze prawdziwe wydanie trzeba obejrzeć ręcznie (krok 6 niżej).
+- **Nic tu nie było testowane na żywych usługach.** Nie było kluczy, a sieć środowiska nie miała dostępu do OpenAI, Google ani do stron źródeł. Testy (111) sprawdzają logikę i kształt zapytań na symulowanych odpowiedziach. Pierwsze prawdziwe wydanie trzeba obejrzeć ręcznie (krok 6 niżej).
 
 ## Architektura
 
@@ -55,19 +55,19 @@ Pliki: `worker/briefing/` (`config`, `time`, `collect`, `prompts`, `schemas`, `l
 - **Cron.** Nie dodałem nowego (darmowe konto ma limit 5). Istniejący `*/10 * * * *` budzi też przegląd, a dalej działa on na alarmach w czasie warszawskim. Cron jest w UTC, alarmy nie mają strefy, a strefę liczy kod (`time.ts`).
 - **Wskaźnik w liście newsów** zamiast osobnego zapytania przy każdym otwarciu aplikacji. Oszczędza to około 10 tys. zapytań Durable Object dziennie przy 1000 użytkowników.
 
-## Zapowiedzi przed przeglądem: kalendarium dnia z MacroNext
+## Paczka przed przeglądem: kalendarium dnia z MacroNext
 
-Radio wychodzi o 7:45. Tuż przed nim, na liście newsów (źródło MacroNext), pojawiają się trzy zapowiedzi, które **powtarzają to, co aplikacja zapowiadała już o innych porach**. Tamte zapowiedzi zostają bez zmian (dane makro 10 minut przed publikacją, giełda GPW o 8:50, wyniki z Nowego Jorku przed i po sesji). Te trzy są dla kogoś, kto słucha poranka za jednym razem:
+Radio wychodzi o 7:45. Tuż przed nim, na liście newsów (źródło MacroNext), pojawia się paczka trzech zapowiedzi na cały dzień, dla kogoś, kto słucha poranka za jednym razem. Dalej w ciągu dnia zostają tylko pojedyncze zapowiedzi: dane makro 10 minut przed publikacją oraz osobne wpisy przed sesją w Nowym Jorku (wyniki przed sesją) i przed jej końcem (kto raportuje po sesji). Osobnej zapowiedzi GPW o 8:50 już nie ma, bo byłaby powtórką tej z 7:35.
 
 | Godzina (czas polski) | Zapowiedź | Treść |
 |---|---|---|
 | 7:30 | „Dziś w kalendarium makro” | publikacje danych makro i wydarzenia banków centralnych **od 7:30 do końca dnia** z konsensusem i poprzednim odczytem, plus te bez podanej godziny. Wcześniejsze były już zapowiedziane o swojej porze i ich prognozy tylko by myliły |
-| 7:35 | „Dziś na giełdzie GPW (i NewConnect)” | to samo, co o 8:50: wydarzenia spółek z GPW i NewConnect |
-| 7:40 | „Dziś na NYSE … przed sesją i po sesji” | wyniki spółek z Nowego Jorku, przed sesją i po niej w jednej zapowiedzi, z nagłówkami „Przed sesją” i „Po sesji” |
+| 7:35 | „Dziś na giełdzie GPW (i NewConnect)” | wydarzenia spółek z GPW i NewConnect (jedyna zapowiedź GPW na dzień; spóźniona jest jeszcze robiona do otwarcia sesji o 9:00) |
+| 7:40 | „Dziś na NYSE … przed sesją i po sesji” | wyniki spółek z Nowego Jorku, przed sesją i po niej w jednej zapowiedzi, z nagłówkami „Przed sesją” i „Po sesji”. Osobne wpisy w ciągu dnia zostają: przed sesją i przed jej końcem |
 
 - Zapowiedź powstaje tylko wtedy, gdy jest o czym mówić (nie ma pustych).
 - Czytane są tak jak zwykłe zapowiedzi (godziny słownie, „nowojorska giełda”, tytuł i wiersze).
-- Spóźniona zapowiedź (np. po awarii) jest jeszcze robiona do 45 minut po swojej porze, potem pomijana, żeby nie wchodziła w drogę radiu.
+- Spóźniona zapowiedź (np. po awarii) jest jeszcze robiona do 45 minut po swojej porze, potem pomijana, żeby nie wchodziła w drogę radiu. Wyjątek to GPW, która ma tylko tę jedną zapowiedź: robi się do otwarcia sesji, o 9:00.
 - Każda ma własny link (`…-rano`), żeby lista nie wzięła jej za zapowiedź publikacji o tej samej godzinie.
 - Źródłem jest odczyt kalendarium o 6:30 (`worker/macro.ts`, `src/lib/macronext.ts`: `DIGEST_AT`). Przy wdrożeniu `MACRO_VERSION` wymusza ponowny odczyt, więc zapowiedzi są od razu na dziś.
 - Same te zapowiedzi nie przechodzą weryfikacji przeglądu (nie są wiadomościami, tylko kalendarium MacroNext, jednym źródłem). Przegląd o 7:45 ich nie powtarza i nie zależy od nich.
@@ -256,7 +256,7 @@ Zła wartość nie psuje reszty: zostaje domyślna, a błąd widać w `GET /api/
 ## Test lokalny bez płatnych usług
 
 ```bash
-npm test                                   # 108 testów: czas i DST, okno, daty, duplikaty, sprzeczne źródła, weryfikacja, skrypt,
+npm test                                   # 111 testów: czas i DST, okno, daty, duplikaty, sprzeczne źródła, weryfikacja, skrypt,
                                            # części dla głosu, MP3, OpenAI/Google/Tavily na symulowanych odpowiedziach, SSRF, robots,
                                            # cały potok (ponowienia, idempotencja, terminy, brak sekretów, limity kosztów, zatwierdzanie)
 npm run build && npx wrangler dev          # z .dev.vars: BRIEFING_MODE=mock, BRIEFING_ADMIN_TOKEN=…, FEED_ORIGIN=… (lokalne kanały)

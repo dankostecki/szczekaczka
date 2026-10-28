@@ -80,16 +80,18 @@ test('no digest when nothing is left for the day, or nothing is announced at all
   assert.ok(dayGroups([row('', 'Chiny', 'Handel zagraniczny')], 'MACRONEXT:MAKRO', 2026, 10, 28).some((g) => g.digest))
 })
 
-test('the Warsaw session at 7:35 says what the announcement at 8:50 says; the title and the rows are the same', () => {
+test('the Warsaw session is announced once, at 7:35 (there is none at 8:50), and still up to its opening at 9:00', () => {
   const groups = stockGroups(STOCK_ROWS, 'MACRONEXT:GIEŁDA', 2026, 10, 28)
-  const [at850, digest] = [groups.find((g) => g.id.endsWith(':gpw'))!, groups.find((g) => g.id.endsWith(':gpw-rano'))!]
-  assert.equal(clock(at850.at), '08:50')
+  const gpw = groups.filter((g) => /gpw/.test(g.id))
+  assert.deepEqual(gpw.map((g) => g.id.split(':').pop()), ['gpw-rano'])
+  const [digest] = gpw
   assert.equal(clock(digest.at), '07:35')
+  assert.equal(clock(digest.until!), '09:00')
   assert.equal(digest.title, 'Dziś na giełdzie GPW i NewConnect')
-  assert.deepEqual([digest.lines, digest.say], [at850.lines, at850.say])
+  assert.deepEqual(digest.lines, ['LPP: Dzień ustalenia prawa do dywidendy 500 zł na akcję.', 'GREENZEB: NWZA ws. zmiany statutu.'])
+  assert.deepEqual(digest.say, ['Spółka LPP, Dzień ustalenia prawa do dywidendy 500 zł na akcję.', 'Spółka GREENZEB, NWZA ws. zmiany statutu.'])
   assert.equal(digest.digest, true)
-  assert.equal(at850.digest, undefined)
-  // without Polish rows: neither
+  // without Polish rows: none
   assert.ok(!stockGroups(STOCK_ROWS.filter((r) => r.market === 'NYSE'), 'k', 2026, 10, 28).some((g) => g.id.includes('gpw')))
   assert.equal(stockGroups(STOCK_ROWS.filter((r) => r.market === 'NC'), 'k', 2026, 10, 28).find((g) => g.digest)!.title, 'Dziś na NewConnect')
 })
@@ -158,7 +160,6 @@ test('the poller makes them at 7:30, 7:35 and 7:40, once each, beside the announ
   assert.deepEqual(stock.map((x) => [x.at, x.items.map((i) => i.title)]), [
     ['07:35', ['Dziś na giełdzie GPW i NewConnect']],
     ['07:40', ['Dziś na NYSE i Nasdaq przed sesją i po sesji']],
-    ['08:50', ['Dziś na giełdzie GPW i NewConnect']],
     // 5:15 and 15:55 in New York: this week the USA is still on summer time and Poland is not, so 10:15 and 20:55 here
     ['10:15', ['Dziś na NYSE przed sesją']],
     ['20:55', ['Dziś na Nasdaq po sesji']],
@@ -175,18 +176,33 @@ test('every announcement has a link of its own, so that none of them is taken fo
   assert.equal(finalizeItems(made).length, made.length, 'none dropped as a duplicate')
 })
 
-test('the same for the stock calendar: the Warsaw session, the American results and the digests all have links of their own', async () => {
+test('the same for the stock calendar: the morning pieces and the two American ones have links of their own', async () => {
   const made = (await run(GIELDA, stockPage(2026, 10, 28, STOCK_ROWS), ['06:30', ...minutes('07:00', '23:00')])).flatMap((x) => x.items)
-  assert.equal(made.length, 5)
-  assert.equal(new Set(made.map((i) => i.link)).size, 5, made.map((i) => i.link).join('\n'))
-  assert.equal(finalizeItems(made).length, 5)
+  assert.equal(made.length, 4)
+  assert.equal(new Set(made.map((i) => i.link)).size, 4, made.map((i) => i.link).join('\n'))
+  assert.equal(finalizeItems(made).length, 4)
 })
 
-test('found late: still made for 45 minutes, and the first reading well after that makes none of them (the ones at their own times still go)', async () => {
-  const late = await run(GIELDA, stockPage(2026, 10, 28, STOCK_ROWS), ['08:10'])
-  assert.deepEqual(late[0].items.map((i) => i.title).sort(), ['Dziś na NYSE i Nasdaq przed sesją i po sesji', 'Dziś na giełdzie GPW i NewConnect'].sort())
-  const later = await run(GIELDA, stockPage(2026, 10, 28, STOCK_ROWS), ['09:00'])
-  assert.deepEqual(later[0].items.map((i) => i.title), ['Dziś na giełdzie GPW i NewConnect'], 'only 8:50, whose time is within its two hours')
+test('found late: the digests are still made for 45 minutes, the Warsaw one up to the opening of the session; later none (the American ones of their own go on)', async () => {
+  const titles = async (at: string) => ((await run(GIELDA, stockPage(2026, 10, 28, STOCK_ROWS), [at]))[0]?.items ?? []).map((i) => i.title).sort()
+  assert.deepEqual(await titles('08:10'), ['Dziś na NYSE i Nasdaq przed sesją i po sesji', 'Dziś na giełdzie GPW i NewConnect'].sort())
+  assert.deepEqual(await titles('08:50'), ['Dziś na giełdzie GPW i NewConnect'], 'the Warsaw session is not open yet; the American digest is past its 45 minutes')
+  assert.deepEqual(await titles('09:30'), [], 'the session is open: it is not "before the session" any more')
+})
+
+test('the 8:50 announcement left in the state of an older version is dropped by the reading made at once, so it is not made today', async () => {
+  const real = globalThis.fetch
+  globalThis.fetch = (async () => new Response(stockPage(2026, 10, 28, STOCK_ROWS), { headers: { 'Content-Type': 'text/html; charset=utf-8' } })) as typeof fetch
+  try {
+    const stale = { id: 'MACRONEXT:GIEŁDA:2026-10-28:gpw', at: W('08:50'), day: '2026-10-28', countries: [], lines: ['LPP: …'], title: 'Dziś na giełdzie GPW i NewConnect', until: W('10:50') }
+    const old: FeedState = { items: [], error: null, checkedAt: W('06:30'), parser: MACRO_VERSION - 1, calendar: [stale] }
+    assert.equal(macroDueAt(old), 0)
+    const r = await checkMacro(GIELDA, old, GIELDA.url, W('07:36'))
+    assert.ok(!r.state.calendar!.some((g) => g.id.endsWith(':gpw')))
+    assert.deepEqual(r.add.map((i) => i.title), ['Dziś na giełdzie GPW i NewConnect'], 'the one of the morning, at 7:36')
+    const later = await checkMacro(GIELDA, r.state, GIELDA.url, W('08:51'))
+    assert.deepEqual(later.add, [])
+  } finally { globalThis.fetch = real }
 })
 
 test('state kept before this change (an older reading) is read again at once, so that the digests are there today', () => {

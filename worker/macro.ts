@@ -8,7 +8,7 @@ import { feedKey, type FeedConfig } from '../src/lib/sources'
 import { HEADERS, SHOW_ERROR_AFTER, TIMEOUT_S, pageInfo, retain, type CheckResult, type FeedState } from './feeds'
 
 // Raise this when reading the calendar changes: it is then read again at once, not at the next time above
-export const MACRO_VERSION = 6 // 6: the morning's repeat of the day's calendars (macro 7:30, GPW 7:35, American results 7:40); 2: releases without a time, announced in the morning; 3: speeches named in the title; 4: today's page; 5: the stock calendar read with "Spółka" before each company
+export const MACRO_VERSION = 7 // 7: no announcement of the Warsaw session at 8:50 (the one at 7:35 is the only one), read again at once to drop it; 6: the morning's repeat of the day's calendars (macro 7:30, GPW 7:35, American results 7:40); 2: releases without a time, announced in the morning; 3: speeches named in the title; 4: today's page; 5: the stock calendar read with "Spółka" before each company
 const RETRY_MINUTES = [1, 2, 4, 8, 15] // after failed reads in a row
 const LEAD_MS = LEAD_MINUTES * 60_000
 const LATE_MS = 60_000 // less than this before the release, the announcement is not made
