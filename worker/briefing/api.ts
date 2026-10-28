@@ -2,6 +2,7 @@
 //   GET /api/briefing                                     today's state and the list of editions (the page)
 //   GET /api/briefing/editions/2026-10-28                 one published edition (the page)
 //   GET /api/briefing/audio/2026-10-28-<hash>.mp3         its audio, with Range (iOS Safari asks for parts)
+//   GET /api/briefing/pack.md                             the pack for ChatGPT of the latest day (pack.ts): one address, its text changes every morning
 //   /api/briefing/admin/…                                 for the operator, with "Authorization: Bearer <BRIEFING_ADMIN_TOKEN>";
 //                                                         they do not exist while that secret is not set
 //     GET  status · GET editions/<date> · POST run[?date=…&force=1] · POST approve/<date> · POST reject/<date>[?reason=…]
@@ -69,6 +70,13 @@ export async function briefingApi(req: Request, env: Env, url: URL, publicHeader
   const headers = { ...publicHeaders, 'Cache-Control': 'no-cache', 'X-Robots-Tag': 'noindex, nofollow, noarchive' }
 
   if (path === '/api/briefing') return json(await briefing(env).index(), 200, headers)
+
+  if (path === '/api/briefing/pack.md') {
+    const p = await briefing(env).pack()
+    const text = { ...headers, 'Content-Type': 'text/markdown; charset=utf-8' }
+    if (!p) return new Response('Materiał na dziś jeszcze nie jest gotowy.\n', { status: 404, headers: text })
+    return new Response(req.method === 'HEAD' ? null : p.text, { headers: { ...text, 'Last-Modified': new Date(p.builtAt).toUTCString() } })
+  }
 
   const edition = EDITION.exec(path)
   if (edition) {

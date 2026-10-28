@@ -33,7 +33,7 @@ function parts(id: string): [number, number, number] {
 }
 
 // A wall-clock time of a Polish calendar day (a day from it: -1 is the day before)
-function at(id: string, hhmm: string, dayShift = 0): number {
+export function warsawAt(id: string, hhmm: string, dayShift = 0): number {
   const [y, m, d] = parts(id)
   const day = new Date(Date.UTC(y, m - 1, d + dayShift))
   const min = minutesOf(hhmm)
@@ -43,11 +43,11 @@ function at(id: string, hhmm: string, dayShift = 0): number {
 export function editionTimes(id: string, c: Times): EditionTimes {
   return {
     id,
-    from: at(id, c.windowStart, -1),
-    to: at(id, c.windowEnd),
-    cutoff: at(id, c.cutoff),
-    publishAt: at(id, c.publishAt),
-    deadline: at(id, c.deadline),
+    from: warsawAt(id, c.windowStart, -1),
+    to: warsawAt(id, c.windowEnd),
+    cutoff: warsawAt(id, c.cutoff),
+    publishAt: warsawAt(id, c.publishAt),
+    deadline: warsawAt(id, c.deadline),
   }
 }
 
@@ -96,7 +96,7 @@ const warsawFmt = new Intl.DateTimeFormat('pl-PL', {
 })
 export const warsawLabel = (ms: number) => warsawFmt.format(new Date(ms))
 const dayFmt = new Intl.DateTimeFormat('pl-PL', { timeZone: 'Europe/Warsaw', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-export const dayLabel = (id: string) => dayFmt.format(new Date(at(id, '12:00')))
+export const dayLabel = (id: string) => dayFmt.format(new Date(warsawAt(id, '12:00')))
 
 // How a moment is said relative to the edition's morning: "dziś", "wczoraj", "w poniedziałek" (older)
 const weekdayFmt = new Intl.DateTimeFormat('pl-PL', { timeZone: 'Europe/Warsaw', weekday: 'long' })

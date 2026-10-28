@@ -110,8 +110,9 @@ export class Poller extends DurableObject<Env> {
         const t = it.pubDate ? Date.parse(it.pubDate) : NaN
         if (!Number.isFinite(t)) { undated++; continue }
         if (t < from || t >= to) { outside++; continue }
-        const { body: _, ...rest } = it
-        items.push({ ...rest, description: it.description.slice(0, 400) })
+        const { body, ...rest } = it
+        // MacroNext's calendars keep their rows (the pack for ChatGPT lists them); a news item does not need its text
+        items.push({ ...rest, description: it.description.slice(0, 400), ...(it.source === 'MACRONEXT' && body ? { body: body.slice(0, 8000) } : {}) })
       }
       feeds.push({ key, error: s.error, failures: s.failures ?? 0, checkedAt: s.checkedAt })
     }

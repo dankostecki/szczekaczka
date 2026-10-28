@@ -2,6 +2,7 @@
 // paid for, again), the audio, and the usage of the paid services. One interface, two places: the Durable Object's
 // SQLite (sqliteStore) and memory (memoryStore, for the tests). Audio is kept in pieces under 2 MB, the most one row holds.
 import type { EditionRecord } from './pipeline'
+import type { PackRecord, PackSlot } from './pack'
 
 export interface StepRecord<T = unknown> {
   status: 'done' | 'failed' | 'skipped'
@@ -49,6 +50,8 @@ export interface Store {
   usage(edition: string): UsageRow[]
   costSince(at: number): number
   ttsCharsSince(at: number): number
+  getPack(slot: PackSlot): PackRecord | null  // the pack for ChatGPT: the latest one made, and the one being made
+  putPack(slot: PackSlot, p: PackRecord | null): void
 }
 
 export const AUDIO_SLICE = 1_000_000
@@ -58,6 +61,7 @@ export function memoryStore(): Store {
   const steps = new Map<string, Map<string, StepRecord>>()
   const audio = new Map<string, Uint8Array>()
   const usage: UsageRow[] = []
+  const packs = new Map<PackSlot, PackRecord>()
   const copy = <T>(x: T): T => structuredClone(x)
   return {
     getEdition: (id) => (editions.has(id) ? copy(editions.get(id)!) : null),
@@ -76,5 +80,7 @@ export function memoryStore(): Store {
     usage: (e) => usage.filter((u) => u.edition === e).map(copy),
     costSince: (at) => usage.filter((u) => u.at >= at).reduce((n, u) => n + u.costUsd, 0),
     ttsCharsSince: (at) => usage.filter((u) => u.at >= at && u.provider === 'google-tts').reduce((n, u) => n + u.characters, 0),
+    getPack: (slot) => (packs.has(slot) ? copy(packs.get(slot)!) : null),
+    putPack: (slot, p) => { if (p) packs.set(slot, copy(p)); else packs.delete(slot) },
   }
 }
