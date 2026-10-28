@@ -336,10 +336,11 @@ export function parseStockDay(html: string, y: number, m: number, d: number): St
   return rows
 }
 
-// When they are announced: the Warsaw session (GPW, NewConnect) at 8:50 Polish time; American
-// results before the session at 5:15 in New York (11:15 Polish time, 10:15 in the weeks when only
-// one of the two has changed the clock), after it at 15:55 (21:55 Polish time)
-export const GPW_AT: [number, number] = [8, 50]
+// When they are announced: the Warsaw session (GPW, NewConnect) only in the morning's repeat (DIGEST_AT; an announcement of its own at
+// 8:50 would be the same one an hour later, so there is none), still up to the opening of the session; American results before the
+// session at 5:15 in New York (11:15 Polish time, 10:15 in the weeks when only one of the two has changed the clock), after it
+// (the companies that report then, before the session ends) at 15:55 (21:55 Polish time)
+export const GPW_OPENS: [number, number] = [9, 0]
 export const US_BEFORE_AT: [number, number] = [5, 15]
 export const US_AFTER_AT: [number, number] = [15, 55]
 const STILL_MS = 2 * 3600_000 // one found late is still announced for this long
@@ -377,22 +378,22 @@ function usLines(known: StockRow[], unknown: StockRow[]): { lines: string[]; say
   return { lines, say }
 }
 
-// The day's announcements of the stock calendar, and the morning's repeat of them (DIGEST_AT): the Warsaw session at 7:35, the American
-// results before and after their session in one at 7:40
+// The day's announcements of the stock calendar: the Warsaw session at 7:35 (the morning's repeat, DIGEST_AT, is the only one), the American
+// results before their session and, of those who report after it, before it ends; and the morning's repeat of the American ones in one at 7:40
 export function stockGroups(rows: StockRow[], keyPrefix: string, y: number, m: number, d: number): MacroGroup[] {
   const day = `${y}-${m}-${d}`
   const ymd = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
   const groups: MacroGroup[] = []
-  const group = (id: string, at: number, title: string, lines: string[], say?: string[], digest = false) =>
-    groups.push({ id: `${keyPrefix}:${ymd}:${id}`, at, day, countries: [], lines, say, title, until: at + (digest ? DIGEST_STILL_MS : STILL_MS), ...(digest ? { digest } : {}) })
+  const group = (id: string, at: number, title: string, lines: string[], say?: string[], more: { digest?: true; until?: number } = {}) =>
+    groups.push({ id: `${keyPrefix}:${ymd}:${id}`, at, day, countries: [], lines, say, title, until: more.until ?? at + (more.digest ? DIGEST_STILL_MS : STILL_MS),
+      ...(more.digest ? { digest: true } : {}) })
 
   const polish = rows.filter((r) => POLISH.includes(r.market))
   if (polish.length) {
     const gpw = polish.some((r) => r.market === 'GPW'), nc = polish.some((r) => r.market === 'NC')
     const title = gpw && nc ? 'Dziś na giełdzie GPW i NewConnect' : gpw ? 'Dziś na giełdzie GPW' : 'Dziś na NewConnect'
     const lines = polish.map((r) => sentence(`${r.company}: ${r.event}`)), say = polish.map((r) => sentence(`Spółka ${r.company}, ${r.event}`))
-    group('gpw', warsawToUtc(y, m, d, ...GPW_AT), title, lines, say)
-    group('gpw-rano', warsawToUtc(y, m, d, ...DIGEST_AT.gpw), title, lines, say, true)
+    group('gpw-rano', warsawToUtc(y, m, d, ...DIGEST_AT.gpw), title, lines, say, { digest: true, until: warsawToUtc(y, m, d, ...GPW_OPENS) })
   }
   const us = rows.filter((r) => r.market in US)
   const before = us.filter((r) => /przed/i.test(r.time)), after = us.filter((r) => /po\s+sesji/i.test(r.time))
@@ -408,7 +409,7 @@ export function stockGroups(rows: StockRow[], keyPrefix: string, y: number, m: n
     const title = both ? `Dziś na ${where(us)} przed sesją i po sesji` : us1 ? `Dziś na ${where([...before, ...unknown])} przed sesją` : `Dziś na ${where(after)} po sesji`
     group('usa-rano', warsawToUtc(y, m, d, ...DIGEST_AT.usa), title,
       [...(us1?.lines.map((l) => (both ? `Przed sesją: ${l}` : l)) ?? []), ...(us2?.lines.map((l) => (both ? `Po sesji: ${l}` : l)) ?? [])],
-      [...(both ? ['Przed sesją.'] : []), ...(us1?.say ?? []), ...(both ? ['Po sesji.'] : []), ...(us2?.say ?? [])], true)
+      [...(both ? ['Przed sesją.'] : []), ...(us1?.say ?? []), ...(both ? ['Po sesji.'] : []), ...(us2?.say ?? [])], { digest: true })
   }
   return groups.sort((a, b) => a.at - b.at)
 }

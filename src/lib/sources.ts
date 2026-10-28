@@ -149,7 +149,7 @@ export const SOURCE_INFO: Record<Source, { name: string; publisher: string; site
     name: 'MacroNext – kalendarium danych makro i kalendarium giełdowe',
     publisher: 'MacroNext',
     site: 'https://macronext.pl/pl/kalendarium-dzis',
-    about: 'MAKRO: zapowiedzi danych makroekonomicznych i wydarzeń banków centralnych 10 minut przed publikacją, z konsensusem i poprzednim odczytem; wydarzenia bez podanej godziny rano, o 6:40. Są tu dane o wysokiej i średniej wadze oraz wszystkie wydarzenia banków centralnych. GIEŁDA: wydarzenia spółek z GPW i NewConnect (dywidendy, walne zgromadzenia, debiuty) przed sesją, o 8:50, oraz wyniki spółek z giełd w Nowym Jorku przed sesją i po niej. Przed porannym przeglądem rynków (o 7:45) to samo jeszcze raz, w całości: o 7:30 kalendarium makro na resztę dnia, o 7:35 wydarzenia na GPW i o 7:40 wyniki spółek z Nowego Jorku przed sesją i po niej.',
+    about: 'MAKRO: zapowiedzi danych makroekonomicznych i wydarzeń banków centralnych 10 minut przed publikacją, z konsensusem i poprzednim odczytem; wydarzenia bez podanej godziny rano, o 6:40. Są tu dane o wysokiej i średniej wadze oraz wszystkie wydarzenia banków centralnych. GIEŁDA: wydarzenia spółek z GPW i NewConnect (dywidendy, walne zgromadzenia, debiuty) rano, o 7:35, oraz wyniki spółek z giełd w Nowym Jorku przed sesją i, dla tych, które raportują po niej, przed jej końcem. Przed porannym przeglądem rynków (o 7:45) jest też paczka na cały dzień: o 7:30 kalendarium makro na resztę dnia, o 7:35 wydarzenia na GPW i o 7:40 wyniki spółek z Nowego Jorku przed sesją i po niej.',
   },
 }
 
