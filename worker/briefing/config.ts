@@ -158,7 +158,7 @@ export function readConfig(env: Env): { config: BriefingConfig; problems: string
     windowStart: time('BRIEFING_WINDOW_START', '19:00'),
     windowEnd: time('BRIEFING_WINDOW_END', '07:00'),
     cutoff: time('BRIEFING_CUTOFF', '06:00'),
-    publishAt: time('BRIEFING_PUBLISH_AT', '07:00'),
+    publishAt: time('BRIEFING_PUBLISH_AT', '07:45'),
     deadline: time('BRIEFING_DEADLINE', '10:00'),
     targetSeconds: num('BRIEFING_TARGET_SECONDS', 180, 60, 900),
     wordsPerMinute: num('BRIEFING_WORDS_PER_MINUTE', 140, 90, 220),
@@ -166,8 +166,10 @@ export function readConfig(env: Env): { config: BriefingConfig; problems: string
     maxResearch: num('BRIEFING_MAX_RESEARCH', 10, 3, 20),
     maxStories: num('BRIEFING_MAX_STORIES', 8, 2, 15),
     minStories: num('BRIEFING_MIN_STORIES', 3, 1, 10),
+    // Not Seeking Alpha: its feed has no descriptions, and after the US close it floods the list with one-line items (results,
+    // estimates) that say too little to check. BRIEFING_SOURCES can add it (and MacroNext's announcements are not news)
     sources: str('BRIEFING_SOURCES')?.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean)
-      ?? ['WALTER', 'SEEKINGALPHA', 'STOOQ', 'ESPI', 'GPW', 'PAP'],
+      ?? ['WALTER', 'STOOQ', 'ESPI', 'GPW', 'PAP'],
     openai: {
       apiKey: str('OPENAI_API_KEY'),
       models,

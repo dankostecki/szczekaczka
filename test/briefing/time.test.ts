@@ -8,12 +8,12 @@ const { config } = readConfig({})
 const at = (s: string) => Date.parse(s)
 const iso = (ms: number) => new Date(ms).toISOString()
 
-test('an ordinary winter day: 19:00 CET the day before to 07:00 CET, cutoff 06:00, out at 07:00, deadline 10:00', () => {
+test('an ordinary winter day: 19:00 CET the day before to 07:00 CET, cutoff 06:00, out at 07:45, deadline 10:00', () => {
   const t = editionTimes('2026-11-18', config)
   assert.equal(iso(t.from), '2026-11-17T18:00:00.000Z')
   assert.equal(iso(t.to), '2026-11-18T06:00:00.000Z')
   assert.equal(iso(t.cutoff), '2026-11-18T05:00:00.000Z')
-  assert.equal(iso(t.publishAt), '2026-11-18T06:00:00.000Z')
+  assert.equal(iso(t.publishAt), '2026-11-18T06:45:00.000Z')
   assert.equal(iso(t.deadline), '2026-11-18T09:00:00.000Z')
 })
 

@@ -3,6 +3,7 @@
 // announced before the sessions. Shared by the Cloudflare Worker (worker/macro.ts) and the page
 // (how it is read aloud).
 import { cleanText, newYorkToUtc, warsawToUtc } from './parse'
+import { sayAloudParts } from './say'
 
 // How long before the release the announcement goes out
 export const LEAD_MINUTES = 10
@@ -155,6 +156,7 @@ export interface MacroGroup {
   talks?: string[]    // speeches and meetings, named in the title without a country: "wystąpienie szefowej Fed z Bostonu (Susan Collins)"
   title?: string      // the stock market: the title as it is, announced at `at` itself
   until?: number      // the stock market: not announced after this
+  digest?: boolean    // the morning's repeat of the day's calendar (DIGEST_AT): its link says so, or it would be the one of a release at the same time
   done?: boolean      // announced (or too late to)
 }
 
@@ -186,7 +188,7 @@ export function dayGroups(rows: MacroRow[], keyPrefix: string, y: number, m: num
     if (!row.children.length) { if (announced(row)) add(row); continue }
     for (const c of row.children) if (announced(c, row.title)) add(c)
   }
-  return [...groups.values()].map(({ rows: all, ...g }) => {
+  const built = [...groups.values()].map(({ rows: all, ...g }): MacroGroup => {
     const data = all.filter((r) => !TALK.test(r.title))
     const countries = [...new Set(data.map((r) => r.country).filter(Boolean))]
     return {
@@ -195,7 +197,9 @@ export function dayGroups(rows: MacroRow[], keyPrefix: string, y: number, m: num
       lines: data.map((row, i) => (countries.length > 1 && row.country && row.country !== data[i - 1]?.country ? `${row.country}: ${sayRow(row)}` : sayRow(row))),
       talks: all.filter((r) => TALK.test(r.title)).map((r) => talkName(sayRow(r))),
     }
-  }).sort((a, b) => a.at - b.at)
+  })
+  const digest = morningMacro(built, keyPrefix, y, m, d)
+  return [...built, ...(digest ? [digest] : [])].sort((a, b) => a.at - b.at)
 }
 
 const plural = (n: number, one: string, few: string, many: string) =>
@@ -270,6 +274,42 @@ export function sayMacroTitle(title: string, link: string, sentAt: number, now =
   return soon ? `${soon} o ${at} ${rest}` : `O ${at} ${rest}`
 }
 
+// ── The morning's repeat ──
+// Before the morning briefing (docs/poranny-przeglad.md), at these Polish times, what the day brings is said once more in one piece each:
+// the macro calendar, the Warsaw session, the American results before and after their session. What was announced at its own time stays;
+// these repeat it for the one who listens to the morning in one go.
+export const DIGEST_AT = { macro: [7, 30], gpw: [7, 35], usa: [7, 40] } satisfies Record<string, [number, number]>
+const DIGEST_STILL_MS = 45 * 60_000 // one found late is still made for this long; later it would only get in the way of the briefing
+
+const upperFirst = (s: string) => s.charAt(0).toLocaleUpperCase('pl') + s.slice(1)
+
+// "o godzinie czternastej trzydzieści", "o północy", "30 minut po północy": the time of a release, as it is said
+function atWords(at: number): string {
+  const [hour, minute] = clockOf(at).split(':').map(Number)
+  if (hour === 0) return minute === 0 ? 'o północy' : `${minute === 1 ? 'minutę' : `${minute} ${plural(minute, 'minutę', 'minuty', 'minut')}`} po północy`
+  return `o godzinie ${HOURS[hour]}${minute === 0 ? '' : `${minute < 10 ? ' zero' : ''} ${minuteWords(minute)}`}`
+}
+
+// The day's macro calendar from now on: the releases at or after the digest's time, and those without a time. Each in its time, with
+// the country; read: the time and what it is ("O godzinie czternastej trzydzieści dane makro z Kanady."), then the rows as in the announcement.
+// The ones before it are out already (announced at their time), and their forecasts would only confuse. null when nothing is left.
+export function morningMacro(groups: MacroGroup[], keyPrefix: string, y: number, m: number, d: number): MacroGroup | null {
+  const at = warsawToUtc(y, m, d, ...DIGEST_AT.macro)
+  const ahead = groups.filter((g) => g.allDay || g.at >= at).sort((a, b) => Number(!!a.allDay) - Number(!!b.allDay) || a.at - b.at)
+  if (!ahead.length) return null
+  const lines: string[] = [], say: string[] = []
+  for (const g of ahead) {
+    const when = g.allDay ? 'Bez godziny' : clockOf(g.at)
+    lines.push(...g.lines.map((line) => (g.countries.length === 1 ? `${when} ${g.countries[0]}: ${line}` : `${when} ${line}`)),
+      ...(g.talks ?? []).map((talk) => `${when} ${upperFirst(talk)}`))
+    const what = [g.lines.length ? dataFrom(g.countries) : '', ...(g.talks ?? [])].filter(Boolean).join(' oraz ')
+    say.push(g.allDay ? `Bez podanej godziny: ${what}.` : `${upperFirst(atWords(g.at))} ${what}.`, ...g.lines)
+  }
+  const ymd = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  return { id: `${keyPrefix}:${ymd}:rano`, at, day: `${y}-${m}-${d}`, countries: [...new Set(ahead.flatMap((g) => g.countries))], lines, say,
+    title: 'Dziś w kalendarium makro', until: at + DIGEST_STILL_MS, digest: true }
+}
+
 // ── The stock market today (macronext.pl/pl/dzis-na-gieldzie) ──
 
 export interface StockRow {
@@ -337,34 +377,47 @@ function usLines(known: StockRow[], unknown: StockRow[]): { lines: string[]; say
   return { lines, say }
 }
 
-// The day's announcements of the stock calendar
+// The day's announcements of the stock calendar, and the morning's repeat of them (DIGEST_AT): the Warsaw session at 7:35, the American
+// results before and after their session in one at 7:40
 export function stockGroups(rows: StockRow[], keyPrefix: string, y: number, m: number, d: number): MacroGroup[] {
   const day = `${y}-${m}-${d}`
   const ymd = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
   const groups: MacroGroup[] = []
-  const group = (id: string, at: number, title: string, lines: string[], say?: string[]) =>
-    groups.push({ id: `${keyPrefix}:${ymd}:${id}`, at, day, countries: [], lines, say, title, until: at + STILL_MS })
+  const group = (id: string, at: number, title: string, lines: string[], say?: string[], digest = false) =>
+    groups.push({ id: `${keyPrefix}:${ymd}:${id}`, at, day, countries: [], lines, say, title, until: at + (digest ? DIGEST_STILL_MS : STILL_MS), ...(digest ? { digest } : {}) })
 
   const polish = rows.filter((r) => POLISH.includes(r.market))
   if (polish.length) {
     const gpw = polish.some((r) => r.market === 'GPW'), nc = polish.some((r) => r.market === 'NC')
-    group('gpw', warsawToUtc(y, m, d, ...GPW_AT), gpw && nc ? 'Dziś na giełdzie GPW i NewConnect' : gpw ? 'Dziś na giełdzie GPW' : 'Dziś na NewConnect',
-      polish.map((r) => sentence(`${r.company}: ${r.event}`)), polish.map((r) => sentence(`Spółka ${r.company}, ${r.event}`)))
+    const title = gpw && nc ? 'Dziś na giełdzie GPW i NewConnect' : gpw ? 'Dziś na giełdzie GPW' : 'Dziś na NewConnect'
+    const lines = polish.map((r) => sentence(`${r.company}: ${r.event}`)), say = polish.map((r) => sentence(`Spółka ${r.company}, ${r.event}`))
+    group('gpw', warsawToUtc(y, m, d, ...GPW_AT), title, lines, say)
+    group('gpw-rano', warsawToUtc(y, m, d, ...DIGEST_AT.gpw), title, lines, say, true)
   }
   const us = rows.filter((r) => r.market in US)
   const before = us.filter((r) => /przed/i.test(r.time)), after = us.filter((r) => /po\s+sesji/i.test(r.time))
   const unknown = us.filter((r) => !before.includes(r) && !after.includes(r))
   const where = (rs: StockRow[]) => [...new Set(rs.map((r) => US[r.market]))].join(' i ')
-  if (before.length || unknown.length) {
-    const us1 = usLines(before, unknown)
-    group('usa-przed', newYorkToUtc(y, m, d, ...US_BEFORE_AT), `Dziś na ${where([...before, ...unknown])} przed sesją`, us1.lines, us1.say)
-  }
-  if (after.length) {
-    const us2 = usLines(after, [])
-    group('usa-po', newYorkToUtc(y, m, d, ...US_AFTER_AT), `Dziś na ${where(after)} po sesji`, us2.lines, us2.say)
+  const us1 = before.length || unknown.length ? usLines(before, unknown) : null
+  const us2 = after.length ? usLines(after, []) : null
+  if (us1) group('usa-przed', newYorkToUtc(y, m, d, ...US_BEFORE_AT), `Dziś na ${where([...before, ...unknown])} przed sesją`, us1.lines, us1.say)
+  if (us2) group('usa-po', newYorkToUtc(y, m, d, ...US_AFTER_AT), `Dziś na ${where(after)} po sesji`, us2.lines, us2.say)
+  if (us1 || us2) {
+    // both in one: "Przed sesją:" and "Po sesji:" in front of the lines, and said as parts of their own in front of the rows
+    const both = !!(us1 && us2)
+    const title = both ? `Dziś na ${where(us)} przed sesją i po sesji` : us1 ? `Dziś na ${where([...before, ...unknown])} przed sesją` : `Dziś na ${where(after)} po sesji`
+    group('usa-rano', warsawToUtc(y, m, d, ...DIGEST_AT.usa), title,
+      [...(us1?.lines.map((l) => (both ? `Przed sesją: ${l}` : l)) ?? []), ...(us2?.lines.map((l) => (both ? `Po sesji: ${l}` : l)) ?? [])],
+      [...(both ? ['Przed sesją.'] : []), ...(us1?.say ?? []), ...(both ? ['Po sesji.'] : []), ...(us2?.say ?? [])], true)
   }
   return groups.sort((a, b) => a.at - b.at)
 }
 
 // Numbers with their units in words: shared with all news (say.ts)
 export { sayNumbers } from './say'
+
+// What is read for an announcement of MacroNext (speech.ts): the title as it is said, then (where the lead is read) the rows as they are
+// said, one part each, all as a newsreader says it
+export function macroSpoken(it: { title: string; link: string; time: number; say?: string; description: string }, withLead: boolean, now: number): string[] {
+  return [`${sayMacroTitle(it.title, it.link, it.time, now)}.`, ...(withLead ? (it.say ?? it.description).split('\n') : [])].filter(Boolean).flatMap(sayAloudParts)
+}

@@ -4,7 +4,7 @@ import type { Item } from './news'
 import type { Prefs } from './prefs'
 import { feedKey, type Lang } from './sources'
 import { itemLang } from './lang'
-import { sayMacroTitle } from './macronext'
+import { macroSpoken } from './macronext'
 import { sayAloudParts, sayPausedParts } from './say'
 import { playChime } from './chime'
 
@@ -213,7 +213,7 @@ export function spokenParts(it: Item, prefs: Prefs, now = Date.now()): string[] 
   const withLead = prefs.leadFeeds.includes(feedKey(it.source, it.label))
   // The stock calendar comes with the rows as they are read (it.say, one per line): each row is a part of its own, so the
   // voice stops between the end of an event and the next "Spółka …" as between sentences
-  if (it.source === 'MACRONEXT') return [`${sayMacroTitle(it.title, it.link, it.time, now)}.`, ...(withLead ? (it.say ?? it.description).split('\n') : [])].filter(Boolean).flatMap(sayAloudParts)
+  if (it.source === 'MACRONEXT') return macroSpoken(it, withLead, now)
   const lead = withLead ? spokenLead(it.description, it.title) : ''
   // A press release in English: the title and the lead as they are, no Polish words in front of them and none of the rules of Polish
   if (itemLang(it) === 'en') return (lead ? [it.title, lead] : [it.title]).flatMap(sayPausedParts)

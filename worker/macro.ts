@@ -1,13 +1,14 @@
 // MacroNext's calendars for today (macro data, the stock market): the page is read at 00:30 and
 // 06:30 Polish time; each macro release is announced 10 minutes before it, the stock market before
-// the sessions. Called by the poller like a feed check.
+// the sessions, and in the morning (7:30, 7:35, 7:40) the day's calendars once more, in one piece each (lib/macronext.ts, DIGEST_AT).
+// Called by the poller like a feed check.
 import { dayGroups, groupTitle, parseDay, parseStockDay, stockGroups, FETCH_TIMES, LEAD_MINUTES, type MacroGroup } from '../src/lib/macronext'
 import { decodeBody, warsawDate, warsawToUtc, type NewsItem } from '../src/lib/parse'
 import { feedKey, type FeedConfig } from '../src/lib/sources'
 import { HEADERS, SHOW_ERROR_AFTER, TIMEOUT_S, pageInfo, retain, type CheckResult, type FeedState } from './feeds'
 
 // Raise this when reading the calendar changes: it is then read again at once, not at the next time above
-export const MACRO_VERSION = 5 // 2: releases without a time, announced in the morning; 3: speeches named in the title; 4: today's page; 5: the stock calendar read with "Spółka" before each company
+export const MACRO_VERSION = 6 // 6: the morning's repeat of the day's calendars (macro 7:30, GPW 7:35, American results 7:40); 2: releases without a time, announced in the morning; 3: speeches named in the title; 4: today's page; 5: the stock calendar read with "Spółka" before each company
 const RETRY_MINUTES = [1, 2, 4, 8, 15] // after failed reads in a row
 const LEAD_MS = LEAD_MINUTES * 60_000
 const LATE_MS = 60_000 // less than this before the release, the announcement is not made
@@ -111,7 +112,7 @@ export async function checkMacro(feed: FeedConfig, prev: FeedState | undefined, 
     add.push({ id: g.id, title: groupTitle(g, minutes), description: g.lines.join(' '),
       // the reading window shows the rows as a list
       ...(g.lines.length ? { body: g.lines.map((l) => `- ${l}`).join('\n') } : {}), ...(g.say ? { say: g.say.join('\n') } : {}),
-      link: `${feed.url}#${g.day}${g.allDay ? '' : `-${clock(g.at)}`}`,
+      link: `${feed.url}#${g.day}${g.allDay ? '' : `-${clock(g.at)}`}${g.digest ? '-rano' : ''}`,
       pubDate: new Date(now).toISOString(), source: feed.source, label: feed.label })
   }
   // Releases more than a day old are forgotten

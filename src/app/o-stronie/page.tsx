@@ -112,7 +112,7 @@ export default function About() {
         dnia poprzedniego do zamknięcia wydania wczesnym rankiem i ukazuje się rano; dokładne godziny (w czasie polskim) są przy każdym wydaniu.
       </p>
       <ul>
-        <li>Wiadomości bierze z tych samych źródeł co lista newsów, według godziny ich publikacji.</li>
+        <li>Wiadomości bierze z kanałów listy newsów, według godziny ich publikacji, ale bez Seeking Alpha (jego krótkie wpisy po sesji w USA nie nadają się do sprawdzenia w źródłach) i bez zapowiedzi MacroNext.</li>
         <li>
           Sztuczna inteligencja (modele OpenAI) wybiera najważniejsze, a każdą informację sprawdza na publicznych stronach: u źródła (instytucji,
           spółki, giełdy) i w co najmniej jednym niezależnym serwisie informacyjnym. Strony czyta tylko tam, gdzie pozwalają na to ich zasady dla
