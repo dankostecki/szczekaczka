@@ -191,6 +191,15 @@ const CURRENCY_BEFORE = new RegExp(String.raw`(?<![\p{L}\d$€£])(?<!\d\s*(?:(?
 const AMOUNT_RANGE = new RegExp(String.raw`(?<![\d.,])(?:(od|z|ze)\s+)?(${AMOUNT_NUMBER})(\s?[-–]\s?|\s+do\s+)(?=(${AMOUNT_NUMBER})\s*(${UNIT_ALTERNATIVES}))`, 'giu')
 // "10 mln - 15 mln zł", "od 10 mln do 15 mln zł": the first number has the unit of the second, which says it for both ("od dziesięciu do piętnastu milionów złotych")
 const SCALE_RANGE = new RegExp(String.raw`(?<![\d.,])(?:(od|z|ze)\s+)?(${AMOUNT_NUMBER})\s*(mln|mld|bln|tys\.)(?:\s+(?:${CURRENCY_AFTER}))?\s*(?:[-–]|do(?=\s))\s*(?=(?:${AMOUNT_NUMBER})\s*\3(?![\p{L}\d]))`, 'giu')
+// A range of percentages: "3,75%–4,00%", "2-3%", "4,25 - 4,50 proc.", "od 3,75% do 4%", "z 3,5% do 4%". Between two numbers a voice says the dash as "minus" ("3,75 minus 4"), and
+// "od 3,75% do 4%" is "od 3,75 procent do 4 procent". It is "od 3,75 do czterech procent": the percent once, after the last number, in the genitive that "do" asks for. A whole
+// number is in words (a voice declines the digits as it likes), a decimal is left to the voice. After "o" (a change, "wzrost o 2-3%") there is no "od": "o dwa do trzech procent";
+// after "około" and the like the genitive without it: "około dwóch do trzech procent". "od" and "do" alone make a range only when the first is a percentage or "od" starts it.
+const PERCENT_NUMBER = String.raw`\d{1,3}(?:,\d{1,4})?`
+const PERCENT_RANGE = new RegExp(String.raw`(?<![\p{L}\d.,+\-−–/])((?:(?:od|z|ze|o|około|ok\.|rzędu|blisko|prawie|niemal|przeszło)\s+)?)(${PERCENT_NUMBER})\s*(?:%|proc\.)?(\s*[-–—−]\s*|\s+do\s+)(${PERCENT_NUMBER})\s*(%|proc\.)(?![\p{L}\d])`, 'giu')
+const PERCENT_FROM = /^(?:od|z|ze)$/
+const PERCENT_ABOUT = /^(?:około|ok\.|rzędu|blisko|prawie|niemal|przeszło)$/
+const percentWords = (num: string, genitive: boolean) => /^\d+$/.test(num) ? +num ? numberWords(+num, genitive) : genitive ? 'zera' : 'zero' : num
 // A number with no unit after it, written with separators ("1.234.567 akcji", "12 345 osób", "5'245'579"): the separators go, as a voice may read the groups as
 // separate numbers or the dots as points. Spaces are the least sure: not after a digit and a space, not before another group (a phone number is "22 123 45 67"),
 // not for "600 123 456", not after the words of numbers that are no amounts
@@ -298,6 +307,15 @@ export function sayNumbers(text: string): string {
         `${amount} za ${PER_UNIT[per.replace(/\.$/, '')]}${per.endsWith('.') && endsSentence(all.slice(at + m.length)) ? '.' : ''}`)
     // "71,0 proc.", "4,00%", "5,0 mld zł": a decimal that is only zeros is the whole number
     .replace(new RegExp(String.raw`(?<![\d,.])(\d+),0+(?=\s?%(?![\p{L}\d])|\s*(?:tys\.|godz\.|pkt\s?proc\.|p\.\s?p\.|proc\.|(?:mln|mld|bln|pkt|pb|${MONEY_CODES})(?![\p{L}\d])))`, 'gu'), '$1')
+    // "3,75%–4%", "od 2% do 3%", "wzrost o 2-3 proc.": "od 3,75 do czterech procent"
+    .replace(PERCENT_RANGE, (m: string, lead: string, first: string, between: string, second: string, unit: string, at: number, all: string) => {
+      const word = lead.trim().toLocaleLowerCase('pl')
+      const dash = /[-–—−]/.test(between)
+      if (!(+first.replace(',', '.') < +second.replace(',', '.')) || (!dash && !PERCENT_FROM.test(word))) return m
+      const from = percentWords(first, word !== 'o')
+      const to = `${percentWords(second, true)} ${second === '1' ? 'procenta' : 'procent'}${unit.endsWith('.') && endsSentence(all.slice(at + m.length)) ? '.' : ''}`
+      return `${PERCENT_FROM.test(word) || PERCENT_ABOUT.test(word) || word === 'o' ? lead : 'od '}${from} do ${to}`
+    })
     // "od 5.000 do 10.000 zł", "2.500-3.000 zł": the first of the two in words ("od pięciu tysięcy do …"), the second is left to its unit
     .replace(SCALE_RANGE, (m: string, lead: string | undefined, first: string, unit: string) => {
       const [whole, fraction] = parseNumber(first)
