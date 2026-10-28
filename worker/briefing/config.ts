@@ -166,8 +166,10 @@ export function readConfig(env: Env): { config: BriefingConfig; problems: string
     maxResearch: num('BRIEFING_MAX_RESEARCH', 10, 3, 20),
     maxStories: num('BRIEFING_MAX_STORIES', 8, 2, 15),
     minStories: num('BRIEFING_MIN_STORIES', 3, 1, 10),
+    // Not Seeking Alpha: its feed has no descriptions, and after the US close it floods the list with one-line items (results,
+    // estimates) that say too little to check. BRIEFING_SOURCES can add it (and MacroNext's announcements are not news)
     sources: str('BRIEFING_SOURCES')?.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean)
-      ?? ['WALTER', 'SEEKINGALPHA', 'STOOQ', 'ESPI', 'GPW', 'PAP'],
+      ?? ['WALTER', 'STOOQ', 'ESPI', 'GPW', 'PAP'],
     openai: {
       apiKey: str('OPENAI_API_KEY'),
       models,

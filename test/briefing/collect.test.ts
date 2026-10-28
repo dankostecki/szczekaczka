@@ -7,6 +7,8 @@ import { editionTimes } from '../../worker/briefing/time'
 import { item, poller } from './helpers'
 
 const { config } = readConfig({})
+// Seeking Alpha is not a source of the briefing by default; some of these tests need it
+const withSA = readConfig({ BRIEFING_SOURCES: 'WALTER,SEEKINGALPHA,STOOQ,ESPI,GPW,PAP' }).config
 const t = editionTimes('2026-10-28', config) // window 2026-10-27T18:00Z … cutoff 2026-10-28T05:00Z
 const ms = (s: string) => new Date(Date.parse(s)).toISOString()
 
@@ -50,6 +52,18 @@ test('the publication date decides: no date, a date in the future or another sou
   assert.equal(r.candidates[0].publishedAt, '2026-10-27T21:00:00.000Z')
 })
 
+test('Seeking Alpha is not taken by default (no descriptions, a flood after the US close); BRIEFING_SOURCES can add it', () => {
+  assert.ok(!config.sources.includes('SEEKINGALPHA'))
+  const items = [
+    item('SEEKINGALPHA', 'Apple GAAP EPS of $1.64 beats by $0.04, revenue of $94B beats by $1B', ms('2026-10-27T21:10:00Z')),
+    item('WALTER', 'NVIDIA Q3 REVENUE $57B, ABOVE ESTIMATES', ms('2026-10-27T21:13:00Z')),
+  ]
+  const r = collect(poller(items, t.cutoff), t, t.cutoff, config)
+  assert.deepEqual(r.candidates.map((c) => c.title), ['NVIDIA Q3 REVENUE $57B, ABOVE ESTIMATES'])
+  assert.equal(r.stats.otherSource, 1)
+  assert.equal(collect(poller(items, t.cutoff), t, t.cutoff, withSA).candidates.length, 2)
+})
+
 test('every source the briefing takes by default has its dates described', () => {
   for (const s of config.sources) assert.equal(DATE_KIND[s], 'published', s)
 })
@@ -62,7 +76,7 @@ test('routine notices are left out', () => {
     item('ESPI', 'XYZ SA: Informacja o transakcjach na akcjach', ms('2026-10-27T20:00:00Z')),
     item('WALTER', 'NVIDIA Q3 REVENUE $57B, ABOVE ESTIMATES', ms('2026-10-27T21:00:00Z')),
   ]
-  const r = collect(poller(items, t.cutoff), t, t.cutoff, config)
+  const r = collect(poller(items, t.cutoff), t, t.cutoff, withSA)
   assert.deepEqual(r.candidates.map((c) => c.title), ['NVIDIA Q3 REVENUE $57B, ABOVE ESTIMATES'])
   assert.equal(r.stats.routine, 4)
 })
@@ -72,7 +86,7 @@ test('duplicates are one story: the same headline from two sources, the same lin
   const b = item('SEEKINGALPHA', 'Nvidia third quarter revenue beats estimates, data center demand', ms('2026-10-27T21:05:00Z'))
   const c = item('STOOQ', 'Orlen ogłasza przejęcie rafinerii', ms('2026-10-27T22:00:00Z'), { link: 'https://stooq.pl/n/?f=1' })
   const d = item('STOOQ', 'Orlen ogłasza przejęcie rafinerii (aktualizacja)', ms('2026-10-27T22:30:00Z'), { link: 'https://www.stooq.pl/n/?f=1' })
-  const r = collect(poller([a, b, c, d, a], t.cutoff), t, t.cutoff, config)
+  const r = collect(poller([a, b, c, d, a], t.cutoff), t, t.cutoff, withSA)
   assert.equal(r.candidates.length, 2)
   const nvidia = r.candidates.find((x) => x.title.startsWith('Nvidia'))!
   assert.deepEqual(nvidia.sources.sort(), ['SEEKINGALPHA', 'WALTER'])
@@ -96,7 +110,7 @@ test('no source takes more than 40% of the places, and the translation goes alon
   const items = Array.from({ length: 30 }, (_, i) => item('SEEKINGALPHA', `${word(i)} ${word(i + 100)} ${word(i + 200)} reports`, ms('2026-10-27T20:00:00Z'),
     { pl: { title: `Spółka ${word(i)}`, description: '' } }))
   items.push(...Array.from({ length: 5 }, (_, i) => item('STOOQ', `${word(i + 300)} ${word(i + 400)} ${word(i + 500)}`, ms('2026-10-27T20:00:00Z'))))
-  const r = collect(poller(items, t.cutoff), t, t.cutoff, { ...config, maxCandidates: 10 })
+  const r = collect(poller(items, t.cutoff), t, t.cutoff, { ...withSA, maxCandidates: 10 })
   assert.equal(r.candidates.length, 8, 'four places each: the cap of 40% of ten')
   assert.equal(r.candidates.filter((c) => c.sources.includes('SEEKINGALPHA')).length, 4)
   assert.equal(r.candidates.filter((c) => c.sources.includes('STOOQ')).length, 4)
@@ -105,7 +119,7 @@ test('no source takes more than 40% of the places, and the translation goes alon
 
 test('a full night of news is collected quickly: each of the two steps well within the free plan\'s 10 ms of CPU', () => {
   const words = 'stocks bonds yields dollar euro gold oil earnings guidance revenue merger tariff China Japan Germany Poland bank tech chips cloud'.split(' ')
-  const items = Array.from({ length: 700 }, (_, i) => item(['WALTER', 'SEEKINGALPHA', 'STOOQ', 'ESPI'][i % 4],
+  const items = Array.from({ length: 700 }, (_, i) => item(['WALTER', 'PAP', 'STOOQ', 'ESPI'][i % 4],
     `Headline ${i} ${words[i % 21]} ${words[(i * 7) % 21]} ${words[(i * 13) % 21]} company${i % 97} update ${i % 5}`,
     new Date(t.from + (i * (t.cutoff - t.from)) / 700).toISOString(), { description: 'A lead of some length that says a little more about the news. '.repeat(3) }))
   const data = poller(items, t.cutoff)

@@ -10,7 +10,7 @@
   - potrzebne są **co najmniej 2 niezależne źródła**, w tym **pierwotne** (instytucja, spółka, giełda, agencja komunikatów) dla danych, decyzji, cytatów i zdarzeń.
 - **Nic nie jest publikowane częściowo.** Gdy któryś etap zawiedzie (OpenAI, wyszukiwanie, weryfikacja, Google TTS, zapis), wydanie się nie ukazuje, a strona pokazuje poprzednie.
 - Szacunkowy koszt jednego wydania to **0,4–1 USD** przy `gpt-6.1-sol`, z czego około 0,25 USD to wyszukiwanie. Głos mieści się w darmowym milionie znaków miesięcznie Google. Twarde limity: domyślnie 2 USD na wydanie i 40 USD na miesiąc.
-- **Nic tu nie było testowane na żywych usługach.** Nie było kluczy, a sieć środowiska nie miała dostępu do OpenAI, Google ani do stron źródeł. Testy (96) sprawdzają logikę i kształt zapytań na symulowanych odpowiedziach. Pierwsze prawdziwe wydanie trzeba obejrzeć ręcznie (krok 6 niżej).
+- **Nic tu nie było testowane na żywych usługach.** Nie było kluczy, a sieć środowiska nie miała dostępu do OpenAI, Google ani do stron źródeł. Testy (97) sprawdzają logikę i kształt zapytań na symulowanych odpowiedziach. Pierwsze prawdziwe wydanie trzeba obejrzeć ręcznie (krok 6 niżej).
 
 ## Architektura
 
@@ -90,7 +90,7 @@ Pliki: `worker/briefing/` (`config`, `time`, `collect`, `prompts`, `schemas`, `l
    - model mówi „supported”, a żaden cytowany fragment mu nie przeczy (sprzeczne źródła oznaczają odrzucenie);
    - każdy cytat jest dosłownie w przeczytanej treści wskazanej strony (z tolerancją na cudzysłowy, myślniki, spacje i wielkość liter);
    - każda liczba ze sprawdzonego sformułowania jest w cytatach (zapis polski i angielski: `2,5` = `2.5`, `1 234` = `1,234`);
-   - ma co najmniej `BRIEFING_MIN_SOURCES` (2) niezależnych źródeł. Wydawca liczy się raz, kopie jednego tekstu agencyjnego liczą się raz, a własne źródło RSS historii (np. seekingalpha.com) się nie liczy, chyba że jest źródłem oficjalnym;
+   - ma co najmniej `BRIEFING_MIN_SOURCES` (2) niezależnych źródeł. Wydawca liczy się raz, kopie jednego tekstu agencyjnego liczą się raz, a własne źródło RSS historii (np. stooq.pl) się nie liczy, chyba że jest źródłem oficjalnym;
    - dla rodzajów z `BRIEFING_PRIMARY_FOR` (domyślnie `figure,official,quote,event`) jedno ze źródeł jest pierwotne. Pierwotne to domeny `.gov` i podobne, lista instytucji i giełd, agencje komunikatów (Business Wire, PR Newswire, GlobeNewswire…) albo strona samej spółki, rozpoznana po nazwie;
    - twierdzenie rynkowe ma instrument, sesję i rodzaj notowania: zamknięcie, bieżące albo orientacyjne (kontrakty, handel po sesji).
 
@@ -174,7 +174,7 @@ Zwykłe zmienne mogą być w `wrangler.jsonc` → `vars` (wtedy są w repozytori
 | `BRIEFING_MAX_STORIES`, `BRIEFING_MIN_STORIES`, `BRIEFING_MAX_RESEARCH`, `BRIEFING_MAX_CANDIDATES` | `8`, `3`, `10`, `50` | |
 | `BRIEFING_MIN_SOURCES`, `BRIEFING_PRIMARY_FOR`, `BRIEFING_STALE_HOURS` | `2`, `figure,official,quote,event`, `36` | reguły weryfikacji |
 | `BRIEFING_MAX_COST_USD`, `BRIEFING_MAX_MONTHLY_COST_USD` | `2`, `40` | |
-| `BRIEFING_MAX_STEP_ATTEMPTS`, `BRIEFING_RETENTION_DAYS`, `BRIEFING_SOURCES`, `BRIEFING_BLOCKED_DOMAINS` | `4`, `30`, wszystkie poza MacroNext, brak | |
+| `BRIEFING_MAX_STEP_ATTEMPTS`, `BRIEFING_RETENTION_DAYS`, `BRIEFING_SOURCES`, `BRIEFING_BLOCKED_DOMAINS` | `4`, `30`, `WALTER,STOOQ,ESPI,GPW,PAP`, brak | `BRIEFING_SOURCES`: źródła listy newsów, z których idą wiadomości. Domyślnie bez Seeking Alpha (kanał nie ma opisów, a po sesji w USA zalewa listę jednowierszowymi wynikami, których nie da się sprawdzić) i bez zapowiedzi MacroNext (to nie newsy). Seeking Alpha można dopisać. |
 | **Sekrety:** `OPENAI_API_KEY`, `GOOGLE_TTS_API_KEY` albo `GOOGLE_SERVICE_ACCOUNT_JSON`, `TAVILY_API_KEY`, `BRIEFING_ADMIN_TOKEN` | | |
 
 Zła wartość nie psuje reszty: zostaje domyślna, a błąd widać w `GET /api/briefing/admin/status` (`problems`) i w wydaniu z tego dnia („not configured: …”).
@@ -239,7 +239,7 @@ Zła wartość nie psuje reszty: zostaje domyślna, a błąd widać w `GET /api/
 ## Test lokalny bez płatnych usług
 
 ```bash
-npm test                                   # 96 testów: czas i DST, okno, daty, duplikaty, sprzeczne źródła, weryfikacja, skrypt,
+npm test                                   # 97 testów: czas i DST, okno, daty, duplikaty, sprzeczne źródła, weryfikacja, skrypt,
                                            # części dla głosu, MP3, OpenAI/Google/Tavily na symulowanych odpowiedziach, SSRF, robots,
                                            # cały potok (ponowienia, idempotencja, terminy, brak sekretów, limity kosztów, zatwierdzanie)
 npm run build && npx wrangler dev          # z .dev.vars: BRIEFING_MODE=mock, BRIEFING_ADMIN_TOKEN=…, FEED_ORIGIN=… (lokalne kanały)
