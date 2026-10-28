@@ -1,9 +1,8 @@
 // The pack for ChatGPT without the API: on the days of the briefing, at BRIEFING_PACK_AT (07:45, after MacroNext's morning
 // calendars of 7:30, 7:35 and 7:40), the news of the night and the day's calendars, with the task the paid pipeline gives its
-// models, as one Markdown text to paste into ChatGPT (or to give it as a link). It is made whatever BRIEFING_MODE is, and calls
-// nothing paid. One address always has the latest: /api/briefing/pack.md; with BRIEFING_PACK_GIST_ID and BRIEFING_PACK_GITHUB_TOKEN
-// it is written to that gist as well (gist.githubusercontent.com/<user>/<id>/raw/poranek.md always shows its latest revision).
-// Made in two steps, as the pipeline's collect and rank, each well within the free plan's CPU; the gist is a third.
+// models, as one Markdown text to give ChatGPT as a link (or to paste into it). It is made whatever BRIEFING_MODE is, and calls
+// nothing paid. One address always has the latest: /api/briefing/pack.md.
+// Made in two steps, as the pipeline's collect and rank, each well within the free plan's CPU.
 import type { NewsItem } from '../../src/lib/parse'
 import { SOURCE_INFO, sourceName, type Source } from '../../src/lib/sources'
 import { inWindow, rank, type Candidate, type CollectStats, type PollerItems, type WindowItem } from './collect'
@@ -29,20 +28,14 @@ export interface PackRecord {
   text?: string
   builtAt?: number
   candidates?: number
-  gist?: GistState
 }
-export interface GistState { id: string; ok: boolean; attempts: number; at?: number; retryAt?: number; error?: string; link?: string }
 
-export type PackDeps = Pick<Deps, 'store' | 'config' | 'now' | 'pollerItems' | 'log'> & { fetch: typeof fetch }
+export type PackDeps = Pick<Deps, 'store' | 'config' | 'now' | 'pollerItems' | 'log'>
 
-export const GIST_FILE = 'poranek.md'
 const STEP_GAP_MS = 500
-const GIST_ATTEMPTS = 5
-const GIST_TIMEOUT_MS = 20_000
 const LINKS_PER_STORY = 3
 
 export const packAt = (id: string, c: BriefingConfig) => warsawAt(id, c.pack.at)
-const gistSet = (c: BriefingConfig) => !!(c.pack.gistId && c.pack.githubToken && !c.pack.problems.length)
 
 // The pack due now: a day of the briefing past its time, with no pack made for it yet (a deploy later that day makes it at once)
 export function duePack(now: number, c: BriefingConfig, latest: PackRecord | null): string | null {
@@ -156,27 +149,6 @@ export function packText(p: PackRecord, candidates: Candidate[], c: BriefingConf
   return `${[head, task(p, c), calendar, news].filter(Boolean).join('\n\n')}\n`
 }
 
-// The gist: its file replaced; the address that always shows the latest revision
-export async function writeGist(d: Pick<PackDeps, 'config' | 'fetch'>, p: PackRecord): Promise<string> {
-  const { gistId, githubToken } = d.config.pack
-  const res = await d.fetch(`https://api.github.com/gists/${gistId}`, {
-    method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${githubToken}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28',
-      'Content-Type': 'application/json', 'User-Agent': 'szczekaczka-briefing',
-    },
-    body: JSON.stringify({ description: `Poranny przegląd rynków: ${dayLabel(p.id)}`, files: { [GIST_FILE]: { content: p.text } } }),
-    signal: AbortSignal.timeout(GIST_TIMEOUT_MS),
-  })
-  if (!res.ok) {
-    const message = await res.json().then((b) => (b as { message?: string })?.message ?? '', () => '')
-    throw new Error(`GitHub ${res.status}${message ? `: ${String(message).slice(0, 200)}` : ''}`)
-  }
-  const body = await res.json() as { owner?: { login?: string } }
-  const login = body.owner?.login
-  return login ? `https://gist.githubusercontent.com/${login}/${gistId}/raw/${GIST_FILE}` : `https://gist.github.com/${gistId}`
-}
-
 // One step of the pack, if one is due; when to wake up next (null: the pack is off)
 export async function packTick(d: PackDeps): Promise<number | null> {
   const c = d.config
@@ -193,26 +165,7 @@ export async function packTick(d: PackDeps): Promise<number | null> {
     d.store.putPack('latest', done)
     d.store.putPack('work', null)
     d.log(`briefing pack ${done.id}: ${done.candidates} stories of ${done.stats.inWindow} news, ${done.calendar.length} calendars, ${done.text!.length} characters`)
-    return gistSet(c) ? now + STEP_GAP_MS : nextPackAt(now, c)
-  }
-
-  // Step 3: the gist (also when it was set after the pack was made, or changed), tried again after 1, 2, 4… minutes
-  const gist: GistState | undefined = latest?.text && gistSet(c)
-    ? latest.gist?.id === c.pack.gistId ? latest.gist : { id: c.pack.gistId!, ok: false, attempts: 0 } : undefined
-  if (latest && gist && !gist.ok && gist.attempts < GIST_ATTEMPTS) {
-    if ((gist.retryAt ?? 0) > now) return Math.min(gist.retryAt!, nextPackAt(now, c))
-    try {
-      const link = await writeGist(d, latest)
-      latest.gist = { id: gist.id, ok: true, attempts: gist.attempts + 1, at: now, link }
-      d.log(`briefing pack ${latest.id}: written to the gist (${link})`)
-    } catch (e) {
-      const attempts = gist.attempts + 1
-      latest.gist = { id: gist.id, ok: false, attempts, at: now, error: String((e as Error)?.message ?? e).slice(0, 300),
-        ...(attempts < GIST_ATTEMPTS ? { retryAt: now + 60_000 * 2 ** (attempts - 1) } : {}) }
-      d.log(`briefing pack ${latest.id}: the gist failed (${latest.gist.error})${attempts < GIST_ATTEMPTS ? '' : ', not tried again'}`)
-    }
-    d.store.putPack('latest', latest)
-    return latest.gist.retryAt ? Math.min(latest.gist.retryAt, nextPackAt(now, c)) : nextPackAt(now, c)
+    return nextPackAt(now, c)
   }
 
   // Step 1: the news of the window, from the evening before to now, and MacroNext's morning calendars
@@ -225,16 +178,16 @@ export async function packTick(d: PackDeps): Promise<number | null> {
   return d.now() + STEP_GAP_MS
 }
 
-// For the operator's status: what was made, and where it went
+// For the operator's status: what was made
 export function packStatus(d: Pick<PackDeps, 'store' | 'config' | 'now'>) {
   const latest = d.store.getPack('latest')
   const c = d.config.pack
   return {
-    enabled: c.enabled, at: c.at, problems: c.problems, gist: c.gistId ? { id: c.gistId, token: !!c.githubToken } : null,
+    enabled: c.enabled, at: c.at, problems: c.problems,
     next: c.enabled ? new Date(nextPackAt(d.now(), d.config)).toISOString() : null,
     latest: latest ? { id: latest.id, from: new Date(latest.from).toISOString(), to: new Date(latest.to).toISOString(),
       builtAt: latest.builtAt ? new Date(latest.builtAt).toISOString() : null, candidates: latest.candidates, news: latest.stats.inWindow,
-      calendars: latest.calendar.map((p) => p.title), characters: latest.text?.length ?? 0, gist: latest.gist ?? null } : null,
+      calendars: latest.calendar.map((p) => p.title), characters: latest.text?.length ?? 0 } : null,
   }
 }
 

@@ -59,7 +59,7 @@ export class Briefing extends DurableObject<Env> {
     const run = async (what: string, step: () => Promise<number | null>) => {
       try { return await step() } catch (e) { console.error(`briefing ${what} failed`, e); return Date.now() + 60_000 }
     }
-    const next = [await run('tick', () => tick(d)), await run('pack', () => packTick({ ...d, fetch: (input, init) => fetch(input, init) }))]
+    const next = [await run('tick', () => tick(d)), await run('pack', () => packTick(d))]
       .filter((t): t is number => t !== null)
     if (next.length) await this.ctx.storage.setAlarm(Math.max(Math.min(...next), Date.now() + 200))
   }

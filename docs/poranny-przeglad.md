@@ -10,8 +10,8 @@
   - potrzebne są **co najmniej 2 niezależne źródła**, w tym **pierwotne** (instytucja, spółka, giełda, agencja komunikatów) dla danych, decyzji, cytatów i zdarzeń.
 - **Nic nie jest publikowane częściowo.** Gdy któryś etap zawiedzie (OpenAI, wyszukiwanie, weryfikacja, Google TTS, zapis), wydanie się nie ukazuje, a strona pokazuje poprzednie.
 - Szacunkowy koszt jednego wydania (z założonych liczb tokenów, nie z pomiaru): przy `gpt-6.1-terra` i średnim wysiłku rozumowania około **0,9 USD** w typową noc (0,5–1,5 USD), przy `gpt-6.1-sol` około **1,5 USD** (0,8–2,5 USD). Około 0,3 USD z tego to wyszukiwanie. Głos mieści się w darmowym milionie znaków miesięcznie Google. Twarde limity: domyślnie 2 USD na wydanie i 40 USD na miesiąc.
-- **Bez API też jest materiał:** codziennie o 7:45 serwer składa wsad dla ChatGPT (zadanie, kalendarium dnia i wiadomości z nocy) pod stałym adresem, a jeśli tak ustawisz, także w Gist na GitHubie. Nic przy tym nie kosztuje (niżej).
-- **Nic tu nie było testowane na żywych usługach.** Nie było kluczy, a sieć środowiska nie miała dostępu do OpenAI, Google ani do stron źródeł. Testy (128) sprawdzają logikę i kształt zapytań na symulowanych odpowiedziach. Pierwsze prawdziwe wydanie trzeba obejrzeć ręcznie (krok 6 niżej).
+- **Bez API też jest materiał:** codziennie o 7:45 serwer składa wsad dla ChatGPT (zadanie, kalendarium dnia i wiadomości z nocy) pod stałym adresem, który podajesz ChatGPT. Nic przy tym nie kosztuje (niżej).
+- **Nic tu nie było testowane na żywych usługach.** Nie było kluczy, a sieć środowiska nie miała dostępu do OpenAI, Google ani do stron źródeł. Testy (126) sprawdzają logikę i kształt zapytań na symulowanych odpowiedziach. Pierwsze prawdziwe wydanie trzeba obejrzeć ręcznie (krok 6 niżej).
 
 ## Architektura
 
@@ -85,27 +85,16 @@ Wsad powstaje **niezależnie od `BRIEFING_MODE`** (także przy `off`) i nie woł
 
 **Gdzie jest.** Zawsze pod jednym adresem, z treścią z ostatniego dnia: <https://szczekaczka.dancoder2025.workers.dev/api/briefing/pack.md> (do pierwszego wsadu odpowiada 404). Service worker go nie kopiuje.
 
-**W Gist na GitHubie** (stały link, treść podmieniana codziennie, poprzednie dni zostają w historii gista):
-
-1. Na <https://gist.github.com> utwórz **secret gist** z plikiem `poranek.md` (dowolna treść) i zapisz go. Identyfikator to ostatnia część adresu, np. `https://gist.github.com/dankostecki/`**`0123456789abcdef0123456789abcdef`**.
-2. Utwórz token GitHub z prawem zapisu gistów i niczym więcej: fine-grained token z *Account permissions → Gists: Read and write* albo klasyczny token tylko z zakresem `gist`. Ten token nie daje dostępu do repozytorium z kodem.
-3. W Cloudflare (Workers → szczekaczka → Settings → Variables and Secrets) dodaj zmienną `BRIEFING_PACK_GIST_ID` z identyfikatorem i sekret `BRIEFING_PACK_GITHUB_TOKEN` z tokenem.
-4. Link do podania ChatGPT: `https://gist.githubusercontent.com/<twój-login>/<identyfikator>/raw/poranek.md`. Bez skrótu wersji w adresie zawsze pokazuje najnowszą (GitHub może trzymać kopię kilka minut). Ten sam link jest w `GET /api/briefing/admin/status` → `pack.latest.gist.link`.
-
-Serwer zapisuje gista zaraz po złożeniu wsadu, także gdy gist ustawisz w ciągu dnia (wtedy przy najbliższym przebiegu crona, do 10 minut). Nieudany zapis ponawia po 1, 2, 4 i 8 minutach. Po 5 nieudanych próbach (np. zły token) czeka do następnego wsadu albo do zmiany `BRIEFING_PACK_GIST_ID`. Błąd widać w statusie (`pack.latest.gist.error`). Zły identyfikator albo brak jednej z dwóch wartości nie zatrzymuje ani wsadu, ani przeglądu: jest w `pack.problems`.
-
 **Jak użyć w ChatGPT.**
 
-- Najpewniej: otwórz link, skopiuj cały tekst i wklej do ChatGPT.
-- Albo podaj sam link z prośbą, np. „Wykonaj zadanie z tego pliku: <link>”. ChatGPT traktuje treść ze strony jako materiał, nie polecenie, więc prośba musi być w Twojej wiadomości.
-- `robots.txt` Szczekaczki zabrania pobierania wszystkim automatom, z jednym wyjątkiem: `ChatGPT-User` (ChatGPT otwierający link na prośbę użytkownika) może czytać tylko `/api/briefing/pack.md`. Inne roboty, także crawlery AI (`GPTBot`, `OAI-SearchBot`), nie mogą. Nie sprawdzałem, czy ChatGPT otworzy link. Jeśli nie otworzy, zostaje wklejenie tekstu albo Gist.
+- Podaj link z prośbą w swojej wiadomości, np. „Wykonaj zadanie z tego pliku: https://szczekaczka.dancoder2025.workers.dev/api/briefing/pack.md”. ChatGPT traktuje treść strony jako materiał, nie polecenie, więc prośba musi być w Twojej wiadomości.
+- `robots.txt` Szczekaczki zabrania pobierania wszystkim automatom, z jednym wyjątkiem: `ChatGPT-User` (ChatGPT otwierający link na prośbę użytkownika) może czytać tylko `/api/briefing/pack.md`. Inne roboty, także crawlery AI (`GPTBot`, `OAI-SearchBot`), nie mogą.
+- Nie sprawdzałem, czy ChatGPT otworzy link. Jeśli nie otworzy, otwórz go sam, skopiuj cały tekst i wklej.
 
 | Zmienna | Domyślnie | |
 |---|---|---|
 | `BRIEFING_PACK` | `on` | `off` wyłącza wsad |
 | `BRIEFING_PACK_AT` | `07:45` | 03:00–12:00. Kalendarium MacroNext jest we wsadzie tylko po 7:40 |
-| `BRIEFING_PACK_GIST_ID` | brak | identyfikator gista |
-| `BRIEFING_PACK_GITHUB_TOKEN` (sekret) | brak | token z prawem zapisu gistów |
 
 ## Okno, zamknięcie wydania, publikacja
 
@@ -227,8 +216,8 @@ Zwykłe zmienne mogą być w `wrangler.jsonc` → `vars` (wtedy są w repozytori
 | `BRIEFING_MIN_SOURCES`, `BRIEFING_PRIMARY_FOR`, `BRIEFING_STALE_HOURS` | `2`, `figure,official,quote,event`, `36` | reguły weryfikacji |
 | `BRIEFING_MAX_COST_USD`, `BRIEFING_MAX_MONTHLY_COST_USD` | `2`, `40` | |
 | `BRIEFING_MAX_STEP_ATTEMPTS`, `BRIEFING_RETENTION_DAYS`, `BRIEFING_SOURCES`, `BRIEFING_BLOCKED_DOMAINS` | `4`, `30`, `WALTER,STOOQ,ESPI,GPW,PAP`, brak | `BRIEFING_SOURCES`: źródła listy newsów, z których idą wiadomości. Domyślnie bez Seeking Alpha (kanał nie ma opisów, a po sesji w USA zalewa listę jednowierszowymi wynikami, których nie da się sprawdzić) i bez zapowiedzi MacroNext (to nie newsy). Seeking Alpha można dopisać. |
-| `BRIEFING_PACK`, `BRIEFING_PACK_AT`, `BRIEFING_PACK_GIST_ID` | `on`, `07:45`, brak | wsad dla ChatGPT (wyżej) |
-| **Sekrety:** `OPENAI_API_KEY`, `GOOGLE_TTS_API_KEY` albo `GOOGLE_SERVICE_ACCOUNT_JSON`, `TAVILY_API_KEY`, `BRIEFING_ADMIN_TOKEN`, `BRIEFING_PACK_GITHUB_TOKEN` | | |
+| `BRIEFING_PACK`, `BRIEFING_PACK_AT` | `on`, `07:45` | wsad dla ChatGPT (wyżej) |
+| **Sekrety:** `OPENAI_API_KEY`, `GOOGLE_TTS_API_KEY` albo `GOOGLE_SERVICE_ACCOUNT_JSON`, `TAVILY_API_KEY`, `BRIEFING_ADMIN_TOKEN` | | |
 
 Zła wartość nie psuje reszty: zostaje domyślna, a błąd widać w `GET /api/briefing/admin/status` (`problems`) i w wydaniu z tego dnia („not configured: …”).
 
@@ -292,7 +281,7 @@ Zła wartość nie psuje reszty: zostaje domyślna, a błąd widać w `GET /api/
 ## Test lokalny bez płatnych usług
 
 ```bash
-npm test                                   # 128 testów: czas i DST, okno, daty, duplikaty, sprzeczne źródła, weryfikacja, skrypt,
+npm test                                   # 126 testów: czas i DST, okno, daty, duplikaty, sprzeczne źródła, weryfikacja, skrypt,
                                            # części dla głosu, MP3, OpenAI/Google/Tavily na symulowanych odpowiedziach, SSRF, robots,
                                            # cały potok (ponowienia, idempotencja, terminy, brak sekretów, limity kosztów, zatwierdzanie)
 npm run build && npx wrangler dev          # z .dev.vars: BRIEFING_MODE=mock, BRIEFING_ADMIN_TOKEN=…, FEED_ORIGIN=… (lokalne kanały)

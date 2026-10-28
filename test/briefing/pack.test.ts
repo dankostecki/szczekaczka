@@ -1,5 +1,5 @@
 // The pack for ChatGPT: made at 07:45 on the days of the briefing whatever the mode, the news from 19:00 the evening before to then,
-// MacroNext's morning calendars, the task; kept at one address and written to a gist when one is set; nothing paid
+// MacroNext's morning calendars, the task; kept at one address; nothing paid
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { NewsItem } from '../../src/lib/parse'
@@ -33,18 +33,12 @@ function night(): NewsItem[] {
 function deps(env: ConfigEnv = {}, start = '2026-10-28T06:44:59Z', items = night()) {
   const clock = { now: at(start) }
   const logs: string[] = []
-  const requests: { url: string; init: RequestInit }[] = []
-  const answers: (() => Response)[] = []
   const { config } = readConfig(env)
   const d: PackDeps = {
     store: memoryStore(), config, now: () => clock.now, log: (m) => logs.push(m),
     pollerItems: async (from, to) => poller(items.filter((i) => Date.parse(i.pubDate!) >= from && Date.parse(i.pubDate!) < to), clock.now),
-    fetch: async (input, init) => {
-      requests.push({ url: String(input), init: init ?? {} })
-      return (answers.shift() ?? (() => new Response(JSON.stringify({ owner: { login: 'dankostecki' } }), { status: 200 })))()
-    },
   }
-  return { d, clock, logs, requests, answers }
+  return { d, clock, logs }
 }
 
 // The pack's steps as the alarm runs them, the clock jumping to each wake-up, until the clock would pass `until`
@@ -94,13 +88,12 @@ test('the channels that failed overnight are named, only those of the pack', () 
   assert.match(text, /Kanały z błędami w nocy \(w materiale może czegoś brakować\): GPW · PRASA, MACRONEXT · MAKRO\./)
 })
 
-test('its settings\' problems are its own: a wrong gist does not stop an edition', () => {
-  const { config, problems } = readConfig({ BRIEFING_PACK_GIST_ID: 'not a gist', BRIEFING_PACK_AT: '13:00' })
+test('its settings\' problems are its own: a wrong one does not stop an edition', () => {
+  const { config, problems } = readConfig({ BRIEFING_PACK: 'maybe', BRIEFING_PACK_AT: '13:00' })
   assert.deepEqual(problems, [])
-  assert.ok(config.pack.problems.some((p) => p.startsWith('BRIEFING_PACK_GIST_ID: expected')))
-  assert.ok(config.pack.problems.some((p) => /go together/.test(p)))
+  assert.ok(config.pack.problems.some((p) => p.startsWith('BRIEFING_PACK: expected')))
   assert.ok(config.pack.problems.some((p) => p.startsWith('BRIEFING_PACK_AT')))
-  assert.deepEqual(readConfig({ BRIEFING_PACK_GIST_ID: '0123456789abcdef0123456789abcdef', BRIEFING_PACK_GITHUB_TOKEN: 't' }).config.pack.problems, [])
+  assert.equal(config.pack.enabled, true)
 })
 
 test('at 07:45: the news from 19:00 the evening before to 07:45, the day\'s calendars, the task; in two steps, once a day', async () => {
@@ -149,43 +142,6 @@ test('without the calendars the task leaves that part out', async () => {
   const text = packOf(h.d.store)!.text
   assert.doesNotMatch(text, /## Kalendarium na dziś/)
   assert.match(text, /Kalendarium MacroNext na dziś nie było dostępne: pomiń tę część\./)
-})
-
-test('the gist: its file replaced after the pack is made, the token only in the header; a failure tried again', async () => {
-  const gistId = '0123456789abcdef0123456789abcdef'
-  const h = deps({ BRIEFING_PACK_GIST_ID: gistId, BRIEFING_PACK_GITHUB_TOKEN: 'secret-token-123' }, '2026-10-28T06:45:00Z')
-  h.answers.push(() => new Response('{"message":"Server Error"}', { status: 502 }))
-  await runUntil(h, '2026-10-28T23:00:00Z')
-  assert.equal(h.requests.length, 2, 'one failure, then success')
-  const r = h.requests[1]
-  assert.equal(r.url, `https://api.github.com/gists/${gistId}`)
-  assert.equal(r.init.method, 'PATCH')
-  const headers = r.init.headers as Record<string, string>
-  assert.equal(headers.Authorization, 'Bearer secret-token-123')
-  assert.equal(headers['User-Agent'], 'szczekaczka-briefing')
-  const body = JSON.parse(String(r.init.body)) as { files: Record<string, { content: string }>; description: string }
-  assert.deepEqual(Object.keys(body.files), ['poranek.md'])
-  assert.equal(body.files['poranek.md'].content, packOf(h.d.store)!.text)
-  const latest = h.d.store.getPack('latest')!
-  assert.equal(latest.gist?.ok, true)
-  assert.equal(latest.gist?.link, `https://gist.githubusercontent.com/dankostecki/${gistId}/raw/poranek.md`)
-  assert.ok(h.logs.some((l) => /the gist failed \(GitHub 502: Server Error\)/.test(l)))
-  assert.ok(h.logs.every((l) => !l.includes('secret-token-123')))
-  assert.equal(packStatus(h.d).latest?.gist?.link, latest.gist?.link)
-})
-
-test('the gist set after the pack was made: written then; a gist that keeps failing is left after 5 tries', async () => {
-  const gistId = '0123456789abcdef0123456789abcdef'
-  const h = deps({}, '2026-10-28T06:45:00Z')
-  await runUntil(h, '2026-10-28T23:00:00Z')
-  assert.equal(h.requests.length, 0)
-  const later = deps({ BRIEFING_PACK_GIST_ID: gistId, BRIEFING_PACK_GITHUB_TOKEN: 't' }, '2026-10-28T10:00:00Z')
-  later.d.store = h.d.store
-  for (let i = 0; i < 6; i++) later.answers.push(() => new Response('{"message":"Bad credentials"}', { status: 401 }))
-  await runUntil(later, '2026-10-28T23:00:00Z')
-  assert.equal(later.requests.length, 5)
-  assert.equal(later.d.store.getPack('latest')!.gist?.ok, false)
-  assert.match(later.d.store.getPack('latest')!.gist!.error!, /401: Bad credentials/)
 })
 
 test('the pack off: nothing is made, no wake-up', async () => {
