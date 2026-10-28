@@ -1,9 +1,12 @@
 import type { Poller } from './poller'
 import type { Hub } from './hub'
+import type { Briefing } from './briefing/do'
 
 export interface Env {
   POLLER: DurableObjectNamespace<Poller>
   HUB: DurableObjectNamespace<Hub>
+  // The morning briefing (worker/briefing): its settings are BRIEFING_* variables and secrets, read by briefing/config.ts
+  BRIEFING: DurableObjectNamespace<Briefing>
   ASSETS: Fetcher
   // Workers AI, for the translations (worker/translate.ts); without it (local tests) nothing is translated
   AI?: Ai

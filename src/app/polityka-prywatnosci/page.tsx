@@ -22,6 +22,10 @@ export default function PrivacyPolicy() {
           </li>
           <li>Twoje ustawienia, przeczytane i zapisane newsy są tylko w pamięci Twojej przeglądarki. Nie wysyłamy ich na serwer.</li>
           <li>
+            Poranny przegląd rynków przygotowuje serwer z publicznych wiadomości i stron internetowych, z pomocą usług OpenAI (tekst) i Google Cloud
+            (głos). Nie trafiają tam żadne dane o Tobie (pkt 4).
+          </li>
+          <li>
             Serwery, które dostarczają stronę (Cloudflare, a pod adresem dankostecki.github.io także GitHub), technicznie
             widzą Twój adres IP przy każdym połączeniu, jak każda strona internetowa.
           </li>
@@ -41,7 +45,8 @@ export default function PrivacyPolicy() {
       <p>
         Otwarcie strony to kilka zapytań do serwera: pobranie plików strony, listy newsów i małego pliku z numerem
         wersji strony (powtarzane co kilka minut, dopóki strona jest otwarta, żeby wiedzieć, że jest nowsza wersja) oraz
-        nawiązanie stałego połączenia (WebSocket), przez które serwer przysyła nowe newsy. Serwis jest
+        nawiązanie stałego połączenia (WebSocket), przez które serwer przysyła nowe newsy. Strona porannego przeglądu rynków pobiera
+        z tego samego serwera jego tekst i nagranie. Serwis jest
         dostępny pod dwoma adresami. W wersji na Cloudflare wszystko dostarcza Cloudflare. W wersji pod adresem
         dankostecki.github.io/szczekaczka pliki strony dostarcza GitHub (GitHub Pages), a listę newsów i stałe
         połączenie Cloudflare. Dostawcy hostingu przetwarzają przy tym dane techniczne: adres IP, datę i godzinę,
@@ -107,16 +112,17 @@ export default function PrivacyPolicy() {
             <td>Do czasu usunięcia</td>
           </tr>
           <tr>
-            <td><code>szczekaczka-v1</code> (pamięć podręczna)</td>
-            <td>Kopia plików strony i ostatnio pobranej listy newsów, żeby Serwis uruchamiał się bez sieci i pokazał ostatnią listę.</td>
-            <td>Do czasu usunięcia. Lista jest nadpisywana przy każdym pobraniu, a pliki strony przy każdej jej nowej wersji.</td>
+            <td><code>szczekaczka-v2</code> (pamięć podręczna)</td>
+            <td>Kopia plików strony, ostatnio pobranej listy newsów i tekstu ostatnio otwartych wydań porannego przeglądu (bez nagrania), żeby Serwis uruchamiał się bez sieci i pokazał ostatnią listę.</td>
+            <td>Do czasu usunięcia. Lista i przegląd są nadpisywane przy każdym pobraniu, a pliki strony przy każdej jej nowej wersji.</td>
           </tr>
         </tbody>
       </table>
       <p>
         Pamięcią podręczną zarządza krótki skrypt Serwisu (service worker), który działa na Twoim urządzeniu. Nie
-        wysyła on żadnych danych na serwer ani do osób trzecich. Serwis można też zainstalować jak aplikację (na
-        ekranie głównym telefonu lub w oknie na komputerze), co nie zmienia tego, jakie dane przetwarza.
+        wysyła on żadnych danych na serwer ani do osób trzecich. Nagranie porannego przeglądu przeglądarka może zachować
+        we własnej pamięci podręcznej, jak każdy plik pobrany ze strony; usuniesz je, czyszcząc dane witryny w ustawieniach przeglądarki.
+        Serwis można też zainstalować jak aplikację (na ekranie głównym telefonu lub w oknie na komputerze), co nie zmienia tego, jakie dane przetwarza.
       </p>
       <p>
         Zapisujemy tylko to, co jest niezbędne do działania funkcji, z których korzystasz. Zgodnie z art. 5 ust. 3
@@ -165,6 +171,17 @@ export default function PrivacyPolicy() {
         Gdy klikniesz ikonę linku przy newsie albo „Otwórz źródło” w jego oknie, przechodzisz na stronę źródła (newsy Waltera Bloomberga prowadzą do profilu jego autora
         w serwisie X) i od tej chwili obowiązuje polityka prywatności tamtego serwisu. Tak samo jest z linkiem do profilu
         autora Szczekaczki w serwisie X.
+      </p>
+
+      <h3>Poranny przegląd rynków: OpenAI i Google Cloud</h3>
+      <p>
+        Poranny przegląd przygotowuje serwer Serwisu, bez udziału Twojej przeglądarki. Z wiadomości źródeł wymienionych wyżej wybiera
+        najważniejsze, a każdą sprawdza na publicznych stronach internetowych (oficjalnych stronach instytucji i spółek oraz w serwisach
+        informacyjnych), które sam pobiera, przestrzegając ich zasad dla robotów (robots.txt) i nie omijając płatnego dostępu.
+        Treść tych wiadomości i fragmenty tych stron serwer wysyła do modeli językowych OpenAI, które pomagają wybrać, sprawdzić i napisać
+        tekst przeglądu, a gotowy tekst do usługi Google Cloud Text-to-Speech, która zamienia go na nagranie. Trafiają tam wyłącznie te
+        publiczne treści, bez żadnych danych o Tobie i bez informacji o tym, kto słucha przeglądu. Gotowe wydania (tekst, nagranie i linki
+        do źródeł) serwer przechowuje przez 30 dni.
       </p>
 
       <h3>Notowania i wykresy: TradingView (zakładka Rynek i newsy)</h3>
@@ -216,6 +233,7 @@ export default function PrivacyPolicy() {
           z nią roszczenia.
         </li>
         <li><b>Pamięć przeglądarki:</b> do czasu, aż ją usuniesz (pkt 3).</li>
+        <li><b>Wydania porannego przeglądu</b> (treści publiczne, nie dane osobowe): 30 dni na serwerze.</li>
         <li><b>Pliki cookies TradingView</b> (tylko po włączeniu wykresów): przez okres określony przez TradingView albo do czasu, aż je usuniesz w przeglądarce.</li>
       </ul>
 

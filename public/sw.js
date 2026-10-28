@@ -3,10 +3,11 @@
 // page and the list already are; "Usuń wszystkie dane" in the settings removes them.
 //
 // - files of the page whose names carry a hash (/_next/static/): from the copy, fetched once
-// - every other page, picture or file of the site, and the list of news (/api/news): from the network, and the last
-//   copy when there is no network (or it is slow: 5 s)
-// - /version.json (is a newer version out?) and everything else (other sites, the WebSocket, POST) is not touched
-const CACHE = 'szczekaczka-v1'
+// - every other page, picture or file of the site, the list of news (/api/news) and the text of the morning briefing
+//   (/api/briefing, /api/briefing/editions/…): from the network, and the last copy when there is no network (or it is slow: 5 s)
+// - /version.json (is a newer version out?), the briefing's audio (the player asks for parts of it: Range, which a copy
+//   cannot answer), and everything else (other sites, the WebSocket, POST) is not touched
+const CACHE = 'szczekaczka-v2'
 const BASE = new URL(self.registration.scope).pathname // "/" on Cloudflare, "/szczekaczka/" on GitHub Pages
 const SLOW_MS = 5000
 const MAX_STATIC = 120 // every release brings files with new names; the oldest of those copies go first
@@ -20,7 +21,8 @@ self.addEventListener('activate', (event) => {
   })())
 })
 
-const isApi = (url) => url.pathname === '/api/news'
+const isApi = (url) => url.pathname === '/api/news' || url.pathname === '/api/briefing' || url.pathname.startsWith('/api/briefing/editions/')
+const untouched = (url) => url.pathname.endsWith('/version.json') || url.pathname.startsWith('/api/briefing/audio/') || url.pathname.startsWith('/api/briefing/admin')
 
 async function remember(cache, request, response) {
   if (!response.ok || response.type === 'opaque') return
@@ -56,7 +58,7 @@ self.addEventListener('fetch', (event) => {
   const { request } = event
   if (request.method !== 'GET') return
   const url = new URL(request.url)
-  if (url.pathname.endsWith('/version.json')) return
+  if (untouched(url)) return
   if (isApi(url)) return event.respondWith(networkFirst(request))
   if (url.origin !== self.location.origin || !url.pathname.startsWith(BASE)) return
   if (url.pathname.startsWith(`${BASE}_next/static/`)) return event.respondWith(cacheFirst(request))
