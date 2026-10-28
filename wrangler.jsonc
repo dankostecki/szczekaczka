@@ -14,14 +14,21 @@
   "durable_objects": {
     "bindings": [
       { "name": "POLLER", "class_name": "Poller" },
-      { "name": "HUB", "class_name": "Hub" }
+      { "name": "HUB", "class_name": "Hub" },
+      // The morning briefing (worker/briefing, docs/poranny-przeglad.md): off until BRIEFING_MODE is set
+      { "name": "BRIEFING", "class_name": "Briefing" }
     ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Poller", "Hub"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Poller", "Hub"] },
+    { "tag": "v2", "new_sqlite_classes": ["Briefing"] }
+  ],
   "triggers": { "crons": ["*/10 * * * *"] },
   // Workers AI: Walter Bloomberg's posts translated into Polish (worker/translate.ts), within the free 10,000 neurons a day
   "ai": { "binding": "AI" },
   // The copy of the page on GitHub Pages gets its news from this Worker
   "vars": { "ALLOWED_ORIGINS": "https://dankostecki.github.io" },
+  // Variables set in the Cloudflare dashboard (the briefing's BRIEFING_* settings) stay as they are on deploy
+  "keep_vars": true,
   "observability": { "enabled": true }
 }

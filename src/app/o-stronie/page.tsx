@@ -105,6 +105,27 @@ export default function About() {
         któregoś zabraknie albo pojawi się niewłaściwy.
       </p>
 
+      <h2>Poranny przegląd rynków</h2>
+      <p>
+        <Link href="/poranek">Poranny przegląd</Link> to kilka najważniejszych informacji z rynków od wieczora do rana: do wysłuchania
+        (nagranie trwa kilka minut) i do przeczytania, z linkami do źródeł przy każdej informacji. Obejmuje wiadomości opublikowane od wieczora
+        dnia poprzedniego do zamknięcia wydania wczesnym rankiem i ukazuje się rano; dokładne godziny (w czasie polskim) są przy każdym wydaniu.
+      </p>
+      <ul>
+        <li>Wiadomości bierze z tych samych źródeł co lista newsów, według godziny ich publikacji.</li>
+        <li>
+          Sztuczna inteligencja (modele OpenAI) wybiera najważniejsze, a każdą informację sprawdza na publicznych stronach: u źródła (instytucji,
+          spółki, giełdy) i w co najmniej jednym niezależnym serwisie informacyjnym. Strony czyta tylko tam, gdzie pozwalają na to ich zasady dla
+          robotów, i nie omija płatnego dostępu. Cytaty i liczby są porównywane z treścią tych stron; informacja, której nie da się tak potwierdzić,
+          albo którą źródła podają różnie, do przeglądu nie trafia. Nie trafiają też stare historie, które wróciły w nowych wiadomościach.
+        </li>
+        <li>Tekst jest pisany po polsku i jeszcze raz sprawdzany z potwierdzonymi informacjami, a nagranie powstaje w syntezatorze mowy (Google Cloud).</li>
+        <li>
+          Gdy czegoś nie da się zrobić porządnie (za mało potwierdzonych informacji, błąd którejś z usług), wydanie się nie ukazuje, a strona pokazuje
+          poprzednie. Mimo tych kontroli przegląd może zawierać błędy: to automatyczne omówienie, a nie rekomendacja inwestycyjna.
+        </li>
+      </ul>
+
       <h2>Jak newsy trafiają na stronę</h2>
       <ul>
         <li>

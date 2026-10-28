@@ -4,6 +4,8 @@ import { DurableObject } from 'cloudflare:workers'
 import { FEEDS, feedKey, renamedKey, renamedId, renamedItem, HUBS, HEARTBEAT_SECONDS, type FeedConfig } from '../src/lib/sources'
 import { checkSeconds } from '../src/lib/schedule'
 import type { Delta, FeedSnapshot, Heartbeat } from '../src/lib/protocol'
+import type { BriefingPointer } from '../src/lib/briefing'
+import type { PollerItems } from './briefing/collect'
 import { checkFeed, type FeedState } from './feeds'
 import { checkMacro, macroDueAt } from './macro'
 import { translateNew } from './translate'
@@ -25,6 +27,8 @@ export class Poller extends DurableObject<Env> {
   // Pages connected to each hub, as the hubs reported. Saved (when it changes), because the
   // object may be evicted from memory between two heartbeats.
   private online: number[] = Array(HUBS).fill(0)
+  // The latest morning briefing (worker/briefing), as JSON for the snapshot: the page shows the way to it without asking
+  private briefingJson: string | null = null
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
@@ -32,6 +36,8 @@ export class Poller extends DurableObject<Env> {
       const sql = ctx.storage.sql
       sql.exec('CREATE TABLE IF NOT EXISTS feeds (key TEXT PRIMARY KEY, state TEXT NOT NULL)')
       sql.exec('CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v INTEGER NOT NULL)')
+      sql.exec('CREATE TABLE IF NOT EXISTS briefing (k TEXT PRIMARY KEY, v TEXT NOT NULL)')
+      this.briefingJson = sql.exec<{ v: string }>("SELECT v FROM briefing WHERE k = 'latest'").toArray()[0]?.v ?? null
       const known = new Set(FEEDS.map((f) => feedKey(f.source, f.label)))
       const removed: string[] = []
       const renamed: [string, string][] = []
@@ -83,12 +89,48 @@ export class Poller extends DurableObject<Env> {
         return json
       })
       // Same shape as a Snapshot object (v first: the Worker reads it for the ETag)
-      this.snapshotJson = `{"v":${this.v},"feeds":[${feeds.join(',')}]}`
+      this.snapshotJson = `{"v":${this.v},"feeds":[${feeds.join(',')}]${this.briefingJson ? `,"briefing":${this.briefingJson}` : ''}}`
     }
     return this.snapshotJson
   }
 
   async kick(): Promise<void> { await this.ensureAlarm() }
+
+  // ── Called by the morning briefing (worker/briefing) ──
+  // The items of every channel published in [from, to) as kept (each with the publication time its feed gave when it was
+  // first read), without their reading-window text; how many were left out; and how the channels stand
+  async briefingItems(from: number, to: number): Promise<PollerItems> {
+    const items: PollerItems['items'] = [], feeds: PollerItems['feeds'] = []
+    let undated = 0, outside = 0
+    for (const f of FEEDS) {
+      const key = feedKey(f.source, f.label)
+      const s = this.feeds.get(key)
+      if (!s) continue
+      for (const it of s.items) {
+        const t = it.pubDate ? Date.parse(it.pubDate) : NaN
+        if (!Number.isFinite(t)) { undated++; continue }
+        if (t < from || t >= to) { outside++; continue }
+        const { body: _, ...rest } = it
+        items.push({ ...rest, description: it.description.slice(0, 400) })
+      }
+      feeds.push({ key, error: s.error, failures: s.failures ?? 0, checkedAt: s.checkedAt })
+    }
+    return { items, feeds, at: Date.now(), undated, outside }
+  }
+
+  // A new latest edition (or none): in the snapshot from now on. The version moves on, so that pages fetch the list again
+  // (with the pointer) at their next chance, without a message to every page now.
+  async setBriefing(latest: BriefingPointer | null): Promise<void> {
+    const json = latest ? JSON.stringify({ id: latest.id, publishedAt: latest.publishedAt }) : null
+    if (json === this.briefingJson) return
+    this.briefingJson = json
+    const sql = this.ctx.storage.sql
+    if (json) sql.exec("INSERT OR REPLACE INTO briefing (k, v) VALUES ('latest', ?)", json)
+    else sql.exec("DELETE FROM briefing WHERE k = 'latest'")
+    this.v++
+    sql.exec("INSERT OR REPLACE INTO meta (k, v) VALUES ('v', ?)", this.v)
+    this.snapshotJson = null
+  }
 
   // A hub got its first browser: send it the next messages again. Returns the current
   // version, which the hub passes on to the browser.

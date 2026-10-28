@@ -24,6 +24,8 @@ export const Speaker = ({ on, quiet = false, ...p }: P & { on: boolean; quiet?: 
 export const Bell = ({ on, ...p }: P & { on: boolean }) => (
   <Svg {...p}><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 01-3.4 0" />{!on && <path d="M2 2l20 20" />}</Svg>
 )
+// A radio: the morning briefing
+export const Radio = (p: P) => <Svg {...p}><rect x="3" y="9" width="18" height="12" rx="2" /><path d="M7 9l10-6" /><circle cx="9" cy="15" r="2.2" /><path d="M15 13.5h2.5M15 16.5h2.5" /></Svg>
 export const Refresh = (p: P) => <Svg {...p}><path d="M21 12a9 9 0 11-3-6.7L21 8" /><path d="M21 3v5h-5" /></Svg>
 export const Sun = (p: P) => (
   <Svg {...p}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></Svg>

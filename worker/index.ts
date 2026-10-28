@@ -3,8 +3,12 @@
 import { HUBS } from '../src/lib/sources'
 import { type Env, poller, hub } from './env'
 
+import { briefing, briefingApi } from './briefing/api'
+import { readConfig } from './briefing/config'
+
 export { Poller } from './poller'
 export { Hub } from './hub'
+export { Briefing } from './briefing/do'
 
 // Pages of another site that may use the API: the GitHub Pages copy (ALLOWED_ORIGINS)
 function otherSite(req: Request, url: URL, env: Env): string | null {
@@ -49,11 +53,17 @@ export default {
     const url = new URL(req.url)
     if (url.pathname === '/ws') return connect(req, env, url)
     if (url.pathname === '/api/news') return news(req, env, url)
+    if (url.pathname === '/api/briefing' || url.pathname.startsWith('/api/briefing/')) {
+      const origin = otherSite(req, url, env)
+      return briefingApi(req, env, url, { Vary: 'Origin', ...(origin ? { 'Access-Control-Allow-Origin': origin } : {}) })
+    }
     return env.ASSETS.fetch(req)
   },
   // Every 10 minutes: make sure the poller's loop is running (it starts itself on the
-  // first visit; this restarts it if anything ever stopped it)
+  // first visit; this restarts it if anything ever stopped it), and the briefing's (when it is on)
   async scheduled(_event, env, ctx) {
     ctx.waitUntil(poller(env).kick())
+    // the briefing's object is not even woken while the briefing is off
+    if (readConfig(env as unknown as Record<string, unknown>).config.mode !== 'off') ctx.waitUntil(briefing(env).kick())
   },
 } satisfies ExportedHandler<Env>

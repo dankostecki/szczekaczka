@@ -3,6 +3,7 @@
 // every minute, which is what lets the free Cloudflare plan carry many users.
 import { finalizeItems, type NewsItem } from './parse'
 import { HEARTBEAT, type Delta, type Heartbeat, type Hello, type Snapshot } from './protocol'
+import type { BriefingPointer } from './briefing'
 import { FEEDS, feedKey } from './sources'
 import { withTime, type Item, type FeedError } from './news'
 import { API_ORIGIN } from './site'
@@ -14,6 +15,7 @@ export interface LiveHandlers {
   onStatus: (status: LiveStatus) => void
   onError: (message: string) => void
   onOnline?: (pages: number) => void // pages connected right now (all users)
+  onBriefing?: (latest: BriefingPointer | null) => void // the latest morning briefing, as the list says
 }
 
 const RETRY_MS = [1, 2, 5, 10, 30, 60].map((s) => s * 1000)
@@ -66,6 +68,7 @@ export function connectLive(h: LiveHandlers) {
         }
         buffered = []
         emit()
+        h.onBriefing?.(snap.briefing && typeof snap.briefing.id === 'string' ? snap.briefing : null)
       } catch (e) {
         // Shown as "Serwer (…)"; a failed fetch has only an English browser message
         h.onError(e instanceof Error && e.message.startsWith('odpowiedział') ? e.message : 'brak połączenia')

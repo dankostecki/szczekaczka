@@ -49,7 +49,8 @@ export default function Terms() {
             <li>czytania newsów na głos syntezatorem mowy przeglądarki,</li>
             <li>powiadomień na pulpicie o nowych newsach,</li>
             <li>zapisywania newsów na później, oznaczania przeczytanych i listy obserwowanych spółek,</li>
-            <li>podglądu notowań i wykresów instrumentów finansowych z serwisu TradingView (zakładka Rynek i notowania przy newsach), po ich włączeniu przez Użytkownika.</li>
+            <li>podglądu notowań i wykresów instrumentów finansowych z serwisu TradingView (zakładka Rynek i notowania przy newsach), po ich włączeniu przez Użytkownika,</li>
+            <li>porannego przeglądu rynków: krótkiego tekstu i nagrania z najważniejszymi informacjami od wieczora do rana, przygotowywanych automatycznie (§ 5 ust. 3).</li>
           </ul>
         </li>
         <li>
@@ -105,6 +106,13 @@ export default function Terms() {
           kanałach (system ESPI/EBI, strony spółek, strona GPW).
         </li>
         <li>
+          Poranny przegląd rynków przygotowuje automatycznie model sztucznej inteligencji (OpenAI) na podstawie wiadomości ze źródeł Serwisu
+          i publicznych stron internetowych, a nagranie powstaje w syntezatorze mowy (Google Cloud). Każda informacja w przeglądzie jest przed publikacją
+          sprawdzana w co najmniej dwóch niezależnych źródłach, a przy każdej są linki do nich. Mimo to przegląd może zawierać błędy, pominięcia,
+          nieaktualne informacje albo błędy wymowy, a wydanie może się opóźnić lub nie ukazać. Przegląd obejmuje tylko wiadomości z okresu podanego
+          przy wydaniu.
+        </li>
+        <li>
           Notowania i wykresy w zakładce Rynek i przy newsach pochodzą z serwisu TradingView i są pokazywane w jego widżetach. Notowania akcji
           są opóźnione (zwykle o 15 minut), a notowania z Giełdy Papierów Wartościowych w Warszawie pochodzą z końca dnia; niektórych instrumentów widżety
           nie pokazują wcale. Usługodawca nie odpowiada za poprawność, kompletność ani dostępność tych danych. Instrumenty przy newsie
@@ -130,6 +138,10 @@ export default function Terms() {
         <li>
           Prawa do nagłówków, zajawek i znaków towarowych należą do ich wydawców i właścicieli. Serwis pokazuje je
           z podaniem źródła i linkiem do pełnej treści.
+        </li>
+        <li>
+          Poranny przegląd jest własnym, krótkim omówieniem informacji. Nie przedrukowuje artykułów; przy każdej informacji podaje wydawcę,
+          tytuł i link do źródła.
         </li>
         <li>
           Wydawca, który nie chce, aby jego treści były pokazywane w Serwisie, może skontaktować się z Usługodawcą.

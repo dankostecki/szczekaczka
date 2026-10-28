@@ -1,6 +1,7 @@
 'use client'
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 import { orderedSources, labelsOf, feedKey, renamedId, renamedItem, sourceName, feedName, type Source } from '@/lib/sources'
 import type { NewsItem } from '@/lib/parse'
 import { type Item, type FeedError, freshItems, keyOf, dayKey, dayLabel, clock, withTime, inLanguage, originalOf } from '@/lib/news'
@@ -21,7 +22,8 @@ import ChartWindow from './ChartWindow'
 import PrivacyNotice from './PrivacyNotice'
 import ScrollRow from './ScrollRow'
 import { SiteFooter } from './LegalPage'
-import { Logo, Speaker, Bell, Refresh, Sun, Moon, Gear, Search, Close, Star, Chart } from './Icons'
+import { Logo, Speaker, Bell, Refresh, Sun, Moon, Gear, Search, Close, Star, Chart, Radio } from './Icons'
+import type { BriefingPointer } from '@/lib/briefing'
 
 const READ_KEY  = 'szczekaczka:read'
 const SAVED_KEY = 'szczekaczka:saved'
@@ -50,6 +52,10 @@ function emptyTab(src: Source, label: string | null, errors: FeedError[], watchi
   return src === 'ESPI' && watching ? 'Na razie brak raportów ESPI obserwowanych spółek. Listę spółek zmienisz w ustawieniach.' : `Na razie brak newsów z ${name}.`
 }
 
+// The latest morning briefing is today's (by the Polish date): the button says so
+const polishDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit' })
+const fresh = (b: BriefingPointer) => b.id === polishDate.format(new Date())
+
 // Read and saved news of a renamed channel get its new ids, saved back once
 function moved<T>(key: string, list: T[], rename: (x: T) => T): T[] {
   const out = list.map(rename)
@@ -64,6 +70,7 @@ export default function App() {
   const [loaded,    setLoaded]    = useState(false)
   const [status,    setStatus]    = useState<LiveStatus>('connecting')
   const [online,    setOnline]    = useState<number | null>(null) // pages connected right now, all users
+  const [briefing,  setBriefing]  = useState<BriefingPointer | null>(null) // the latest morning briefing, when there is one
   const [updatedAt, setUpdatedAt] = useState<number | null>(null)
   const [prefs,     setPrefs]     = useState<Prefs>(DEFAULT_PREFS)
   const [ready,     setReady]     = useState(false) // prefs restored from this browser
@@ -167,6 +174,7 @@ export default function App() {
       onData,
       onStatus: setStatus,
       onOnline: setOnline,
+      onBriefing: setBriefing,
       onError: (message) => { setErrors([{ feed: 'Serwer', message }]); setLoaded(true) },
     })
     liveConn.current = conn
@@ -407,6 +415,12 @@ export default function App() {
           </span>
 
           <nav className="actions">
+            {briefing && (
+              <Link className={`act ${fresh(briefing) ? 'on' : ''}`} href="/poranek"
+                title={fresh(briefing) ? 'Poranny przegląd rynków: dzisiejsze wydanie' : 'Poranny przegląd rynków'}>
+                <Radio /><span className="lbl">Przegląd</span>
+              </Link>
+            )}
             {canSpeak && (
               <button className={`act ${voiceOn ? 'on' : ''}`} onClick={toggleVoice} aria-pressed={voiceOn}
                 title={voiceOn ? 'Głos włączony: nowe newsy są czytane na głos' : 'Włącz czytanie nowych newsów na głos'}>
