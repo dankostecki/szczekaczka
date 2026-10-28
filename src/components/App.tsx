@@ -1,7 +1,7 @@
 'use client'
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { orderedSources, labelsOf, renamedId, renamedItem, sourceName, feedName, type Source } from '@/lib/sources'
+import { orderedSources, labelsOf, feedKey, renamedId, renamedItem, sourceName, feedName, type Source } from '@/lib/sources'
 import type { NewsItem } from '@/lib/parse'
 import { type Item, type FeedError, freshItems, keyOf, dayKey, dayLabel, clock, withTime, inLanguage, originalOf } from '@/lib/news'
 import { connectLive, type LiveStatus } from '@/lib/live'
@@ -276,18 +276,26 @@ export default function App() {
   const watched = useMemo(() => watchMatcher(prefs.watchlist), [prefs.watchlist])
   const q = query.trim().toLowerCase()
 
-  // Channels switched off in the settings are left out everywhere except "Zapisane"
+  // Channels switched off (in the settings, or with the dot of a source on its tab) are left out of "Wszystko", of the reading aloud and of the
+  // notifications; their source keeps its tab (dimmed), with the news of all its channels in it, so it can be looked at and switched on again
   const hidden = useMemo(() => new Set(prefs.hiddenFeeds), [prefs.hiddenFeeds])
   const original = prefs.originalFeeds
   // ESPI with a watch list: only the reports of those companies (the saved ones stay, whatever the list says)
   const listed = useMemo(() => onWatchlist(prefs.watchlist), [prefs.watchlist])
-  const shown = useMemo(() => items.filter((i) => !hidden.has(keyOf(i)) && listed(i)).map((i) => inLanguage(i, original)), [items, hidden, listed, original])
-  const labelsShown = (src: Source) => labelsOf(src).filter((l) => !hidden.has(`${src}:${l}`))
+  const everything = useMemo(() => items.filter(listed).map((i) => inLanguage(i, original)), [items, listed, original])
+  const shown = useMemo(() => everything.filter((i) => !hidden.has(keyOf(i))), [everything, hidden])
+  const sourceKeys = (src: Source) => labelsOf(src).map((l) => feedKey(src, l))
+  // on: all its channels in "Wszystko"; part: some; off: none
+  const stateOf = (src: Source): 'on' | 'part' | 'off' => {
+    const n = sourceKeys(src).filter((k) => !hidden.has(k)).length
+    return n === sourceKeys(src).length ? 'on' : n === 0 ? 'off' : 'part'
+  }
+  // The channels of a source's tab: the ones that are on, and all of them when none is (a source switched off is looked at whole)
+  const tabLabels = (src: Source) => { const on = labelsOf(src).filter((l) => !hidden.has(feedKey(src, l))); return on.length ? on : labelsOf(src) }
   // the tabs: everything, the market, the sources in the order the reader set in the settings, the saved
-  const filters = (['ALL', 'MARKET', ...orderedSources(prefs.sourceOrder), 'SAVED'] as Filter[]).filter((f) => !isSource(f) || labelsShown(f).length > 0)
-  // A tab or channel chip whose channels were just hidden falls back to everything
+  const filters = ['ALL', 'MARKET', ...orderedSources(prefs.sourceOrder), 'SAVED'] as Filter[]
   const activeFilter: Filter = filters.includes(filter) ? filter : 'ALL'
-  const activeLabel = label && isSource(activeFilter) && !hidden.has(`${activeFilter}:${label}`) ? label : null
+  const activeLabel = label && isSource(activeFilter) && tabLabels(activeFilter).includes(label) ? label : null
   const market = activeFilter === 'MARKET'
   useEffect(() => { if (market) setMarketSeen(true) }, [market])
 
@@ -296,9 +304,9 @@ export default function App() {
       activeFilter === 'SAVED' ? saved.map((i) => inLanguage(i, original)).sort((a, b) => b.time - a.time)
       : activeFilter === 'ALL' ? shown
       : activeFilter === 'MARKET' ? []
-      : shown.filter((i) => i.source === activeFilter && (!activeLabel || i.label === activeLabel))
+      : everything.filter((i) => i.source === activeFilter && (stateOf(activeFilter) === 'off' || !hidden.has(keyOf(i))) && (!activeLabel || i.label === activeLabel))
     return q ? base.filter((i) => `${i.title} ${i.description} ${i.source} ${i.label}`.toLowerCase().includes(q)) : base
-  }, [shown, saved, original, activeFilter, activeLabel, q])
+  }, [shown, everything, hidden, saved, original, activeFilter, activeLabel, q])
 
   // News per channel, for the settings (also for hidden channels)
   const counts = useMemo(() => {
@@ -307,10 +315,13 @@ export default function App() {
     return c
   }, [items])
 
-  // Errors of hidden channels are not shown either ("STOOQ · BIZNES" is the channel STOOQ:BIZNES)
-  const shownErrors = errors.filter((e) => !hidden.has(e.feed.replace(' · ', ':')))
+  // Errors of hidden channels are not shown either, except on the tab of their source ("STOOQ · BIZNES" is the channel STOOQ:BIZNES)
+  const shownErrors = errors.filter((e) => {
+    const key = e.feed.replace(' · ', ':')
+    return !hidden.has(key) || (isSource(activeFilter) && key.startsWith(`${activeFilter}:`))
+  })
 
-  const subLabels = isSource(activeFilter) ? labelsShown(activeFilter) : []
+  const subLabels = isSource(activeFilter) ? tabLabels(activeFilter) : []
 
   // ── The market: a chart in a window (a phone) or beside the table (a computer); the symbols looked at last are remembered ──
   const openChart = useCallback((symbol: string, origin: Origin | null) => {
@@ -351,6 +362,24 @@ export default function App() {
   function choose(f: Filter) {
     setFilter(f); setLabel(null)
     window.scrollTo({ top: 0 })
+  }
+
+  // The dot of a source: all its channels in "Wszystko" (and read aloud, notified), or none; a source of which only some are on is switched on
+  // (the same as the box of its row in the settings). A short note says what happened, with the way back
+  const [snack, setSnack] = useState<{ text: string; undo: () => void } | null>(null)
+  const snackTimer = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(snackTimer.current), [])
+  function setSource(src: Source, on: boolean) {
+    const keys = sourceKeys(src)
+    updatePrefs({ hiddenFeeds: on ? prefs.hiddenFeeds.filter((k) => !keys.includes(k)) : [...new Set([...prefs.hiddenFeeds, ...keys])] })
+  }
+  function toggleSource(src: Source) {
+    const on = stateOf(src) !== 'on'
+    const before = prefs.hiddenFeeds
+    setSource(src, on)
+    window.clearTimeout(snackTimer.current)
+    setSnack({ text: `${sourceName(src)}: ${on ? 'włączono' : 'wyłączono'} w widoku Wszystko`, undo: () => { updatePrefs({ hiddenFeeds: before }); setSnack(null) } })
+    snackTimer.current = window.setTimeout(() => setSnack(null), 6000)
   }
 
   return (
@@ -407,13 +436,27 @@ export default function App() {
 
         <div className="filters wrap">
           <ScrollRow className="chips" role="tablist" active={activeFilter}>
-            {filters.map((f) => (
-              <button key={f} role="tab" aria-selected={activeFilter === f} className={`chip ${activeFilter === f ? 'on' : ''}`}
-                style={{ ['--c' as string]: filterColor(f) }} onClick={() => choose(f)}>
-                {f === 'SAVED' ? <Star filled={activeFilter === f} size={13} /> : f === 'MARKET' ? <Chart size={14} /> : f !== 'ALL' && <i className="dot" />}
-                {filterName(f)}
-              </button>
-            ))}
+            {filters.map((f) => {
+              if (!isSource(f)) return (
+                <button key={f} role="tab" aria-selected={activeFilter === f} className={`chip ${activeFilter === f ? 'on' : ''}`}
+                  style={{ ['--c' as string]: filterColor(f) }} onClick={() => choose(f)}>
+                  {f === 'SAVED' ? <Star filled={activeFilter === f} size={13} /> : f === 'MARKET' ? <Chart size={14} /> : null}
+                  {filterName(f)}
+                </button>
+              )
+              // A source: the name opens its tab (only its news); the dot in front of it puts it in "Wszystko" or takes it out
+              const state = stateOf(f)
+              return (
+                <span key={f} role="presentation" className={`chip split ${activeFilter === f ? 'on' : ''} ${state === 'on' ? '' : state}`}
+                  style={{ ['--c' as string]: filterColor(f) }}>
+                  <button className="chip-dot" aria-pressed={state === 'on' ? true : state === 'part' ? 'mixed' : false}
+                    aria-label={`${sourceName(f)} w widoku Wszystko`}
+                    title={state === 'on' ? `Wyłącz ${sourceName(f)} w widoku Wszystko` : `Włącz ${sourceName(f)} w widoku Wszystko`}
+                    onClick={() => toggleSource(f)}><i className="dot" /></button>
+                  <button role="tab" aria-selected={activeFilter === f} className="chip-name" onClick={() => choose(f)}>{filterName(f)}</button>
+                </span>
+              )
+            })}
           </ScrollRow>
           <label className="search">
             <Search size={16} />
@@ -452,6 +495,12 @@ export default function App() {
       </header>
 
       <main className="list wrap">
+        {isSource(activeFilter) && stateOf(activeFilter) === 'off' && (
+          <div className="muted-note" role="status">
+            <span>To źródło jest wyłączone w widoku Wszystko, w czytaniu na głos i w powiadomieniach.</span>
+            <button className="btn" onClick={() => toggleSource(activeFilter)}>Włącz</button>
+          </div>
+        )}
         {!market && shownErrors.length > 0 && (
           <div className="errors" role="status">
             Chwilowo nie działa: {shownErrors.map((e) => `${feedName(e.feed)} (${e.message})`).join(', ')}.
@@ -481,7 +530,7 @@ export default function App() {
               : q ? 'Brak wyników dla tego wyszukiwania.'
               : isSource(activeFilter) ? emptyTab(activeFilter, activeLabel, shownErrors, prefs.watchlist.trim() !== '')
               : items.some((i) => !hidden.has(keyOf(i))) ? 'Na razie brak raportów ESPI obserwowanych spółek. Listę spółek zmienisz w ustawieniach.'
-              : items.length > 0 ? 'Kanały z newsami są ukryte. Pokaż je w ustawieniach (kolumna z okiem).'
+              : items.length > 0 ? 'Wszystkie źródła są wyłączone w widoku Wszystko. Włącz je kropką przy nazwie źródła.'
               : 'Brak newsów.'}
           </p>
         )}
@@ -504,6 +553,13 @@ export default function App() {
 
       {loaded && <SiteFooter />}
       <PrivacyNotice />
+
+      {snack && (
+        <div className={`update snack${newer ? ' above' : ''}`} role="status">
+          <span>{snack.text}</span>
+          <button className="btn" onClick={snack.undo}>Cofnij</button>
+        </div>
+      )}
 
       {newer && (
         <div className="update" role="status">

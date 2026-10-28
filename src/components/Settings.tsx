@@ -90,7 +90,7 @@ function ChannelBoxes({ keys, name, prefs, onChange }: { keys: string[]; name: s
   }
   return (
     <>
-      <td><Box on={shown.length === keys.length} some={shown.length > 0} label={`Pokazuj na liście: ${name}`}
+      <td><Box on={shown.length === keys.length} some={shown.length > 0} label={`Pokazuj w widoku Wszystko: ${name}`}
         onChange={() => set('hiddenFeeds', keys, shown.length === keys.length)} /></td>
       {box('speakFeeds', keys, 'Czytaj na głos')}
       {box('notifyFeeds', keys, 'Powiadomienia')}
@@ -165,7 +165,7 @@ export default function Settings(p: Props) {
             <thead>
               <tr>
                 <th>Kanał</th>
-                <th title="Pokazuj na liście"><Eye size={16} /></th>
+                <th title="Pokazuj w widoku Wszystko"><Eye size={16} /></th>
                 <th title="Czytaj na głos"><Speaker on size={16} /></th>
                 <th title="Powiadomienia"><Bell on size={16} /></th>
                 <th title="Czytaj też lead (bez zaznaczenia: sam tytuł)" className="lead">Lead</th>
@@ -217,8 +217,9 @@ export default function Settings(p: Props) {
           </table>
           <p className="hint">
             Wiersz źródła ustawia wszystkie jego kanały naraz, a strzałka je rozwija, żeby ustawić każdy osobno.
-            Oko: kanał na liście. Lead: po tytule czytana jest też zajawka. Strzałki z prawej przesuwają źródło wyżej lub niżej:
-            w tej kolejności są zakładki na stronie głównej.
+            Oko: kanał w widoku Wszystko, w czytaniu na głos i w powiadomieniach. Zakładka źródła zostaje (przygaszona), a jego newsy
+            są w niej dalej. To samo robi kropka przy nazwie źródła na stronie głównej. Lead: po tytule czytana jest też zajawka.
+            Strzałki z prawej przesuwają źródło wyżej lub niżej: w tej kolejności są zakładki na stronie głównej.
           </p>
           {FEEDS.filter((f) => f.translate).map((f) => {
             const key = feedKey(f.source, f.label)
