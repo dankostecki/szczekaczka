@@ -63,7 +63,8 @@ export default {
   // first visit; this restarts it if anything ever stopped it), and the briefing's (when it is on)
   async scheduled(_event, env, ctx) {
     ctx.waitUntil(poller(env).kick())
-    // the briefing's object is not even woken while the briefing is off
-    if (readConfig(env as unknown as Record<string, unknown>).config.mode !== 'off') ctx.waitUntil(briefing(env).kick())
+    // the briefing's object is not even woken while the briefing and its pack for ChatGPT are off
+    const { config } = readConfig(env as unknown as Record<string, unknown>)
+    if (config.mode !== 'off' || config.pack.enabled) ctx.waitUntil(briefing(env).kick())
   },
 } satisfies ExportedHandler<Env>

@@ -129,3 +129,41 @@ test('a full night of news is collected quickly: each of the two steps well with
   const a = best(() => inWindow(data, t, t.cutoff, config)), b = best(() => rank(w.items, config))
   assert.ok(a < 8 && b < 8, `inWindow ${a.toFixed(1)} ms, rank ${b.toFixed(1)} ms (this machine; the Worker's CPU differs)`)
 })
+
+// The pairs rank compares are cut down by counting the words they share (a bound, collect.ts); the groups must be the ones a
+// comparison of every pair gives: two news that share a word few headlines have, within 6 hours, with Jaccard ≥ 0.55, or one link
+test('near-duplicates: the same groups as comparing every pair, on random nights with copied and edited headlines', () => {
+  let seed = 11
+  const rnd = () => (seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31
+  const tokensOf = (it: { title: string; translation?: string }) =>
+    new Set((`${it.title} ${it.translation?.slice(0, 160) ?? ''}`.toLowerCase().match(/[\p{L}\p{N}$%&]+/gu) ?? []).filter((w) => w.length >= 2))
+  for (let trial = 0; trial < 60; trial++) {
+    const vocab = Array.from({ length: 30 + Math.floor(rnd() * 2000) }, (_, i) => `w${i.toString(36)}`)
+    const word = () => vocab[Math.min(vocab.length - 1, Math.floor(Math.exp(rnd() * Math.log(vocab.length)) - 1))]
+    const items: Parameters<typeof rank>[0] = []
+    for (let i = 0; i < 20 + Math.floor(rnd() * 250); i++) {
+      const copy = items.length && rnd() < 0.3 ? items[Math.floor(rnd() * items.length)].title.split(' ') : null
+      if (copy) for (let k = Math.floor(rnd() * 3); k > 0; k--) copy[Math.floor(rnd() * copy.length)] = word()
+      items.push({ id: `S:${i}`, source: ['WALTER', 'STOOQ', 'ESPI'][i % 3], label: 'X', lead: '', time: t.from + Math.floor(rnd() * 13 * 3600_000),
+        title: copy ? copy.join(' ') : Array.from({ length: 2 + Math.floor(rnd() * 12) }, word).join(' '),
+        link: rnd() < 0.04 ? 'https://example.net/same' : `https://example.net/${i}`, ...(rnd() < 0.2 ? { translation: Array.from({ length: 8 }, word).join(' ') } : {}) })
+    }
+    // every pair
+    const words = items.map(tokensOf)
+    const count = new Map<string, number>()
+    for (const w of words) for (const x of w) count.set(x, (count.get(x) ?? 0) + 1)
+    const parent = items.map((_, i) => i)
+    const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])))
+    const join = (a: number, b: number) => { const x = find(a), y = find(b); if (x !== y) parent[Math.max(x, y)] = Math.min(x, y) }
+    for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) {
+      if (items[i].link === items[j].link) join(i, j)
+      const [a, b] = [words[i], words[j]]
+      const common = [...a].filter((x) => b.has(x))
+      if (a.size < 3 || b.size < 3 || Math.abs(items[i].time - items[j].time) > 6 * 3600_000 || !common.some((x) => count.get(x)! <= 40)) continue
+      if (common.length / (a.size + b.size - common.length) >= 0.55) join(i, j)
+    }
+    const expected = new Set(items.map((_, i) => items.filter((_, j) => find(j) === find(i)).map((x) => x.id).sort().join(' ')))
+    const got = new Set(rank(items, { maxCandidates: 1000 }).candidates.map((c) => [...c.itemIds].sort().join(' ')))
+    assert.deepEqual([...got].sort(), [...expected].sort(), `trial ${trial}`)
+  }
+})

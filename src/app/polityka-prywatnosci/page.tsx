@@ -112,7 +112,7 @@ export default function PrivacyPolicy() {
             <td>Do czasu usunięcia</td>
           </tr>
           <tr>
-            <td><code>szczekaczka-v2</code> (pamięć podręczna)</td>
+            <td><code>szczekaczka-v3</code> (pamięć podręczna)</td>
             <td>Kopia plików strony, ostatnio pobranej listy newsów i tekstu ostatnio otwartych wydań porannego przeglądu (bez nagrania), żeby Serwis uruchamiał się bez sieci i pokazał ostatnią listę.</td>
             <td>Do czasu usunięcia. Lista i przegląd są nadpisywane przy każdym pobraniu, a pliki strony przy każdej jej nowej wersji.</td>
           </tr>

@@ -10,6 +10,7 @@ export function sqliteStore(sql: SqlStorage): Store {
     stage TEXT NOT NULL, model TEXT NOT NULL, input_tokens INTEGER, cached_tokens INTEGER, output_tokens INTEGER, reasoning_tokens INTEGER,
     web_searches INTEGER, characters INTEGER, cost_usd REAL NOT NULL, request_id TEXT, ok INTEGER NOT NULL)`)
   sql.exec('CREATE INDEX IF NOT EXISTS usage_at ON usage (at)')
+  sql.exec('CREATE TABLE IF NOT EXISTS pack (slot TEXT PRIMARY KEY, data TEXT NOT NULL)')
   const one = <T>(cursor: SqlStorageCursor<Record<string, SqlStorageValue>>) => cursor.toArray()[0] as T | undefined
   return {
     getEdition: (id) => { const r = one<{ data: string }>(sql.exec('SELECT data FROM editions WHERE id = ?', id)); return r ? JSON.parse(r.data) : null },
@@ -43,5 +44,10 @@ export function sqliteStore(sql: SqlStorage): Store {
     })),
     costSince: (at) => one<{ n: number | null }>(sql.exec('SELECT SUM(cost_usd) AS n FROM usage WHERE at >= ?', at))?.n ?? 0,
     ttsCharsSince: (at) => one<{ n: number | null }>(sql.exec("SELECT SUM(characters) AS n FROM usage WHERE at >= ? AND provider = 'google-tts'", at))?.n ?? 0,
+    getPack: (slot) => { const r = one<{ data: string }>(sql.exec('SELECT data FROM pack WHERE slot = ?', slot)); return r ? JSON.parse(r.data) : null },
+    putPack: (slot, p) => {
+      if (p) sql.exec('INSERT OR REPLACE INTO pack (slot, data) VALUES (?, ?)', slot, JSON.stringify(p))
+      else sql.exec('DELETE FROM pack WHERE slot = ?', slot)
+    },
   }
 }

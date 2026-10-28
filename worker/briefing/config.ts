@@ -73,6 +73,9 @@ export interface BriefingConfig {
   limits: { maxCostPerEditionUsd: number; maxCostPerMonthUsd: number; maxStepAttempts: number; retryBaseMs: number; maxWriteAttempts: number }
   retentionDays: number
   adminToken?: string
+  // The pack for ChatGPT without the API (pack.ts): made at `at` on the days of the briefing, whatever the mode; written to a gist too when both are set.
+  // Its settings' problems are its own: a wrong gist does not stop an edition
+  pack: { enabled: boolean; at: string; gistId?: string; githubToken?: string; problems: string[] }
 }
 
 export type Env = Record<string, unknown>
@@ -148,6 +151,20 @@ export function readConfig(env: Env): { config: BriefingConfig; problems: string
   const effort = str('BRIEFING_OPENAI_REASONING_EFFORT')
   if (effort && !EFFORTS.includes(effort as Effort)) problems.push(`BRIEFING_OPENAI_REASONING_EFFORT: expected one of ${EFFORTS.join(', ')}`)
 
+  const mark = problems.length
+  const pack: BriefingConfig['pack'] = {
+    enabled: oneOf('BRIEFING_PACK', ['on', 'off'] as const, 'on') === 'on',
+    at: time('BRIEFING_PACK_AT', '07:45'),
+    gistId: str('BRIEFING_PACK_GIST_ID'),
+    githubToken: str('BRIEFING_PACK_GITHUB_TOKEN'),
+    problems: [],
+  }
+  const packAt = minutesOf(pack.at)
+  if (packAt < 3 * 60 || packAt > 12 * 60) problems.push('BRIEFING_PACK_AT must be from 03:00 to 12:00 (the pack is made in the morning)')
+  if (pack.gistId && !/^[0-9a-f]{20,40}$/i.test(pack.gistId)) problems.push('BRIEFING_PACK_GIST_ID: expected the id of a gist (the hexadecimal part of its address)')
+  if (!pack.gistId !== !pack.githubToken) problems.push('BRIEFING_PACK_GIST_ID and BRIEFING_PACK_GITHUB_TOKEN go together: the pack is written to the gist only with both')
+  pack.problems = problems.splice(mark)
+
   const rate = str('BRIEFING_TTS_SPEAKING_RATE')
   const speakingRate = rate === undefined ? undefined : num('BRIEFING_TTS_SPEAKING_RATE', 1, 0.25, 2)
 
@@ -222,6 +239,7 @@ export function readConfig(env: Env): { config: BriefingConfig; problems: string
     },
     retentionDays: num('BRIEFING_RETENTION_DAYS', 30, 3, 365),
     adminToken: str('BRIEFING_ADMIN_TOKEN'),
+    pack,
   }
 
   const [start, end, cut, pub, dead] = [config.windowStart, config.windowEnd, config.cutoff, config.publishAt, config.deadline].map(minutesOf)

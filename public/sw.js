@@ -6,8 +6,9 @@
 // - every other page, picture or file of the site, the list of news (/api/news) and the text of the morning briefing
 //   (/api/briefing, /api/briefing/editions/…): from the network, and the last copy when there is no network (or it is slow: 5 s)
 // - /version.json (is a newer version out?), the briefing's audio (the player asks for parts of it: Range, which a copy
-//   cannot answer), and everything else (other sites, the WebSocket, POST) is not touched
-const CACHE = 'szczekaczka-v2'
+//   cannot answer), the briefing's pack for ChatGPT (/api/briefing/pack.md: not a part of the page, nothing to keep on the device)
+//   and everything else (other sites, the WebSocket, POST) is not touched
+const CACHE = 'szczekaczka-v3'
 const BASE = new URL(self.registration.scope).pathname // "/" on Cloudflare, "/szczekaczka/" on GitHub Pages
 const SLOW_MS = 5000
 const MAX_STATIC = 120 // every release brings files with new names; the oldest of those copies go first
@@ -23,6 +24,7 @@ self.addEventListener('activate', (event) => {
 
 const isApi = (url) => url.pathname === '/api/news' || url.pathname === '/api/briefing' || url.pathname.startsWith('/api/briefing/editions/')
 const untouched = (url) => url.pathname.endsWith('/version.json') || url.pathname.startsWith('/api/briefing/audio/') || url.pathname.startsWith('/api/briefing/admin')
+  || url.pathname === '/api/briefing/pack.md'
 
 async function remember(cache, request, response) {
   if (!response.ok || response.type === 'opaque') return

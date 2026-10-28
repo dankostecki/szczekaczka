@@ -1,11 +1,13 @@
-// One Durable Object for the morning briefing: its own SQLite (editions, steps, audio, usage) and its own alarm, which runs
-// the pipeline one step at a time (pipeline.ts). The Worker's cron (every 10 minutes) only makes sure the alarm is set.
+// One Durable Object for the morning briefing: its own SQLite (editions, steps, audio, usage, the pack for ChatGPT) and its own
+// alarm, which runs the pipeline one step at a time (pipeline.ts), and the pack's steps (pack.ts) at their time. The Worker's
+// cron (every 10 minutes) only makes sure the alarm is set.
 import { DurableObject } from 'cloudflare:workers'
 import type { BriefingIndex, BriefingPointer, PublicEdition } from '../../src/lib/briefing'
 import { type Env, poller } from '../env'
 import { readConfig } from './config'
 import { openAiLlm } from './llm'
 import { mockLlm, mockPage, mockSearch, mockTts } from './mock'
+import { packOf, packStatus, packTick, packWake } from './pack'
 import { adminEdition, adminStatus, approve, audioOf, publicEdition, publicIndex, reject, startByHand, tick, type Deps } from './pipeline'
 import { openAiSearch, tavilySearch } from './search'
 import { sqliteStore } from './sqlite'
@@ -53,26 +55,29 @@ export class Briefing extends DurableObject<Env> {
   }
 
   async alarm() {
-    let next: number | null
-    try {
-      next = await tick(this.deps())
-    } catch (e) {
-      console.error('briefing tick failed', e)
-      next = Date.now() + 60_000
+    const d = this.deps()
+    const run = async (what: string, step: () => Promise<number | null>) => {
+      try { return await step() } catch (e) { console.error(`briefing ${what} failed`, e); return Date.now() + 60_000 }
     }
-    if (next !== null) await this.ctx.storage.setAlarm(Math.max(next, Date.now() + 200))
+    const next = [await run('tick', () => tick(d)), await run('pack', () => packTick({ ...d, fetch: (input, init) => fetch(input, init) }))]
+      .filter((t): t is number => t !== null)
+    if (next.length) await this.ctx.storage.setAlarm(Math.max(Math.min(...next), Date.now() + 200))
   }
 
-  // From the cron: an alarm, if there is none and the briefing is on
+  // From the cron: an alarm, if there is none and the briefing or its pack is on
   async kick(): Promise<void> {
     const { config } = readConfig(this.env as unknown as Record<string, unknown>)
-    if (config.mode === 'off') return
-    if ((await this.ctx.storage.getAlarm()) == null) await this.ctx.storage.setAlarm(Date.now() + 1000)
+    if (config.mode === 'off' && !config.pack.enabled) return
+    const alarm = await this.ctx.storage.getAlarm()
+    const pack = packWake(this.store, config, Date.now())
+    if (alarm == null) await this.ctx.storage.setAlarm(Date.now() + 1000)
+    else if (pack !== null && pack < alarm) await this.ctx.storage.setAlarm(Math.max(Date.now() + 1000, pack))
   }
 
   async index(): Promise<BriefingIndex> { return publicIndex(this.deps()) }
   async edition(id: string): Promise<PublicEdition | null> { return publicEdition(this.deps(), id) }
   async audio(id: string, hash: string): Promise<Uint8Array | null> { return audioOf(this.deps(), id, hash) }
+  async pack(): Promise<{ id: string; builtAt: number; text: string } | null> { return packOf(this.store) }
 
   // The answer as JSON text (the operator's endpoints only pass it on)
   async admin(op: string, arg = '', force = false, reason = ''): Promise<{ status: number; json: string }> {
@@ -83,7 +88,7 @@ export class Briefing extends DurableObject<Env> {
   private async adminOp(op: string, arg: string, force: boolean, reason: string): Promise<{ status: number; body: unknown }> {
     const d = this.deps()
     switch (op) {
-      case 'status': return { status: 200, body: adminStatus(d) }
+      case 'status': return { status: 200, body: { ...adminStatus(d), pack: packStatus(d) } }
       case 'edition': { const e = adminEdition(d, arg); return e ? { status: 200, body: e } : { status: 404, body: { error: 'no such edition' } } }
       case 'run': {
         const r = startByHand(d, arg || editionIdAt(Date.now()), force)

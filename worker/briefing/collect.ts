@@ -151,18 +151,30 @@ export function rank(items: WindowItem[], config: Pick<BriefingConfig, 'maxCandi
     if (link) { const j = byLink.get(link); if (j !== undefined) join(i, j); else byLink.set(link, i) }
     for (const w of k.words) { let l = byWord.get(w); if (!l) byWord.set(w, (l = [])); l.push(i) }
   })
+  // Two headlines are compared when they share a word that few headlines have (one that many have says nothing about them).
+  // Their words in common are counted on the way: the rarer ones exactly, the common ones at most as many as either has, so
+  // a pair that cannot reach the threshold (common ≥ 0.55 / 1.55 of both sizes together) is not compared at all. Most pairs
+  // share one word: without this, a full night took several times the free plan's CPU.
+  const COMMON = 40
+  const frequent = kept.map((k) => { let n = 0; for (const w of k.words) if (byWord.get(w)!.length > COMMON) n++; return n })
+  const shared = new Int32Array(kept.length)
+  const reached: number[] = []
   for (const [i, k] of kept.entries()) {
-    const checked = new Set<number>()
+    if (k.words.size < 3) continue
     for (const w of k.words) {
       const list = byWord.get(w)!
-      if (list.length > 40) continue // a word that many headlines have says nothing about this one
-      for (const j of list) {
-        if (j <= i || checked.has(j)) continue
-        checked.add(j)
-        if (Math.abs(kept[j].it.time - k.it.time) > 6 * 3600_000) continue
-        if (k.words.size >= 3 && kept[j].words.size >= 3 && jaccard(k.words, kept[j].words) >= 0.55) join(i, j)
-      }
+      if (list.length > COMMON) continue
+      for (const j of list) if (j > i && shared[j]++ === 0) reached.push(j)
     }
+    for (const j of reached) {
+      const rare = shared[j]
+      shared[j] = 0
+      const other = kept[j]
+      if (other.words.size < 3 || Math.abs(other.it.time - k.it.time) > 6 * 3600_000) continue
+      if (rare + Math.min(frequent[i], frequent[j]) < (0.55 / 1.55) * (k.words.size + other.words.size)) continue
+      if (jaccard(k.words, other.words) >= 0.55) join(i, j)
+    }
+    reached.length = 0
   }
   const groups = new Map<number, typeof kept>()
   kept.forEach((k, i) => { const r = find(i); let g = groups.get(r); if (!g) groups.set(r, (g = [])); g.push(k) })
