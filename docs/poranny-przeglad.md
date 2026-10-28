@@ -11,7 +11,7 @@
 - **Nic nie jest publikowane częściowo.** Gdy któryś etap zawiedzie (OpenAI, wyszukiwanie, weryfikacja, Google TTS, zapis), wydanie się nie ukazuje, a strona pokazuje poprzednie.
 - Szacunkowy koszt jednego wydania (z założonych liczb tokenów, nie z pomiaru): przy `gpt-6.1-terra` i średnim wysiłku rozumowania około **0,9 USD** w typową noc (0,5–1,5 USD), przy `gpt-6.1-sol` około **1,5 USD** (0,8–2,5 USD). Około 0,3 USD z tego to wyszukiwanie. Głos mieści się w darmowym milionie znaków miesięcznie Google. Twarde limity: domyślnie 2 USD na wydanie i 40 USD na miesiąc.
 - **Bez API też jest materiał:** codziennie o 7:45 serwer składa wsad dla ChatGPT (zadanie, kalendarium dnia i wiadomości z nocy) pod stałym adresem, a jeśli tak ustawisz, także w Gist na GitHubie. Nic przy tym nie kosztuje (niżej).
-- **Nic tu nie było testowane na żywych usługach.** Nie było kluczy, a sieć środowiska nie miała dostępu do OpenAI, Google ani do stron źródeł. Testy (127) sprawdzają logikę i kształt zapytań na symulowanych odpowiedziach. Pierwsze prawdziwe wydanie trzeba obejrzeć ręcznie (krok 6 niżej).
+- **Nic tu nie było testowane na żywych usługach.** Nie było kluczy, a sieć środowiska nie miała dostępu do OpenAI, Google ani do stron źródeł. Testy (128) sprawdzają logikę i kształt zapytań na symulowanych odpowiedziach. Pierwsze prawdziwe wydanie trzeba obejrzeć ręcznie (krok 6 niżej).
 
 ## Architektura
 
@@ -98,7 +98,7 @@ Serwer zapisuje gista zaraz po złożeniu wsadu, także gdy gist ustawisz w cią
 
 - Najpewniej: otwórz link, skopiuj cały tekst i wklej do ChatGPT.
 - Albo podaj sam link z prośbą, np. „Wykonaj zadanie z tego pliku: <link>”. ChatGPT traktuje treść ze strony jako materiał, nie polecenie, więc prośba musi być w Twojej wiadomości.
-- Nie sprawdzałem, czy ChatGPT otworzy który z tych adresów. `robots.txt` Szczekaczki zabrania pobierania automatom, a adres Workera ma `X-Robots-Tag: noindex`, więc ChatGPT może odmówić otwarcia go. Gist jest na GitHubie i tego nie dotyczy.
+- `robots.txt` Szczekaczki zabrania pobierania wszystkim automatom, z jednym wyjątkiem: `ChatGPT-User` (ChatGPT otwierający link na prośbę użytkownika) może czytać tylko `/api/briefing/pack.md`. Inne roboty, także crawlery AI (`GPTBot`, `OAI-SearchBot`), nie mogą. Nie sprawdzałem, czy ChatGPT otworzy link. Jeśli nie otworzy, zostaje wklejenie tekstu albo Gist.
 
 | Zmienna | Domyślnie | |
 |---|---|---|
@@ -292,7 +292,7 @@ Zła wartość nie psuje reszty: zostaje domyślna, a błąd widać w `GET /api/
 ## Test lokalny bez płatnych usług
 
 ```bash
-npm test                                   # 127 testów: czas i DST, okno, daty, duplikaty, sprzeczne źródła, weryfikacja, skrypt,
+npm test                                   # 128 testów: czas i DST, okno, daty, duplikaty, sprzeczne źródła, weryfikacja, skrypt,
                                            # części dla głosu, MP3, OpenAI/Google/Tavily na symulowanych odpowiedziach, SSRF, robots,
                                            # cały potok (ponowienia, idempotencja, terminy, brak sekretów, limity kosztów, zatwierdzanie)
 npm run build && npx wrangler dev          # z .dev.vars: BRIEFING_MODE=mock, BRIEFING_ADMIN_TOKEN=…, FEED_ORIGIN=… (lokalne kanały)
