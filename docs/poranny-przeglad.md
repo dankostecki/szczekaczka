@@ -3,14 +3,14 @@
 ## Najważniejsze
 
 - **Po wdrożeniu przegląd jest wyłączony.** Bez `BRIEFING_MODE=live` i sekretów nic się nie dzieje, nic nie jest płatne, a w aplikacji nie widać żadnego przycisku. Strona `/poranek` istnieje, ale do pierwszego wydania mówi tylko, że przegląd się jeszcze nie ukazał.
-- Wydanie z dnia D obejmuje wiadomości **opublikowane od 19:00 dnia D−1 do zamknięcia wydania** (domyślnie 6:00), czas Europe/Warsaw, z poprawnym czasem letnim i zimowym. Ukazuje się o **7:00**, od poniedziałku do soboty. Nagranie trwa **około 3 minut**.
+- Wydanie z dnia D obejmuje wiadomości **opublikowane od 19:00 dnia D−1 do zamknięcia wydania** (domyślnie 6:00), czas Europe/Warsaw, z poprawnym czasem letnim i zimowym. Ukazuje się o **7:45**, od poniedziałku do soboty. Tuż przed nim, o 7:30, 7:35 i 7:40, aplikacja powtarza kalendarium dnia z MacroNext (niżej). Nagranie trwa **około 3 minut**.
 - Każda informacja w przeglądzie jest **sprawdzona w kodzie, nie tylko przez model**:
   - cytaty muszą dosłownie występować w stronach, które przeczytał serwer;
   - liczby muszą być w tych cytatach;
   - potrzebne są **co najmniej 2 niezależne źródła**, w tym **pierwotne** (instytucja, spółka, giełda, agencja komunikatów) dla danych, decyzji, cytatów i zdarzeń.
 - **Nic nie jest publikowane częściowo.** Gdy któryś etap zawiedzie (OpenAI, wyszukiwanie, weryfikacja, Google TTS, zapis), wydanie się nie ukazuje, a strona pokazuje poprzednie.
 - Szacunkowy koszt jednego wydania to **0,4–1 USD** przy `gpt-6.1-sol`, z czego około 0,25 USD to wyszukiwanie. Głos mieści się w darmowym milionie znaków miesięcznie Google. Twarde limity: domyślnie 2 USD na wydanie i 40 USD na miesiąc.
-- **Nic tu nie było testowane na żywych usługach.** Nie było kluczy, a sieć środowiska nie miała dostępu do OpenAI, Google ani do stron źródeł. Testy (97) sprawdzają logikę i kształt zapytań na symulowanych odpowiedziach. Pierwsze prawdziwe wydanie trzeba obejrzeć ręcznie (krok 6 niżej).
+- **Nic tu nie było testowane na żywych usługach.** Nie było kluczy, a sieć środowiska nie miała dostępu do OpenAI, Google ani do stron źródeł. Testy (108) sprawdzają logikę i kształt zapytań na symulowanych odpowiedziach. Pierwsze prawdziwe wydanie trzeba obejrzeć ręcznie (krok 6 niżej).
 
 ## Architektura
 
@@ -34,7 +34,7 @@ cron co 10 min ──▶ Briefing.kick()        (worker/index.ts; ten sam cron c
    validate  kod (script.ts) + OpenAI (drugi model/instrukcja); do 3 prób z listą błędów
    tts×n     Google Text-to-Speech, części ≤ 1800 bajtów, granice zdań
    assemble  złożenie MP3, sprawdzenie długości i skrótów, manifest
-   publish   o 7:00 (albo od razu, jeśli później), albo czeka na zatwierdzenie
+   publish   o 7:45 (albo od razu, jeśli później), albo czeka na zatwierdzenie
    → Poller.setBriefing(): wskaźnik w liście newsów (/api/news), aplikacja pokazuje przycisk „Przegląd”
 
    Worker: GET /api/briefing, /api/briefing/editions/<data>, /api/briefing/audio/<data>-<sha>.mp3 (Range),
@@ -55,6 +55,23 @@ Pliki: `worker/briefing/` (`config`, `time`, `collect`, `prompts`, `schemas`, `l
 - **Cron.** Nie dodałem nowego (darmowe konto ma limit 5). Istniejący `*/10 * * * *` budzi też przegląd, a dalej działa on na alarmach w czasie warszawskim. Cron jest w UTC, alarmy nie mają strefy, a strefę liczy kod (`time.ts`).
 - **Wskaźnik w liście newsów** zamiast osobnego zapytania przy każdym otwarciu aplikacji. Oszczędza to około 10 tys. zapytań Durable Object dziennie przy 1000 użytkowników.
 
+## Zapowiedzi przed przeglądem: kalendarium dnia z MacroNext
+
+Radio wychodzi o 7:45. Tuż przed nim, na liście newsów (źródło MacroNext), pojawiają się trzy zapowiedzi, które **powtarzają to, co aplikacja zapowiadała już o innych porach**. Tamte zapowiedzi zostają bez zmian (dane makro 10 minut przed publikacją, giełda GPW o 8:50, wyniki z Nowego Jorku przed i po sesji). Te trzy są dla kogoś, kto słucha poranka za jednym razem:
+
+| Godzina (czas polski) | Zapowiedź | Treść |
+|---|---|---|
+| 7:30 | „Dziś w kalendarium makro” | publikacje danych makro i wydarzenia banków centralnych **od 7:30 do końca dnia** z konsensusem i poprzednim odczytem, plus te bez podanej godziny. Wcześniejsze były już zapowiedziane o swojej porze i ich prognozy tylko by myliły |
+| 7:35 | „Dziś na giełdzie GPW (i NewConnect)” | to samo, co o 8:50: wydarzenia spółek z GPW i NewConnect |
+| 7:40 | „Dziś na NYSE … przed sesją i po sesji” | wyniki spółek z Nowego Jorku, przed sesją i po niej w jednej zapowiedzi, z nagłówkami „Przed sesją” i „Po sesji” |
+
+- Zapowiedź powstaje tylko wtedy, gdy jest o czym mówić (nie ma pustych).
+- Czytane są tak jak zwykłe zapowiedzi (godziny słownie, „nowojorska giełda”, tytuł i wiersze).
+- Spóźniona zapowiedź (np. po awarii) jest jeszcze robiona do 45 minut po swojej porze, potem pomijana, żeby nie wchodziła w drogę radiu.
+- Każda ma własny link (`…-rano`), żeby lista nie wzięła jej za zapowiedź publikacji o tej samej godzinie.
+- Źródłem jest odczyt kalendarium o 6:30 (`worker/macro.ts`, `src/lib/macronext.ts`: `DIGEST_AT`). Przy wdrożeniu `MACRO_VERSION` wymusza ponowny odczyt, więc zapowiedzi są od razu na dziś.
+- Same te zapowiedzi nie przechodzą weryfikacji przeglądu (nie są wiadomościami, tylko kalendarium MacroNext, jednym źródłem). Przegląd o 7:45 ich nie powtarza i nie zależy od nich.
+
 ## Okno, zamknięcie wydania, publikacja
 
 | Ustawienie | Domyślnie | Znaczenie |
@@ -62,7 +79,7 @@ Pliki: `worker/briefing/` (`config`, `time`, `collect`, `prompts`, `schemas`, `l
 | `BRIEFING_WINDOW_START` | `19:00` | początek okna, dzień przed wydaniem |
 | `BRIEFING_WINDOW_END` | `07:00` | koniec okna, o który prosisz (zapisywany przy wydaniu) |
 | `BRIEFING_CUTOFF` | `06:00` | zamknięcie wydania: start pracy; wiadomości opublikowane później nie wchodzą |
-| `BRIEFING_PUBLISH_AT` | `07:00` | publikacja gotowego wydania (wcześniej czeka, później idzie od razu, z oznaczeniem „z opóźnieniem”) |
+| `BRIEFING_PUBLISH_AT` | `07:45` | publikacja gotowego wydania (wcześniej czeka, później idzie od razu, z oznaczeniem „z opóźnieniem”) |
 | `BRIEFING_DEADLINE` | `10:00` | po tej godzinie żadnych ponowień: wydanie „nie ukazało się” |
 | `BRIEFING_DAYS` | `1-6` | dni ISO (1 pon … 7 niedz), np. `1-5`, `1-7` |
 
@@ -217,7 +234,7 @@ Zła wartość nie psuje reszty: zostaje domyślna, a błąd widać w `GET /api/
    ```bash
    T=…token…; W=https://szczekaczka.dancoder2025.workers.dev
    curl -s -H "Authorization: Bearer $T" $W/api/briefing/admin/status | jq .        # missing: [] i problems: []
-   curl -s -X POST -H "Authorization: Bearer $T" "$W/api/briefing/admin/run"         # dziś; po 7:00 publikuje od razu, gdy gotowe (albo czeka na approve)
+   curl -s -X POST -H "Authorization: Bearer $T" "$W/api/briefing/admin/run"         # dziś; po 7:45 publikuje od razu, gdy gotowe (albo czeka na approve)
    curl -s -H "Authorization: Bearer $T" $W/api/briefing/admin/editions/$(TZ=Europe/Warsaw date +%F) | jq '.edition.status, .next, .edition.failure, .edition.costUsd'
    ```
    Całość to kilkadziesiąt kroków, zwykle 10–20 minut. Logi Workera mają wiersze `briefing <data>: …`.
@@ -239,7 +256,7 @@ Zła wartość nie psuje reszty: zostaje domyślna, a błąd widać w `GET /api/
 ## Test lokalny bez płatnych usług
 
 ```bash
-npm test                                   # 97 testów: czas i DST, okno, daty, duplikaty, sprzeczne źródła, weryfikacja, skrypt,
+npm test                                   # 108 testów: czas i DST, okno, daty, duplikaty, sprzeczne źródła, weryfikacja, skrypt,
                                            # części dla głosu, MP3, OpenAI/Google/Tavily na symulowanych odpowiedziach, SSRF, robots,
                                            # cały potok (ponowienia, idempotencja, terminy, brak sekretów, limity kosztów, zatwierdzanie)
 npm run build && npx wrangler dev          # z .dev.vars: BRIEFING_MODE=mock, BRIEFING_ADMIN_TOKEN=…, FEED_ORIGIN=… (lokalne kanały)

@@ -38,7 +38,7 @@ export default function Terms() {
           Serwis nie pobiera artykułów), pisane po angielsku i domyślnie
           pokazywane w tłumaczeniu maszynowym na język polski (oryginał można wybrać w ustawieniach). Z publicznych kalendariów MacroNext Serwis
           tworzy zapowiedzi publikacji danych makroekonomicznych i wydarzeń banków centralnych, pokazywane 10 minut przed nimi,
-          oraz zapowiedzi wydarzeń giełdowych (wydarzenia spółek, publikacje wyników), pokazywane przed sesją. Pełna lista
+          oraz zapowiedzi wydarzeń giełdowych (wydarzenia spółek, publikacje wyników), pokazywane przed sesją; rano, przed porannym przeglądem rynków, powtarza kalendarium dnia w trzech zapowiedziach. Pełna lista
           kanałów z adresami jest na stronie <Link href="/o-stronie">O stronie i źródła</Link>.
         </li>
         <li>

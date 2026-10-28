@@ -36,9 +36,12 @@ const FIGURE_AT = /,\s*(?:konsensus|poprzednio)\s/
 // a full stop ends the row after a number, a percent or a unit written without one in the middle of a row ("4,5 mld"); "tys." keeps its own
 const FIGURE = /,\s*(konsensus|poprzednio)\s+(.+?)(?=,\s*(?:konsensus|poprzednio)\s|$)/g
 const LABEL = /^([^:]{2,60}):\s+(\S.*)$/
+// MacroNext's repeat of the day's calendar puts the time of the release in front of the country ("14:30 Kanada: Stopa bezrobocia …"): the time
+// is part of the label, its own colon does not end it
+const LABEL_AT = /^((?:\d{1,2}:\d{2}\s+)?[^:]{2,60}):\s+(\S.*)$/
 
 export function splitItem(text: string, source: string): ListItem {
-  const label = LABEL.exec(text)
+  const label = (source === 'MACRONEXT' ? LABEL_AT : LABEL).exec(text)
   const [head, rest] = label ? [label[1], label[2]] : [undefined, text]
   if (source === 'MACRONEXT') {
     const at = FIGURE_AT.exec(rest)

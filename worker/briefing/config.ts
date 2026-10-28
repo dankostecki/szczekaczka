@@ -158,7 +158,7 @@ export function readConfig(env: Env): { config: BriefingConfig; problems: string
     windowStart: time('BRIEFING_WINDOW_START', '19:00'),
     windowEnd: time('BRIEFING_WINDOW_END', '07:00'),
     cutoff: time('BRIEFING_CUTOFF', '06:00'),
-    publishAt: time('BRIEFING_PUBLISH_AT', '07:00'),
+    publishAt: time('BRIEFING_PUBLISH_AT', '07:45'),
     deadline: time('BRIEFING_DEADLINE', '10:00'),
     targetSeconds: num('BRIEFING_TARGET_SECONDS', 180, 60, 900),
     wordsPerMinute: num('BRIEFING_WORDS_PER_MINUTE', 140, 90, 220),

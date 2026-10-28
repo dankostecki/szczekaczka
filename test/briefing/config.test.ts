@@ -3,13 +3,13 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { missingForLive, readConfig, targetWords } from '../../worker/briefing/config'
 
-test('defaults: off, automatic publication, Monday to Saturday, 19:00 to 07:00 with the cutoff at 06:00, no model', () => {
+test('defaults: off, automatic publication, Monday to Saturday, 19:00 to 07:00 with the cutoff at 06:00, out at 07:45, no model', () => {
   const { config, problems } = readConfig({})
   assert.deepEqual(problems, [])
   assert.equal(config.mode, 'off')
   assert.equal(config.approval, 'auto')
   assert.deepEqual(config.days, [1, 2, 3, 4, 5, 6])
-  assert.deepEqual([config.windowStart, config.windowEnd, config.cutoff, config.publishAt, config.deadline], ['19:00', '07:00', '06:00', '07:00', '10:00'])
+  assert.deepEqual([config.windowStart, config.windowEnd, config.cutoff, config.publishAt, config.deadline], ['19:00', '07:00', '06:00', '07:45', '10:00'])
   assert.equal(config.openai.models.write, undefined, 'no model is assumed')
   assert.equal(config.tts.voice, 'pl-PL-Chirp3-HD-Aoede')
   assert.equal(config.targetSeconds, 180)

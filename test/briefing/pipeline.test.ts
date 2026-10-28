@@ -12,7 +12,7 @@ const twoNights = () => [...night(14, '2026-10-27'), ...night(14, '2026-10-28')]
 
 const edition = (h: ReturnType<typeof harness>, id = '2026-10-28') => h.d.store.getEdition(id) as EditionRecord | null
 
-test('a whole edition: starts at the cutoff, waits for 07:00, comes out with its audio, sources and times', async () => {
+test('a whole edition: starts at the cutoff, waits for 07:45, comes out with its audio, sources and times', async () => {
   const h = harness()
   assert.equal(await tick(h.d), Date.parse('2026-10-28T05:00:00Z'), 'before the cutoff it sleeps until the cutoff')
   assert.equal(publicIndex(h.d).today.state, 'scheduled')
@@ -21,14 +21,14 @@ test('a whole edition: starts at the cutoff, waits for 07:00, comes out with its
   const e = edition(h)!
   assert.equal(e.mode, 'mock')
   assert.equal(publicIndex(h.d).today.state, 'preparing')
-  assert.equal(publicEdition(h.d, e.id), null, 'not public before 07:00')
+  assert.equal(publicEdition(h.d, e.id), null, 'not public before 07:45')
   assert.ok(h.clock.now < e.times.publishAt)
-  // at 07:00 it comes out
+  // at 07:45 it comes out
   await run(h, () => edition(h)?.status === 'published')
   const pub = publicEdition(h.d, '2026-10-28')!
   assert.ok(pub)
   assert.equal(pub.test, true)
-  assert.equal(pub.publishedAt, '2026-10-28T06:00:00.000Z')
+  assert.equal(pub.publishedAt, '2026-10-28T06:45:00.000Z')
   assert.equal(pub.late, false)
   assert.equal(pub.window.from, '2026-10-27T18:00:00.000Z')
   assert.equal(pub.window.to, '2026-10-28T06:00:00.000Z')
@@ -251,10 +251,10 @@ test('a story whose search keeps failing is left out; the others go on', async (
   assert.ok(!pub.stories.some((s) => s.id === 's1'))
 })
 
-test('manual approval: ready, then waiting for a person; approved after 07:00 it comes out at once (late)', async () => {
+test('manual approval: ready, then waiting for a person; approved after 07:45 it comes out at once (late)', async () => {
   const h = harness({ BRIEFING_APPROVAL: 'manual' }, { start: '2026-10-28T05:00:00Z' })
   await run(h, () => edition(h)?.status === 'awaiting_approval')
-  h.clock.now = Date.parse('2026-10-28T06:30:00Z')
+  h.clock.now = Date.parse('2026-10-28T07:10:00Z')
   await tick(h.d)
   assert.equal(edition(h)!.status, 'awaiting_approval', 'not out by itself')
   assert.equal(publicIndex(h.d).today.state, 'delayed')
