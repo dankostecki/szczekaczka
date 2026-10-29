@@ -282,6 +282,7 @@ const STEPS: Record<string, (d: Deps, e: EditionRecord, key: string, attempt: nu
       candidates: candidates.map((c) => ({
         id: c.id, sources: c.sources, published: `${warsawLabel(Date.parse(c.publishedAt))} (${c.publishedAt})`,
         title: clean(c.title, 300), lead: clean(c.lead, 400), ...(c.translation ? { polishTranslation: clean(c.translation, 500) } : {}),
+        ...(c.more?.length ? { moreHeadlines: c.more.map((m) => clean(m, 200)) } : {}),
       })),
     })
     const r = await metered(d, e).call<TriageAnswer>({

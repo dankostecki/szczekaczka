@@ -29,6 +29,7 @@ export interface Candidate {
   title: string           // of the best item, as published
   lead: string
   translation?: string    // the site's Polish translation of an English item
+  more?: string[]         // the story's other headlines (a company's results come as many), oldest first
   score: number
 }
 
@@ -71,7 +72,7 @@ const routineFor = (source: string) => (source === 'WALTER' || source === 'SEEKI
 const MOVER_WORDS: [kind: number, words: string[], stems: string[]][] = [
   [1, ['fed', 'fomc', 'powell', 'ecb', 'ebc', 'lagarde', 'boj', 'boe', 'pboc', 'snb', 'nbp', 'rpp', 'glapiński', 'rates', 'rate'], ['procentow']],
   [2, ['cpi', 'pce', 'ppi', 'gdp', 'pkb', 'payrolls', 'payroll', 'nfp', 'unemployment', 'jobless', 'pmi', 'ism', 'inflation'], ['inflac', 'bezroboci', 'detaliczn']],
-  [3, ['earnings', 'results', 'revenue', 'guidance', 'outlook', 'forecast', 'wyniki', 'eps', 'profit', 'loss'], ['prognoz', 'przychod', 'zysk', 'strat']],
+  [3, ['earnings', 'results', 'revenue', 'rev', 'sales', 'ebitda', 'guidance', 'outlook', 'forecast', 'wyniki', 'eps', 'profit', 'loss'], ['prognoz', 'przychod', 'zysk', 'strat']],
   [4, ['tariff', 'tariffs', 'sanctions', 'sanction', 'cła', 'embargo', 'ceasefire', 'rozejm', 'attack', 'atak', 'war', 'opec', 'missile', 'strike'], ['sankcj', 'wojn', 'ostrzał']],
   [5, ['acquire', 'acquires', 'acquired', 'acquisition', 'merger', 'takeover', 'buyout', 'bankruptcy', 'default', 'ipo'], ['przejęci', 'przejmie', 'fuzj', 'upadłoś', 'debiut']],
   [6, ['s&p', 'nasdaq', 'dow', 'nikkei', 'kospi', 'dax', 'wig', 'wig20', 'futures', 'treasury', 'treasuries', 'yield', 'yields', 'brent', 'wti', 'gold', 'bitcoin', 'dollar', 'oil', 'złoto', 'złota', 'ropa', 'ropy'],
@@ -106,6 +107,20 @@ function jaccard(a: Set<string>, b: Set<string>): number {
   for (const w of a) if (b.has(w)) common++
   return common / (a.size + b.size - common || 1)
 }
+
+// The subject of a headline: its first word ("MICROSOFT 1Q REV…", "POWELL: …", "FED'S WALLER…", "Orlen: …"), unless it is one that
+// starts headlines about anything ("U.S. …", "USA: …", "Spółka …"): a country is one (its data and its markets are different news)
+const NOT_A_SUBJECT = new Set(['u.s', 'us', 'usa', 'u.k', 'uk', 'eu', 'china', 'japan', 'germany', 'europe', 'euro', 'eurozone',
+  'chiny', 'japonia', 'niemcy', 'polska', 'europa', 'strefa', 'the', 'breaking', 'update', 'exclusive', 'watch', 'just', 'alert', 'report', 'reports',
+  'spółka', 'spółki', 'zarząd', 'raport', 'komunikat', 'informacja', 'zawiadomienie', 'ogłoszenie', 'uchwała', 'korekta'])
+export function subjectOf(title: string): string | null {
+  const m = /^[\s*"'„“«(]*(\p{L}[\p{L}\p{N}&.-]*)/u.exec(title)
+  const w = m?.[1].toLowerCase().replace(/[.-]+$/, '')
+  return w && w.length >= 3 && !STOP.has(w) && !NOT_A_SUBJECT.has(w) ? w : null
+}
+// The headlines of one subject within this long of the first are one story
+const BURST_MS = 60 * 60_000
+const MORE_HEADLINES = 8
 
 // A news of the window, with only what the next steps need
 export interface WindowItem { id: string; source: string; label: string; title: string; lead: string; translation?: string; link: string; time: number }
@@ -176,6 +191,23 @@ export function rank(items: WindowItem[], config: Pick<BriefingConfig, 'maxCandi
     }
     reached.length = 0
   }
+  // Headlines about one subject within an hour are one story: a company's results come as many one-line headlines (revenue,
+  // profit, guidance, the shares after hours), a central bank's decision as its statement and then the press conference, line
+  // by line. Scored one by one, each is a small news, and they lose their places to whatever came earlier the same evening.
+  // Together they are one candidate, with the other headlines kept (`more`), so nothing is lost when two are put together wrongly.
+  const bySubject = new Map<string, number[]>()
+  kept.forEach((k, i) => {
+    const subject = subjectOf(k.it.title)
+    if (subject) { let l = bySubject.get(subject); if (!l) bySubject.set(subject, (l = [])); l.push(i) }
+  })
+  for (const list of bySubject.values()) {
+    list.sort((a, b) => kept[a].it.time - kept[b].it.time)
+    let first = list[0]
+    for (const i of list.slice(1)) {
+      if (kept[i].it.time - kept[first].it.time <= BURST_MS) join(first, i)
+      else first = i
+    }
+  }
   const groups = new Map<number, typeof kept>()
   kept.forEach((k, i) => { const r = find(i); let g = groups.get(r); if (!g) groups.set(r, (g = [])); g.push(k) })
 
@@ -208,9 +240,23 @@ export function rank(items: WindowItem[], config: Pick<BriefingConfig, 'maxCandi
     title: clip(s.best.it.title, 300),
     lead: clip(s.best.it.lead, 400),
     ...(s.best.it.translation ? { translation: s.best.it.translation } : {}),
+    ...moreOf(s.g, s.best),
     score: Math.round(s.score * 100) / 100,
   }))
   return { candidates, groups: groups.size }
+}
+
+// The other headlines of a story, oldest first, without the ones that say what its headline says
+function moreOf(g: { it: WindowItem }[], best: { it: WindowItem }): Pick<Candidate, 'more'> {
+  const seen = new Set([clip(best.it.title, 200).toLowerCase()])
+  const more: string[] = []
+  for (const k of [...g].sort((a, b) => a.it.time - b.it.time)) {
+    const title = clip(k.it.title, 200)
+    if (seen.has(title.toLowerCase())) continue
+    seen.add(title.toLowerCase())
+    more.push(title)
+  }
+  return more.length ? { more: more.slice(0, MORE_HEADLINES) } : {}
 }
 
 export interface Collected { candidates: Candidate[]; stats: CollectStats }

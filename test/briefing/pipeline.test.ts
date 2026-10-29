@@ -328,3 +328,15 @@ test('editions older than the retention go, and the news list stops pointing at 
   assert.equal(h.d.store.audioParts('2026-10-28', 'file'), 0)
   assert.deepEqual(h.announced, ['2026-10-28', null])
 })
+
+test('the model that picks the stories sees a story\'s other headlines (moreHeadlines)', async () => {
+  const items = [...night(14), item('WALTER', 'MICROSOFT 1Q REV. $92.3B, EST. $90.1B', '2026-10-27T20:05:00Z'),
+    item('WALTER', 'MICROSOFT SHARES RISE 5% POST-MARKET', '2026-10-27T20:06:00Z')]
+  const h = harness({}, { items })
+  const inputs: string[] = []
+  const llm = h.d.llm!
+  h.d.llm = { ...llm, call: (req) => { if (req.stage === 'triage') inputs.push(req.input); return llm.call(req) } }
+  h.clock.now = Date.parse('2026-10-28T05:00:00Z')
+  await run(h, () => h.d.store.getStep('2026-10-28', 'triage')?.status === 'done')
+  assert.match(inputs[0], /"title":"MICROSOFT 1Q REV\. \$92\.3B, EST\. \$90\.1B"[^}]*"moreHeadlines":\["MICROSOFT SHARES RISE 5% POST-MARKET"\]/)
+})
