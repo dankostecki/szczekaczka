@@ -240,7 +240,7 @@ export default function Settings(p: Props) {
           })}
           {FEEDS.some((f) => f.translate) && (
             <p className="hint">
-              Wiadomości Waltera Bloomberga i Seeking Alpha są po angielsku. Po polsku pokazuje je tłumaczenie maszynowe (AI), które może
+              Wiadomości Waltera Bloomberga, investingLive i Seeking Alpha są po angielsku. Po polsku pokazuje je tłumaczenie maszynowe (AI), które może
               zawierać błędy; czyta je wtedy polski głos. Wiadomość, której nie udało się przetłumaczyć, jest po angielsku. Seeking Alpha
               po zamknięciu sesji w USA (od 22:00, w niektóre tygodnie marca, października i listopada od 21:00, do północy) zostaje
               po angielsku, bo wtedy przychodzi bardzo dużo krótkich wiadomości o wynikach i dywidendach.
@@ -418,7 +418,7 @@ export default function Settings(p: Props) {
 
         <p className="foot">
           Szczekaczka by <a href={AUTHOR.url} target="_blank" rel="noopener noreferrer">{AUTHOR.name}</a>.
-          Źródła: <Link href="/o-stronie">Bankier.pl (ESPI/EBI), GPW, Stooq, Walter Bloomberg (Telegram), Seeking Alpha, PAP MediaRoom, MacroNext</Link>.
+          Źródła: <Link href="/o-stronie">Bankier.pl (ESPI/EBI), GPW, Stooq, Walter Bloomberg (Telegram), investingLive, Seeking Alpha, PAP MediaRoom, MacroNext</Link>.
           Notowania i wykresy: TradingView.
         </p>
       </aside>

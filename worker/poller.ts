@@ -7,6 +7,7 @@ import type { Delta, FeedSnapshot, Heartbeat } from '../src/lib/protocol'
 import type { BriefingPointer } from '../src/lib/briefing'
 import type { PollerItems } from './briefing/collect'
 import { checkFeed, type FeedState } from './feeds'
+import { dropDuplicates, heldLinks } from './dedupe'
 import { checkMacro, macroDueAt } from './macro'
 import { translateNew } from './translate'
 import { type Env, hub } from './env'
@@ -202,10 +203,11 @@ export class Poller extends DurableObject<Env> {
     const url = this.env.FEED_ORIGIN ? `${this.env.FEED_ORIGIN}/${feed.url.replace(/^https?:\/\//, '')}` : feed.url
     const prev = this.feeds.get(key)
     const leads = feed.leads && this.env.FEED_ORIGIN ? `${this.env.FEED_ORIGIN}/${feed.leads.replace(/^https?:\/\//, '')}` : feed.leads
-    const r = feed.format?.startsWith('macronext') ? await checkMacro(feed, prev, url, Date.now()) : await checkFeed(feed, prev, url, Date.now(), leads)
+    const r = feed.format?.startsWith('macronext') ? await checkMacro(feed, prev, url, Date.now())
+      : await checkFeed(feed, prev, url, Date.now(), leads, heldLinks(feed, FEEDS, this.feeds))
     // A channel in English: its new posts are translated before they go out (translate.ts)
     if (feed.translate && this.env.AI) {
-      const said = await translateNew(this.env.AI, r, Date.now(), feed.untranslatedUsEvening)
+      const said = await translateNew(this.env.AI, r, Date.now(), feed.untranslatedUsEvening, feed.translatePerDay)
       if (said) console.log(`feed ${key}: ${said}`)
     }
     this.feeds.set(key, r.state)
@@ -229,6 +231,22 @@ export class Poller extends DurableObject<Env> {
     const delta: Delta = { t: 'd', v: this.v, key, add: r.add, remove: r.remove, error: r.state.error }
     console.log(`feed ${key}: +${r.add.length} -${r.remove.length}${r.state.error ? ` error: ${r.state.error}` : ''} (v${this.v})`)
     await this.publish(JSON.stringify(delta))
+    await this.dropDuplicates(feed, r.add)
+  }
+
+  // A post that a narrower channel has just got is taken out of the broad channel of the source that showed it first (dedupe.ts)
+  private async dropDuplicates(feed: FeedConfig, added: { link: string }[]) {
+    const sql = this.ctx.storage.sql
+    for (const [key, ids] of dropDuplicates(feed, FEEDS, this.feeds, added)) {
+      const state = this.feeds.get(key)!
+      sql.exec('INSERT OR REPLACE INTO feeds (key, state) VALUES (?, ?)', key, JSON.stringify(state))
+      this.v++
+      sql.exec("INSERT OR REPLACE INTO meta (k, v) VALUES ('v', ?)", this.v)
+      this.snapshotJson = null
+      this.feedJson.delete(key)
+      console.log(`feed ${key}: -${ids.length} (also in ${feedKey(feed.source, feed.label)}) (v${this.v})`)
+      await this.publish(JSON.stringify({ t: 'd', v: this.v, key, add: [], remove: ids, error: state.error } satisfies Delta))
+    }
   }
 
   // How many pages are connected: the sum of what the hubs reported at the last publish. Costs

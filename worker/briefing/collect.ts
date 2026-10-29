@@ -16,13 +16,13 @@ export interface PollerItems { items: NewsItem[]; feeds: PollerFeed[]; at: numbe
 
 // What the feeds' dates mean, source by source (the date of publication, in every case the site has now)
 export const DATE_KIND: Record<string, 'published'> = {
-  ESPI: 'published', GPW: 'published', STOOQ: 'published', WALTER: 'published', SEEKINGALPHA: 'published', PAP: 'published',
+  ESPI: 'published', GPW: 'published', STOOQ: 'published', WALTER: 'published', INVESTINGLIVE: 'published', SEEKINGALPHA: 'published', PAP: 'published',
 }
 
 export interface Candidate {
   id: string              // "c1", "c2"… (short, for the model)
   itemIds: string[]
-  sources: string[]       // "WALTER", "SEEKINGALPHA"…
+  sources: string[]       // "WALTER", "INVESTINGLIVE"…
   links: string[]
   publishedAt: string     // the earliest publication in the group (ISO)
   dateKind: 'published'
@@ -45,7 +45,7 @@ export interface CollectStats {
   feedProblems: string[] // channels that were failing at the cutoff
 }
 
-const WEIGHT: Record<string, number> = { WALTER: 1, STOOQ: 1, SEEKINGALPHA: 0.85, ESPI: 0.7, GPW: 0.6, PAP: 0.5 }
+const WEIGHT: Record<string, number> = { WALTER: 1, STOOQ: 1, INVESTINGLIVE: 0.9, SEEKINGALPHA: 0.85, ESPI: 0.7, GPW: 0.6, PAP: 0.5 }
 const weightOf = (source: string, label: string) => (source === 'PAP' && label !== 'BIZNES' ? 0.3 : WEIGHT[source] ?? 0.4)
 
 // Routine notices: nothing for a morning briefing (by the language of the source: only what can be there is looked for)
@@ -65,7 +65,7 @@ const ROUTINE_PL: RegExp[] = [
   /\bkorekta\s+raportu\b/i,
   /\braport\s+(?:bieżący|okresowy)\s+nr\b/i,
 ]
-const routineFor = (source: string) => (source === 'WALTER' || source === 'SEEKINGALPHA' ? ROUTINE_EN : ROUTINE_PL)
+const routineFor = (source: string) => (source === 'WALTER' || source === 'SEEKINGALPHA' || source === 'INVESTINGLIVE' ? ROUTINE_EN : ROUTINE_PL)
 
 // What moves markets: a story whose headline names these goes higher (the model decides in the end). Words of the
 // headline, looked up (much cheaper than expressions over every news): whole words, and stems of Polish inflected ones.
@@ -112,6 +112,7 @@ function jaccard(a: Set<string>, b: Set<string>): number {
 // starts headlines about anything ("U.S. …", "USA: …", "Spółka …"): a country is one (its data and its markets are different news)
 const NOT_A_SUBJECT = new Set(['u.s', 'us', 'usa', 'u.k', 'uk', 'eu', 'china', 'japan', 'germany', 'europe', 'euro', 'eurozone',
   'chiny', 'japonia', 'niemcy', 'polska', 'europa', 'strefa', 'the', 'breaking', 'update', 'exclusive', 'watch', 'just', 'alert', 'report', 'reports',
+  'what', 'how', 'why', 'here', 'heres', 'new', 'more', 'some', 'another', 'all', 'most', 'today', 'this', 'these', 'those',
   'spółka', 'spółki', 'zarząd', 'raport', 'komunikat', 'informacja', 'zawiadomienie', 'ogłoszenie', 'uchwała', 'korekta'])
 export function subjectOf(title: string): string | null {
   const m = /^[\s*"'„“«(]*(\p{L}[\p{L}\p{N}&.-]*)/u.exec(title)

@@ -16,7 +16,7 @@ export default function About() {
     <LegalPage title="O stronie i źródła" dated={false}>
       <p>
         Szczekaczka zbiera w jednym miejscu komunikaty spółek giełdowych (ESPI/EBI), komunikaty Giełdy Papierów
-        Wartościowych w Warszawie, wiadomości Stooq, krótkie wiadomości z rynków świata z kanału Walter Bloomberg na Telegramie i z serwisu Seeking Alpha,
+        Wartościowych w Warszawie, wiadomości Stooq, krótkie wiadomości z rynków świata z kanału Walter Bloomberg na Telegramie i z serwisów investingLive i Seeking Alpha,
         komunikaty prasowe z PAP MediaRoom, a także zapowiedzi danych makro
         (10 minut przed publikacją) i wydarzeń giełdowych z kalendarium MacroNext. Nowe newsy może czytać na głos i pokazywać jako powiadomienia
         na pulpicie. W zakładce Rynek i przy newsach pokazuje notowania i wykresy z TradingView. Autor: <a href={AUTHOR.url} target="_blank" rel="noopener noreferrer">{AUTHOR.name}</a>.
@@ -31,7 +31,7 @@ export default function About() {
         i nie dodaje własnych. Wyjątkiem są zapowiedzi MacroNext:
         Szczekaczka składa je z kalendarium danych makro (kraj, nazwa danych, okres, prognoza jako konsensus, poprzedni
         odczyt) i z kalendarium giełdowego (wydarzenia spółek, wyniki spółek z Nowego Jorku); prowadzą do kalendarium
-        MacroNext na dziś. Drugim wyjątkiem są wiadomości Waltera Bloomberga i Seeking Alpha (tytuł i zajawka z kanału RSS; artykułów Szczekaczka nie pobiera): pisane po angielsku, są domyślnie pokazywane
+        MacroNext na dziś. Drugim wyjątkiem są wiadomości Waltera Bloomberga, investingLive i Seeking Alpha (tytuł i zajawka z kanału RSS; artykułów Szczekaczka nie pobiera): pisane po angielsku, są domyślnie pokazywane
         w tłumaczeniu maszynowym na polski (z oznaczeniem „tłumaczenie AI”); oryginał można wybrać w ustawieniach. Wiadomości Seeking
         Alpha z wieczora po zamknięciu sesji w Nowym Jorku (od 22:00, a w tygodniach, gdy w USA i w Polsce czas zmienia się w różnych
         terminach, od 21:00, do północy) zostają po angielsku.
@@ -98,7 +98,7 @@ export default function About() {
         zakładki, np. CDR, AAPL, EURUSD albo pełny symbol TradingView, jak GPW:CDR czy NASDAQ:AAPL.
       </p>
       <p>
-        Newsy z Waltera Bloomberga, Seeking Alpha, Stooq i PAP MediaRoom mają w oknie newsa, pod tekstem, notowania tego, o czym piszą:
+        Newsy z Waltera Bloomberga, investingLive, Seeking Alpha, Stooq i PAP MediaRoom mają w oknie newsa, pod tekstem, notowania tego, o czym piszą:
         spółek (po tickerze, np. $TSLA albo „(NASDAQ:TSLA)”, i po nazwie, także odmienionej: „akcje Tesli”), indeksów, par walutowych,
         surowców i kryptowalut, najwyżej trzech. Przy ropie (także zapasach ropy i OPEC) są zawsze dwa wiersze: Brent i WTI. Kliknięcie wiersza otwiera pełny wykres. Pod akcjami jest dopisek, że ich kursy są opóźnione
         (zwykle o 15 minut). Spółki z GPW i z giełdy we Frankfurcie mają tylko przycisk do wykresu, bo ich notowania są w widżetach z końca dnia. Instrumenty są dobierane automatycznie, więc czasem

@@ -88,7 +88,7 @@ export const HEADERS = {
 const RSS_ACCEPT = 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
 
 // A link without its query: Bankier's RSS adds "?utm_source=RSS…" to the links of its list page
-const bareLink = (link: string) => link.replace(/[?#].*$/, '')
+export const bareLink = (link: string) => link.replace(/[?#].*$/, '')
 
 // Leads for a list page, from an RSS feed that has some of its entries (by link); its entries are
 // also the fallback when the list page fails. null when the feed could not be read this time.
@@ -102,8 +102,9 @@ async function fetchLeads(url: string, feed: FeedConfig): Promise<{ body: string
   } catch { return null }
 }
 
+// `skip`: the (bare) links of posts that another channel of the source shows, which a broad channel (FeedConfig.broad) leaves out
 export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, url = feed.url, now = Date.now(),
-  leadsUrl = feed.leads): Promise<CheckResult> {
+  leadsUrl = feed.leads, skip?: ReadonlySet<string>): Promise<CheckResult> {
   const old: FeedState = prev ?? { items: [], error: null, checkedAt: 0 }
   // Before 24-hour keeping, everything stored was in the feed
   const current = new Set(old.current ?? old.items.map((i) => i.id))
@@ -188,6 +189,7 @@ export async function checkFeed(feed: FeedConfig, prev: FeedState | undefined, u
     const xml = full.length > MAX_XML_CHARS ? full.slice(0, MAX_XML_CHARS) : full
     parsed = parseFeedXml(xml, feed, MAX_PER_FEED)
     if (parsed.length === 0 && !/<(item|entry)[\s>]/i.test(xml)) return failed('odpowiedź bez wpisów RSS')
+    if (skip?.size) parsed = parsed.filter((i) => !i.link || !skip.has(bareLink(i.link)))
   }
   return { ...merge(parsed, { hash, ...meta, error, failures }), problem }
 

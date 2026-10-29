@@ -1,9 +1,9 @@
 // News sources. Fetched on the server (/api/news): browsers cannot read these feeds directly (CORS).
 
-export type Source = 'ESPI' | 'GPW' | 'STOOQ' | 'WALTER' | 'SEEKINGALPHA' | 'PAP' | 'MACRONEXT'
+export type Source = 'ESPI' | 'GPW' | 'STOOQ' | 'WALTER' | 'INVESTINGLIVE' | 'SEEKINGALPHA' | 'PAP' | 'MACRONEXT'
 
 // The default order of the tabs, the sources in settings and the sources on the about page; the reader can move the sources (prefs.sourceOrder)
-export const SOURCES: Source[] = ['ESPI', 'STOOQ', 'MACRONEXT', 'WALTER', 'SEEKINGALPHA', 'PAP', 'GPW']
+export const SOURCES: Source[] = ['ESPI', 'STOOQ', 'MACRONEXT', 'WALTER', 'INVESTINGLIVE', 'SEEKINGALPHA', 'PAP', 'GPW']
 
 // The sources in the order the reader chose: those of `order` that exist, once each, then the ones it does not have (a source added since) in their default order
 export function orderedSources(order: readonly string[] | undefined): Source[] {
@@ -49,6 +49,11 @@ export interface FeedConfig {
   // Entries of the evening after the close of the session in New York, until midnight in Poland, stay in English (worker/translate.ts,
   // usEvening): Seeking Alpha's flood of results and dividends would use up the day's translations
   untranslatedUsEvening?: boolean
+  // At most this many translations a day for the channel instead of translate.ts's PER_DAY: the free plan's Workers AI allowance is shared by all channels
+  translatePerDay?: number
+  // A channel with everything the narrower channels of its source have (investingLive's general feed has its central bank and crypto
+  // posts too): a post that one of them has is shown there only, not here as well (worker/dedupe.ts)
+  broad?: boolean
 }
 
 export const FEEDS: FeedConfig[] = [
@@ -72,6 +77,11 @@ export const FEEDS: FeedConfig[] = [
   { source: 'PAP',   label: 'BIZNES',      url: 'https://pap-mediaroom.pl/kategoria/biznes-i-finanse/rss.xml' },
   { source: 'PAP',   label: 'NAUKA',       url: 'https://pap-mediaroom.pl/kategoria/nauka-i-technologie/rss.xml' },
   { source: 'PAP',   label: 'POLITYKA',    url: 'https://pap-mediaroom.pl/kategoria/polityka-i-społeczenstwo/rss.xml' },
+  // investingLive (formerly ForexLive): market news in English with a lead, from three RSS feeds; the general one has the posts of the
+  // other two as well, so those are shown in the narrower channel only (broad). Translated like Walter's posts, fewer a day (translatePerDay)
+  { source: 'INVESTINGLIVE', label: 'WIADOMOŚCI',      url: 'https://investinglive.com/feed/news/',         lang: 'en', translate: true, translatePerDay: 150, broad: true },
+  { source: 'INVESTINGLIVE', label: 'BANKI CENTRALNE', url: 'https://investinglive.com/feed/centralbank/',  lang: 'en', translate: true, translatePerDay: 60 },
+  { source: 'INVESTINGLIVE', label: 'KRYPTO',          url: 'https://investinglive.com/feed/cryptocurrency/', lang: 'en', translate: true, translatePerDay: 60 },
   // Not news but announcements made by this site from MacroNext's pages for today: 10 minutes
   // before each macro release, and the stock market before the sessions
   { source: 'MACRONEXT', label: 'MAKRO',  url: 'https://macronext.pl/pl/kalendarium-dzis', format: 'macronext' },
@@ -138,6 +148,12 @@ export const SOURCE_INFO: Record<Source, { name: string; publisher: string; site
     publisher: 'Polska Agencja Prasowa S.A.',
     site: 'https://pap-mediaroom.pl/rss',
     about: 'Komunikaty prasowe firm i instytucji z serwisu PAP MediaRoom Polskiej Agencji Prasowej, z kategorii: biznes i finanse, nauka i technologie, polityka i społeczeństwo.',
+  },
+  INVESTINGLIVE: {
+    name: 'investingLive: wiadomości z rynków',
+    publisher: 'investingLive (dawniej ForexLive)',
+    site: 'https://investinglive.com',
+    about: 'Wiadomości z rynków świata z trzech kanałów RSS serwisu investingLive (tytuł i zajawka): WIADOMOŚCI (ogólny kanał), BANKI CENTRALNE (decyzje i wypowiedzi banków centralnych) i KRYPTO (rynek kryptowalut). Wiadomość, którą mają dwa kanały, widać raz, w węższym. investingLive pisze po angielsku; Szczekaczka pokazuje je domyślnie po polsku, w tłumaczeniu maszynowym (model AI Gemma 4 w Cloudflare Workers AI), które może zawierać błędy. Oryginał po angielsku, czytany angielskim głosem, można wybrać w ustawieniach. Każda wiadomość prowadzi do artykułu w serwisie investingLive; Szczekaczka nie pobiera ani nie tłumaczy treści artykułów, tylko to, co podaje kanał. To niezależny serwis, niezwiązany z investingLive.',
   },
   SEEKINGALPHA: {
     name: 'Seeking Alpha: Market Currents',

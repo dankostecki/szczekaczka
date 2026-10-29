@@ -228,3 +228,27 @@ test('the Fed\'s chair moves the market like the Fed: a headline of his ranks ab
   assert.equal(r.candidates[0].title, 'WARSH: A DECEMBER CUT IS POSSIBLE')
   assert.ok(r.candidates[0].score > r.candidates[1].score)
 })
+
+test('investingLive is a source of the briefing by default: its items count by their date, rank above the Polish agencies, and routine notices go', () => {
+  assert.ok(config.sources.includes('INVESTINGLIVE'))
+  assert.equal(DATE_KIND.INVESTINGLIVE, 'published')
+  const items = [
+    item('INVESTINGLIVE', "Fed's Waller: a rate cut in December is possible", ms('2026-10-27T19:35:00Z'), { description: 'Waller said the labour market is cooling.' }),
+    item('PAP', 'Komunikat prasowy: firma otworzyła nowe biuro w regionie', ms('2026-10-27T19:35:00Z')),
+    item('INVESTINGLIVE', 'Acme Corp declares $0.25 dividend', ms('2026-10-27T20:00:00Z')),
+    item('INVESTINGLIVE', 'Acme Corp Q3 2026 Earnings Call Transcript', ms('2026-10-27T20:00:00Z')),
+    item('INVESTINGLIVE', 'Published before the window, ECB holds rates', ms('2026-10-27T17:59:00Z')),
+  ]
+  const r = collect(poller(items, t.cutoff), t, t.cutoff, config)
+  assert.deepEqual(r.candidates.map((c) => c.title), ["Fed's Waller: a rate cut in December is possible", 'Komunikat prasowy: firma otworzyła nowe biuro w regionie'])
+  assert.deepEqual(r.candidates[0].sources, ['INVESTINGLIVE'])
+  assert.equal(r.stats.routine, 2)
+  assert.equal(r.stats.outside, 1)
+  // the same story from Walter and investingLive is one, with both sources
+  const two = collect(poller([
+    item('WALTER', 'MICROSOFT 1Q REV. $92.3B, EST. $90.1B', ms('2026-10-27T21:05:00Z')),
+    item('INVESTINGLIVE', 'Microsoft 1Q revenue $92.3B vs $90.1B expected', ms('2026-10-27T21:06:00Z')),
+  ], t.cutoff), t, t.cutoff, config)
+  assert.equal(two.candidates.length, 1)
+  assert.deepEqual(two.candidates[0].sources.sort(), ['INVESTINGLIVE', 'WALTER'])
+})
