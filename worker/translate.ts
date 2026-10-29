@@ -61,7 +61,9 @@ export function readTranslation(out: string | null | undefined, src: Text): Text
 
 type Done = { pl?: Text | null; error?: string; tokensIn: number; tokensOut: number }
 
-async function translateOne(ai: Ai, it: Text): Promise<Done> {
+async function translateOne(ai: Ai, post: Text, leadOnly: boolean): Promise<Done> {
+  // the title and the lead only: a post with a long text (`body`) would use up the allowance and the answer's length
+  const it: Text = leadOnly ? { title: post.title, description: post.description } : post
   try {
     const res = await ai.run(MODEL, {
       messages: [
@@ -110,10 +112,13 @@ export function usEvening(t: number): boolean {
 
 // Translates the posts on the channel's page that have no translation yet, newest first, and adds them to the check's
 // result: the new posts go out already translated, and an older one translated now goes out again, with its translation.
-// `perDay`: the channel's limit of translations a day (FeedConfig.translatePerDay).
+// `perDay`: the channel's limit of translations a day (FeedConfig.translatePerDay); `leadOnly`: only the title and the lead are translated
+// (FeedConfig.translateLeadOnly).
 // `usEveningInEnglish`: the posts published in the evening after the close in New York (usEvening) are left in English for good (null),
 // without asking the model. Returns a line for the logs, or nothing when there was nothing to do.
-export async function translateNew(ai: Ai, r: CheckResult, now: number, usEveningInEnglish = false, perDay = PER_DAY): Promise<string | undefined> {
+export interface TranslateOptions { usEveningInEnglish?: boolean; perDay?: number; leadOnly?: boolean }
+export async function translateNew(ai: Ai, r: CheckResult, now: number, options: TranslateOptions = {}): Promise<string | undefined> {
+  const { usEveningInEnglish = false, perDay = PER_DAY, leadOnly = false } = options
   const s = r.state
   const onPage = new Set(s.current ?? [])
   let evening = 0
@@ -134,7 +139,7 @@ export async function translateNew(ai: Ai, r: CheckResult, now: number, usEvenin
   const todo = s.items.filter((i) => i.pl === undefined && onPage.has(i.id)).slice(0, Math.max(0, Math.min(PER_CHECK, perDay - used)))
   if (todo.length === 0) return used >= perDay ? `translations: the limit of ${perDay} a day is reached` + (leftLog ? `; ${leftLog}` : '') : leftLog
 
-  const results = await inTurns(todo, PARALLEL, (it) => translateOne(ai, it), (res) => res.pl === undefined)
+  const results = await inTurns(todo, PARALLEL, (it) => translateOne(ai, it, leadOnly), (res) => res.pl === undefined)
   const done = new Map<string, NewsItem>()
   const errors: string[] = []
   let tokensIn = 0, tokensOut = 0, failed = 0, asked = 0

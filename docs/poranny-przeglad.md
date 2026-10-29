@@ -11,7 +11,7 @@
 - **Nic nie jest publikowane częściowo.** Gdy któryś etap zawiedzie (OpenAI, wyszukiwanie, weryfikacja, Google TTS, zapis), wydanie się nie ukazuje, a strona pokazuje poprzednie.
 - Szacunkowy koszt jednego wydania (z założonych liczb tokenów, nie z pomiaru): przy `gpt-6.1-terra` i średnim wysiłku rozumowania około **0,9 USD** w typową noc (0,5–1,5 USD), przy `gpt-6.1-sol` około **1,5 USD** (0,8–2,5 USD). Około 0,3 USD z tego to wyszukiwanie. Głos mieści się w darmowym milionie znaków miesięcznie Google. Twarde limity: domyślnie 2 USD na wydanie i 40 USD na miesiąc.
 - **Bez API też jest materiał:** codziennie o 7:45 serwer składa wsad dla ChatGPT (zadanie, kalendarium dnia i wiadomości z nocy) pod stałym adresem, który podajesz ChatGPT. Nic przy tym nie kosztuje (niżej).
-- **Nic tu nie było testowane na żywych usługach.** Nie było kluczy, a sieć środowiska nie miała dostępu do OpenAI, Google ani do stron źródeł. Testy (140) sprawdzają logikę i kształt zapytań na symulowanych odpowiedziach. Pierwsze prawdziwe wydanie trzeba obejrzeć ręcznie (krok 6 niżej).
+- **Nic tu nie było testowane na żywych usługach.** Nie było kluczy, a sieć środowiska nie miała dostępu do OpenAI, Google ani do stron źródeł. Testy (138) sprawdzają logikę i kształt zapytań na symulowanych odpowiedziach. Pierwsze prawdziwe wydanie trzeba obejrzeć ręcznie (krok 6 niżej).
 
 ## Architektura
 
@@ -100,6 +100,7 @@ Wsad powstaje **niezależnie od `BRIEFING_MODE`** (także przy `off`) i nie woł
 
 - **Duplikaty** to jedna historia: ten sam link albo nagłówki o co najmniej 55% wspólnych słów (Jaccard), w odstępie do 6 godzin.
 - **Nagłówki jednego tematu z jednej godziny** to też jedna historia. Temat to pierwsze słowo nagłówka: „MICROSOFT 1Q REV…”, „WARSH: …”, „FED'S …”, „Orlen: …”. Nie liczą się słowa, od których zaczynają się nagłówki o czymkolwiek: „U.S.”, „USA:”, nazwy krajów (ich dane i ich rynki to różne wiadomości), „Spółka”, „Raport” i podobne. Wyniki spółki przychodzą od Waltera Bloomberga jako kilkanaście jednowierszowych nagłówków (przychody, zysk, prognoza, kurs po sesji), a decyzja Fed jako komunikat i zdania z konferencji. Liczone osobno, każdy był małą wiadomością i przegrywał z tym, co przyszło wcześniej wieczorem. Na odtworzonej nocy 28/29 października 2026 (test w `collect.test.ts`, nagłówki ułożone na wzór Waltera, nie pobrane z kanału) decyzja Fed o 19:00 i konferencja Warsha zajęły wszystkie 20 miejsc Waltera, zanim o 21:05 przyszły wyniki Microsoftu i Alphabetu. Teraz takie nagłówki to jeden kandydat. Pozostałe nagłówki idą razem z nim do modelu (`moreHeadlines`) i do wsadu dla ChatGPT („Dalsze nagłówki tej historii”), więc błędne połączenie dwóch tematów nie gubi żadnej informacji.
+- **Sekcje, które nie są wiadomościami:** wpisy investingLive z sekcji analizy technicznej, edukacji i zleceń FX (po adresie wpisu: `/technical-analysis/…`, `/education/…`, `/forex-orders/…`) odpadają jak rutynowe komunikaty: opisują poziomy wykresu, nie fakty, które da się potwierdzić w dwóch źródłach. Nazwy dwóch ostatnich sekcji nie były widoczne w sprawdzonym kanale (tylko `technical-analysis`); są z listy kategorii kanału na stronie serwisu.
 - **Ranking:** waga źródła, kilka źródeł jednej historii, jej liczba nagłówków i słowa, które poruszają rynek (banki centralne, dane makro, wyniki, cła, przejęcia, indeksy, surowce). Najwyżej 40% miejsc z jednego źródła.
 
 ## Okno, zamknięcie wydania, publikacja
@@ -287,7 +288,7 @@ Zła wartość nie psuje reszty: zostaje domyślna, a błąd widać w `GET /api/
 ## Test lokalny bez płatnych usług
 
 ```bash
-npm test                                   # 140 testów: czas i DST, okno, daty, duplikaty, sprzeczne źródła, weryfikacja, skrypt,
+npm test                                   # 138 testów: czas i DST, okno, daty, duplikaty, sprzeczne źródła, weryfikacja, skrypt,
                                            # części dla głosu, MP3, OpenAI/Google/Tavily na symulowanych odpowiedziach, SSRF, robots,
                                            # cały potok (ponowienia, idempotencja, terminy, brak sekretów, limity kosztów, zatwierdzanie)
 npm run build && npx wrangler dev          # z .dev.vars: BRIEFING_MODE=mock, BRIEFING_ADMIN_TOKEN=…, FEED_ORIGIN=… (lokalne kanały)
