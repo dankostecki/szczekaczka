@@ -70,7 +70,7 @@ const routineFor = (source: string) => (source === 'WALTER' || source === 'SEEKI
 // What moves markets: a story whose headline names these goes higher (the model decides in the end). Words of the
 // headline, looked up (much cheaper than expressions over every news): whole words, and stems of Polish inflected ones.
 const MOVER_WORDS: [kind: number, words: string[], stems: string[]][] = [
-  [1, ['fed', 'fomc', 'powell', 'ecb', 'ebc', 'lagarde', 'boj', 'boe', 'pboc', 'snb', 'nbp', 'rpp', 'glapiński', 'rates', 'rate'], ['procentow']],
+  [1, ['fed', 'fomc', 'warsh', 'powell', 'ecb', 'ebc', 'lagarde', 'boj', 'boe', 'pboc', 'snb', 'nbp', 'rpp', 'glapiński', 'rates', 'rate'], ['procentow']],
   [2, ['cpi', 'pce', 'ppi', 'gdp', 'pkb', 'payrolls', 'payroll', 'nfp', 'unemployment', 'jobless', 'pmi', 'ism', 'inflation'], ['inflac', 'bezroboci', 'detaliczn']],
   [3, ['earnings', 'results', 'revenue', 'rev', 'sales', 'ebitda', 'guidance', 'outlook', 'forecast', 'wyniki', 'eps', 'profit', 'loss'], ['prognoz', 'przychod', 'zysk', 'strat']],
   [4, ['tariff', 'tariffs', 'sanctions', 'sanction', 'cła', 'embargo', 'ceasefire', 'rozejm', 'attack', 'atak', 'war', 'opec', 'missile', 'strike'], ['sankcj', 'wojn', 'ostrzał']],
@@ -108,7 +108,7 @@ function jaccard(a: Set<string>, b: Set<string>): number {
   return common / (a.size + b.size - common || 1)
 }
 
-// The subject of a headline: its first word ("MICROSOFT 1Q REV…", "POWELL: …", "FED'S WALLER…", "Orlen: …"), unless it is one that
+// The subject of a headline: its first word ("MICROSOFT 1Q REV…", "WARSH: …", "FED'S WALLER…", "Orlen: …"), unless it is one that
 // starts headlines about anything ("U.S. …", "USA: …", "Spółka …"): a country is one (its data and its markets are different news)
 const NOT_A_SUBJECT = new Set(['u.s', 'us', 'usa', 'u.k', 'uk', 'eu', 'china', 'japan', 'germany', 'europe', 'euro', 'eurozone',
   'chiny', 'japonia', 'niemcy', 'polska', 'europa', 'strefa', 'the', 'breaking', 'update', 'exclusive', 'watch', 'just', 'alert', 'report', 'reports',

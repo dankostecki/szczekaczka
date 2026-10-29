@@ -97,7 +97,7 @@ test('duplicates are one story: the same headline from two sources, the same lin
 
 test('different stories with common words stay apart; stories far apart in time too', () => {
   const r = collect(poller([
-    item('WALTER', 'Fed holds rates steady, Powell says inflation remains elevated', ms('2026-10-27T19:00:00Z')),
+    item('WALTER', 'Fed holds rates steady, Warsh says inflation remains elevated', ms('2026-10-27T19:00:00Z')),
     item('WALTER', 'ECB holds rates steady, Lagarde says inflation is near target', ms('2026-10-27T19:30:00Z')),
     item('WALTER', 'Oil prices rise as OPEC agrees output cut', ms('2026-10-27T19:00:00Z')),
     item('WALTER', 'Oil prices rise as OPEC agrees output cut', ms('2026-10-28T04:00:00Z')),
@@ -175,14 +175,14 @@ test('the subject of a headline is its first word, not one that starts headlines
   assert.equal(subjectOf('MICROSOFT 1Q REV. $92.3B, EST. $90.1B'), 'microsoft')
   assert.equal(subjectOf('*ALPHABET 3Q EPS $2.41, EST. $2.58'), 'alphabet')
   assert.equal(subjectOf("FED'S WALLER: A CUT IN DECEMBER IS POSSIBLE"), 'fed')
-  assert.equal(subjectOf('POWELL: POLICY IS WELL POSITIONED'), 'powell')
+  assert.equal(subjectOf('WARSH: POLICY IS WELL POSITIONED'), 'warsh')
   assert.equal(subjectOf('Orlen: zysk netto w III kwartale wzrósł'), 'orlen')
   assert.equal(subjectOf('S&P 500 CLOSES DOWN 0.4%'), 's&p')
   for (const t of ['U.S. 10-YEAR YIELD RISES', 'USA: indeksy na zamknięciu', 'CHINA YUAN FIXING AT 7.12', 'Na GPW spadki', 'Spółka podała wyniki', 'THE DOLLAR WEAKENS',
     '10-YEAR YIELD RISES', 'BREAKING: X']) assert.equal(subjectOf(t), null, t)
 })
 
-// A night like 28/29 October 2026: the Fed's decision at 19:00 and Powell's press conference after it, then Microsoft's and Alphabet's
+// A night like 28/29 October 2026: the Fed's decision at 19:00 and Warsh's press conference after it, then Microsoft's and Alphabet's
 // results after the US close, each as many one-line headlines in Walter Bloomberg's channel, which had all its places taken by the Fed before
 test('a company\'s results in many headlines are one story and keep their place on a night of the Fed', () => {
   const night = editionTimes('2026-10-29', config)
@@ -190,8 +190,8 @@ test('a company\'s results in many headlines are one story and keep their place 
   const walter = (time: string, titles: string[], gap: number) => titles.map((title, i) => item('WALTER', title, new Date(Date.parse(time) + i * gap).toISOString()))
   const items = [
     ...walter(at('19:00'), ['FED HOLDS RATES AT 3.75%-4.00% IN SPLIT VOTE', 'FED: INFLATION REMAINS SOMEWHAT ELEVATED', 'FED: TWO OFFICIALS DISSENTED IN FAVOR OF A CUT', 'FED: JOB GAINS HAVE SLOWED'], 20_000),
-    ...walter(at('19:30'), Array.from({ length: 12 }, (_, i) => `POWELL: ${['RATES', 'INFLATION', 'TARIFFS', 'THE DOLLAR'][i % 4]} REMARK NUMBER ${i + 1}`), 180_000),
-    ...walter(at('19:05'), ['DOLLAR INDEX RISES AFTER FED', 'GOLD FALLS AFTER FED', 'BITCOIN FALLS AFTER POWELL', 'TREASURY YIELDS RISE AFTER POWELL', 'NASDAQ CLOSES DOWN 0.3%',
+    ...walter(at('19:30'), Array.from({ length: 12 }, (_, i) => `WARSH: ${['RATES', 'INFLATION', 'TARIFFS', 'THE DOLLAR'][i % 4]} REMARK NUMBER ${i + 1}`), 180_000),
+    ...walter(at('19:05'), ['DOLLAR INDEX RISES AFTER FED', 'GOLD FALLS AFTER FED', 'BITCOIN FALLS AFTER WARSH', 'TREASURY YIELDS RISE AFTER WARSH', 'NASDAQ CLOSES DOWN 0.3%',
       'DOW CLOSES DOWN 0.6%', 'WTI CRUDE SETTLES DOWN 0.8%', 'NIKKEI FUTURES UP 0.5%'], 9 * 60_000),
     ...walter(at('21:05'), ['MICROSOFT 1Q REV. $92.3B, EST. $90.1B', 'MICROSOFT 1Q ADJ EPS $4.89, EST. $4.73', 'MICROSOFT 1Q AZURE REV. +48%', 'MICROSOFT SHARES RISE 5% POST-MARKET',
       'MICROSOFT SEES 2Q AZURE GROWTH 45%-46%'], 40_000),
@@ -206,7 +206,7 @@ test('a company\'s results in many headlines are one story and keep their place 
   assert.equal(msft.title, 'MICROSOFT 1Q REV. $92.3B, EST. $90.1B', 'the first headline')
   assert.deepEqual(msft.more, ['MICROSOFT 1Q ADJ EPS $4.89, EST. $4.73', 'MICROSOFT 1Q AZURE REV. +48%', 'MICROSOFT SHARES RISE 5% POST-MARKET', 'MICROSOFT SEES 2Q AZURE GROWTH 45%-46%'])
   assert.equal(goog.itemIds.length, 4)
-  assert.equal(titles.filter((t) => t.startsWith('POWELL')).length, 1, 'the press conference is one story')
+  assert.equal(titles.filter((t) => t.startsWith('WARSH')).length, 1, 'the press conference is one story')
   assert.equal(titles.filter((t) => t.startsWith('FED')).length, 1)
 })
 
@@ -217,4 +217,14 @@ test('one subject more than an hour apart is two stories', () => {
     item('WALTER', 'TRUMP: SIGNS ORDER ON SHIPBUILDING', ms('2026-10-27T21:30:00Z')),
   ], t.cutoff), t, t.cutoff, config)
   assert.deepEqual(r.candidates.map((c) => c.itemIds.length).sort(), [1, 2])
+})
+
+test('the Fed\'s chair moves the market like the Fed: a headline of his ranks above one about nothing in particular', () => {
+  const time = ms('2026-10-27T20:00:00Z')
+  const r = collect(poller([
+    item('STOOQ', 'ACME OPENS NEW OFFICE IN OHIO', time),
+    item('STOOQ', 'WARSH: A DECEMBER CUT IS POSSIBLE', time),
+  ], t.cutoff), t, t.cutoff, config)
+  assert.equal(r.candidates[0].title, 'WARSH: A DECEMBER CUT IS POSSIBLE')
+  assert.ok(r.candidates[0].score > r.candidates[1].score)
 })
