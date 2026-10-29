@@ -11,7 +11,7 @@
 - **Nic nie jest publikowane częściowo.** Gdy któryś etap zawiedzie (OpenAI, wyszukiwanie, weryfikacja, Google TTS, zapis), wydanie się nie ukazuje, a strona pokazuje poprzednie.
 - Szacunkowy koszt jednego wydania (z założonych liczb tokenów, nie z pomiaru): przy `gpt-6.1-terra` i średnim wysiłku rozumowania około **0,9 USD** w typową noc (0,5–1,5 USD), przy `gpt-6.1-sol` około **1,5 USD** (0,8–2,5 USD). Około 0,3 USD z tego to wyszukiwanie. Głos mieści się w darmowym milionie znaków miesięcznie Google. Twarde limity: domyślnie 2 USD na wydanie i 40 USD na miesiąc.
 - **Bez API też jest materiał:** codziennie o 7:45 serwer składa wsad dla ChatGPT (zadanie, kalendarium dnia i wiadomości z nocy) pod stałym adresem, który podajesz ChatGPT. Nic przy tym nie kosztuje (niżej).
-- **Nic tu nie było testowane na żywych usługach.** Nie było kluczy, a sieć środowiska nie miała dostępu do OpenAI, Google ani do stron źródeł. Testy (126) sprawdzają logikę i kształt zapytań na symulowanych odpowiedziach. Pierwsze prawdziwe wydanie trzeba obejrzeć ręcznie (krok 6 niżej).
+- **Nic tu nie było testowane na żywych usługach.** Nie było kluczy, a sieć środowiska nie miała dostępu do OpenAI, Google ani do stron źródeł. Testy (130) sprawdzają logikę i kształt zapytań na symulowanych odpowiedziach. Pierwsze prawdziwe wydanie trzeba obejrzeć ręcznie (krok 6 niżej).
 
 ## Architektura
 
@@ -24,7 +24,7 @@ cron co 10 min ──▶ Briefing.kick()        (worker/index.ts; ten sam cron c
 
    prepare   sprawdza model (GET /v1/models/{id}) i głos (GET /v1/voices?languageCode=pl-PL)
    collect   wiadomości z okna od Pollera (RPC briefingItems), wg daty publikacji
-   rank      łączenie duplikatów, ranking, najwyżej 50 kandydatów (najwyżej 40% z jednego źródła)
+   rank      łączenie duplikatów i nagłówków jednego tematu z jednej godziny, ranking, najwyżej 50 kandydatów (najwyżej 40% z jednego źródła)
    triage    OpenAI: wybór do 10 historii, rozbicie na twierdzenia, zapytania do wyszukiwarki
    dla każdej historii:
      search  wyszukiwarka (OpenAI web_search albo Tavily): adresy stron
@@ -48,7 +48,7 @@ Pliki: `worker/briefing/` (`config`, `time`, `collect`, `prompts`, `schemas`, `l
 
 - **Jeden krok na alarm.** Darmowy plan Workers daje 10 ms CPU i 50 zapytań na wywołanie, a alarm Durable Object do 15 minut czasu. Czekanie na OpenAI, Google czy stronę nie liczy się do CPU. Dlatego każdy krok to jedno wywołanie usługi albo jedna strona, a wynik zapisuje się od razu. Krok raz zrobiony nigdy nie jest powtarzany ani płacony drugi raz, także po restarcie obiektu czy wdrożeniu.
 - **Pomiary CPU** (lokalnie, Node, ta sama maszyna V8; na Cloudflare wartości będą inne):
-  - noc 700 wiadomości: `collect` około 4 ms, `rank` około 4–6 ms;
+  - noc 700 wiadomości: `collect` około 4 ms, `rank` około 4–10 ms (na nagłówkach z realistycznym rozkładem słów około 10 ms);
   - czytanie strony 1 MB: około 7 ms;
   - reszta kroków to głównie JSON i czekanie.
   To mieści się w limicie, ale blisko niego. Jeśli w logach pojawi się „Exceeded CPU”, rozwiązaniem jest **Workers Paid (5 USD miesięcznie)**: 30 s CPU, bez zmian w kodzie.
@@ -79,7 +79,7 @@ Zanim podepniesz API, możesz robić przegląd sam w aplikacji ChatGPT. W dni wy
 
 - **Zadanie** z zasadami potoku: wybór od 3 do 8 historii, sprawdzenie każdej w sieci (źródło pierwotne i co najmniej jedno niezależne), pomijanie starych i niepotwierdzonych, zasady polszczyzny do czytania na głos (bez skrótów i symboli, godziny słownie), powitanie z datą i oknem słownie, na końcu lista źródeł i pominiętych historii.
 - **Kalendarium na dziś** z porannych paczek MacroNext (7:30 makro, 7:35 GPW, 7:40 Nowy Jork), wiersz po wierszu. Bez nich zadanie mówi, żeby tę część pominąć.
-- **Wiadomości z nocy:** do 50 najważniejszych historii (ten sam wybór i łączenie duplikatów co w potoku) z wiadomości opublikowanych od 19:00 dnia poprzedniego **do chwili złożenia, czyli 7:45** (płatny potok zamyka wydanie o 6:00, bo potrzebuje czasu na sprawdzanie). Przy każdej: źródło, godzina, zajawka, tłumaczenie wiadomości angielskiej, do 3 linków. Na górze są też kanały, które w nocy miały błędy.
+- **Wiadomości z nocy:** do 50 najważniejszych historii (ten sam wybór i łączenie co w potoku, opis niżej) z wiadomości opublikowanych od 19:00 dnia poprzedniego **do chwili złożenia, czyli 7:45** (płatny potok zamyka wydanie o 6:00, bo potrzebuje czasu na sprawdzanie). Przy każdej: źródło, godzina, zajawka, tłumaczenie wiadomości angielskiej, do 3 linków. Na górze są też kanały, które w nocy miały błędy.
 
 Wsad powstaje **niezależnie od `BRIEFING_MODE`** (także przy `off`) i nie woła żadnej płatnej usługi. Składa się w dwóch krokach alarmu `Briefing` (`worker/briefing/pack.ts`). Pierwszy wsad po wdrożeniu, w dzień wydania po 7:45, powstaje od razu, z wiadomościami do tej chwili.
 
@@ -95,6 +95,12 @@ Wsad powstaje **niezależnie od `BRIEFING_MODE`** (także przy `off`) i nie woł
 |---|---|---|
 | `BRIEFING_PACK` | `on` | `off` wyłącza wsad |
 | `BRIEFING_PACK_AT` | `07:45` | 03:00–12:00. Kalendarium MacroNext jest we wsadzie tylko po 7:40 |
+
+## Jak wybierane są historie z nocy (`rank`)
+
+- **Duplikaty** to jedna historia: ten sam link albo nagłówki o co najmniej 55% wspólnych słów (Jaccard), w odstępie do 6 godzin.
+- **Nagłówki jednego tematu z jednej godziny** to też jedna historia. Temat to pierwsze słowo nagłówka: „MICROSOFT 1Q REV…”, „POWELL: …”, „FED'S …”, „Orlen: …”. Nie liczą się słowa, od których zaczynają się nagłówki o czymkolwiek: „U.S.”, „USA:”, nazwy krajów (ich dane i ich rynki to różne wiadomości), „Spółka”, „Raport” i podobne. Wyniki spółki przychodzą od Waltera Bloomberga jako kilkanaście jednowierszowych nagłówków (przychody, zysk, prognoza, kurs po sesji), a decyzja Fed jako komunikat i zdania z konferencji. Liczone osobno, każdy był małą wiadomością i przegrywał z tym, co przyszło wcześniej wieczorem. Na odtworzonej nocy 28/29 października 2026 (test w `collect.test.ts`, nagłówki ułożone na wzór Waltera, nie pobrane z kanału) decyzja Fed o 19:00 i konferencja Powella zajęły wszystkie 20 miejsc Waltera, zanim o 21:05 przyszły wyniki Microsoftu i Alphabetu. Teraz takie nagłówki to jeden kandydat. Pozostałe nagłówki idą razem z nim do modelu (`moreHeadlines`) i do wsadu dla ChatGPT („Dalsze nagłówki tej historii”), więc błędne połączenie dwóch tematów nie gubi żadnej informacji.
+- **Ranking:** waga źródła, kilka źródeł jednej historii, jej liczba nagłówków i słowa, które poruszają rynek (banki centralne, dane makro, wyniki, cła, przejęcia, indeksy, surowce). Najwyżej 40% miejsc z jednego źródła.
 
 ## Okno, zamknięcie wydania, publikacja
 
@@ -281,7 +287,7 @@ Zła wartość nie psuje reszty: zostaje domyślna, a błąd widać w `GET /api/
 ## Test lokalny bez płatnych usług
 
 ```bash
-npm test                                   # 126 testów: czas i DST, okno, daty, duplikaty, sprzeczne źródła, weryfikacja, skrypt,
+npm test                                   # 130 testów: czas i DST, okno, daty, duplikaty, sprzeczne źródła, weryfikacja, skrypt,
                                            # części dla głosu, MP3, OpenAI/Google/Tavily na symulowanych odpowiedziach, SSRF, robots,
                                            # cały potok (ponowienia, idempotencja, terminy, brak sekretów, limity kosztów, zatwierdzanie)
 npm run build && npx wrangler dev          # z .dev.vars: BRIEFING_MODE=mock, BRIEFING_ADMIN_TOKEN=…, FEED_ORIGIN=… (lokalne kanały)

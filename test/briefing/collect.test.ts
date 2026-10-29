@@ -1,7 +1,7 @@
 // Stage 1: which news are in the window, by which date, and how they are grouped and ranked
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { collect, DATE_KIND, inWindow, rank } from '../../worker/briefing/collect'
+import { collect, DATE_KIND, inWindow, rank, subjectOf } from '../../worker/briefing/collect'
 import { readConfig } from '../../worker/briefing/config'
 import { editionTimes } from '../../worker/briefing/time'
 import { item, poller } from './helpers'
@@ -140,12 +140,15 @@ test('near-duplicates: the same groups as comparing every pair, on random nights
   for (let trial = 0; trial < 60; trial++) {
     const vocab = Array.from({ length: 30 + Math.floor(rnd() * 2000) }, (_, i) => `w${i.toString(36)}`)
     const word = () => vocab[Math.min(vocab.length - 1, Math.floor(Math.exp(rnd() * Math.log(vocab.length)) - 1))]
+    // each headline starts with a word of its own, so that only near-duplicates are put together here (not one subject's headlines)
     const items: Parameters<typeof rank>[0] = []
+    const texts: string[] = []
     for (let i = 0; i < 20 + Math.floor(rnd() * 250); i++) {
-      const copy = items.length && rnd() < 0.3 ? items[Math.floor(rnd() * items.length)].title.split(' ') : null
+      const copy = texts.length && rnd() < 0.3 ? texts[Math.floor(rnd() * texts.length)].split(' ') : null
       if (copy) for (let k = Math.floor(rnd() * 3); k > 0; k--) copy[Math.floor(rnd() * copy.length)] = word()
+      texts.push(copy ? copy.join(' ') : Array.from({ length: 2 + Math.floor(rnd() * 12) }, word).join(' '))
       items.push({ id: `S:${i}`, source: ['WALTER', 'STOOQ', 'ESPI'][i % 3], label: 'X', lead: '', time: t.from + Math.floor(rnd() * 13 * 3600_000),
-        title: copy ? copy.join(' ') : Array.from({ length: 2 + Math.floor(rnd() * 12) }, word).join(' '),
+        title: `n${i}x ${texts[i]}`,
         link: rnd() < 0.04 ? 'https://example.net/same' : `https://example.net/${i}`, ...(rnd() < 0.2 ? { translation: Array.from({ length: 8 }, word).join(' ') } : {}) })
     }
     // every pair
@@ -166,4 +169,52 @@ test('near-duplicates: the same groups as comparing every pair, on random nights
     const got = new Set(rank(items, { maxCandidates: 1000 }).candidates.map((c) => [...c.itemIds].sort().join(' ')))
     assert.deepEqual([...got].sort(), [...expected].sort(), `trial ${trial}`)
   }
+})
+
+test('the subject of a headline is its first word, not one that starts headlines about anything', () => {
+  assert.equal(subjectOf('MICROSOFT 1Q REV. $92.3B, EST. $90.1B'), 'microsoft')
+  assert.equal(subjectOf('*ALPHABET 3Q EPS $2.41, EST. $2.58'), 'alphabet')
+  assert.equal(subjectOf("FED'S WALLER: A CUT IN DECEMBER IS POSSIBLE"), 'fed')
+  assert.equal(subjectOf('POWELL: POLICY IS WELL POSITIONED'), 'powell')
+  assert.equal(subjectOf('Orlen: zysk netto w III kwartale wzrósł'), 'orlen')
+  assert.equal(subjectOf('S&P 500 CLOSES DOWN 0.4%'), 's&p')
+  for (const t of ['U.S. 10-YEAR YIELD RISES', 'USA: indeksy na zamknięciu', 'CHINA YUAN FIXING AT 7.12', 'Na GPW spadki', 'Spółka podała wyniki', 'THE DOLLAR WEAKENS',
+    '10-YEAR YIELD RISES', 'BREAKING: X']) assert.equal(subjectOf(t), null, t)
+})
+
+// A night like 28/29 October 2026: the Fed's decision at 19:00 and Powell's press conference after it, then Microsoft's and Alphabet's
+// results after the US close, each as many one-line headlines in Walter Bloomberg's channel, which had all its places taken by the Fed before
+test('a company\'s results in many headlines are one story and keep their place on a night of the Fed', () => {
+  const night = editionTimes('2026-10-29', config)
+  const at = (hhmm: string, day = '2026-10-28') => { const [h, m] = hhmm.split(':').map(Number); return new Date(Date.parse(`${day}T00:00:00Z`) + ((h - 1) * 60 + m) * 60_000).toISOString() } // CET
+  const walter = (time: string, titles: string[], gap: number) => titles.map((title, i) => item('WALTER', title, new Date(Date.parse(time) + i * gap).toISOString()))
+  const items = [
+    ...walter(at('19:00'), ['FED HOLDS RATES AT 3.75%-4.00% IN SPLIT VOTE', 'FED: INFLATION REMAINS SOMEWHAT ELEVATED', 'FED: TWO OFFICIALS DISSENTED IN FAVOR OF A CUT', 'FED: JOB GAINS HAVE SLOWED'], 20_000),
+    ...walter(at('19:30'), Array.from({ length: 12 }, (_, i) => `POWELL: ${['RATES', 'INFLATION', 'TARIFFS', 'THE DOLLAR'][i % 4]} REMARK NUMBER ${i + 1}`), 180_000),
+    ...walter(at('19:05'), ['DOLLAR INDEX RISES AFTER FED', 'GOLD FALLS AFTER FED', 'BITCOIN FALLS AFTER POWELL', 'TREASURY YIELDS RISE AFTER POWELL', 'NASDAQ CLOSES DOWN 0.3%',
+      'DOW CLOSES DOWN 0.6%', 'WTI CRUDE SETTLES DOWN 0.8%', 'NIKKEI FUTURES UP 0.5%'], 9 * 60_000),
+    ...walter(at('21:05'), ['MICROSOFT 1Q REV. $92.3B, EST. $90.1B', 'MICROSOFT 1Q ADJ EPS $4.89, EST. $4.73', 'MICROSOFT 1Q AZURE REV. +48%', 'MICROSOFT SHARES RISE 5% POST-MARKET',
+      'MICROSOFT SEES 2Q AZURE GROWTH 45%-46%'], 40_000),
+    ...walter(at('21:06'), ['ALPHABET 3Q REV. $108.2B, EST. $109.5B', 'ALPHABET 3Q EPS $2.41, EST. $2.58', 'ALPHABET 3Q GOOGLE CLOUD REV. $30.7B', 'ALPHABET SHARES FALL 10% POST-MARKET'], 45_000),
+  ]
+  const now = Date.parse(at('07:45', '2026-10-29'))
+  const r = collect(poller(items, now), night, now, { ...config, maxCandidates: 10 }) // Walter: 4 places of 10
+  const titles = r.candidates.map((c) => c.title)
+  const msft = r.candidates.find((c) => c.title.startsWith('MICROSOFT'))!
+  const goog = r.candidates.find((c) => c.title.startsWith('ALPHABET'))!
+  assert.ok(msft && goog, titles.join(' | '))
+  assert.equal(msft.title, 'MICROSOFT 1Q REV. $92.3B, EST. $90.1B', 'the first headline')
+  assert.deepEqual(msft.more, ['MICROSOFT 1Q ADJ EPS $4.89, EST. $4.73', 'MICROSOFT 1Q AZURE REV. +48%', 'MICROSOFT SHARES RISE 5% POST-MARKET', 'MICROSOFT SEES 2Q AZURE GROWTH 45%-46%'])
+  assert.equal(goog.itemIds.length, 4)
+  assert.equal(titles.filter((t) => t.startsWith('POWELL')).length, 1, 'the press conference is one story')
+  assert.equal(titles.filter((t) => t.startsWith('FED')).length, 1)
+})
+
+test('one subject more than an hour apart is two stories', () => {
+  const r = collect(poller([
+    item('WALTER', 'TRUMP: WILL MEET XI THIS WEEK', ms('2026-10-27T19:00:00Z')),
+    item('WALTER', 'TRUMP: TARIFFS ON CHINA COULD BE CUT', ms('2026-10-27T19:50:00Z')),
+    item('WALTER', 'TRUMP: SIGNS ORDER ON SHIPBUILDING', ms('2026-10-27T21:30:00Z')),
+  ], t.cutoff), t, t.cutoff, config)
+  assert.deepEqual(r.candidates.map((c) => c.itemIds.length).sort(), [1, 2])
 })

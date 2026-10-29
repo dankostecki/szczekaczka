@@ -124,6 +124,11 @@ test('at 07:45: the news from 19:00 the evening before to 07:45, the day\'s cale
   assert.match(text, /na około 3 minuty \(około 420 słów\)/)
   assert.match(text, /linki do źródeł/)
   assert.match(text, /3\. Kalendarium\. Po wiadomościach/)
+  // a story of several headlines lists the others
+  const burst = deps({}, '2026-10-28T06:45:00Z', [...night(), item('WALTER', 'MICROSOFT 1Q REV. $92.3B, EST. $90.1B', '2026-10-27T20:05:00Z'),
+    item('WALTER', 'MICROSOFT SHARES RISE 5% POST-MARKET', '2026-10-27T20:06:00Z')])
+  await runUntil(burst, '2026-10-28T23:00:00Z')
+  assert.match(packOf(burst.d.store)!.text, /Dalsze nagłówki tej historii:\n- MICROSOFT SHARES RISE 5% POST-MARKET\n/)
   // nothing more that day: the next wake-up is the next morning
   assert.equal(iso(await packTick(h.d) as number), '2026-10-29T06:45:00.000Z')
   assert.ok(h.logs.some((l) => /pack 2026-10-28: 3 stories of 3 news, 2 calendars/.test(l)))

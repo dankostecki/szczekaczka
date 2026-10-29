@@ -124,6 +124,7 @@ function story(n: number, s: Candidate): string {
   const lead = clean(s.lead, 400)
   if (lead && lead !== clean(s.title, 300)) lines.push(lead)
   if (s.translation) lines.push(`Po polsku: ${clean(s.translation, 500)}`)
+  if (s.more?.length) lines.push('Dalsze nagłówki tej historii:', ...s.more.map((m) => `- ${clean(m, 200)}`))
   lines.push(...s.links.slice(0, LINKS_PER_STORY))
   return lines.join('\n')
 }
