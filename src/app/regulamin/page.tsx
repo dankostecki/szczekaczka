@@ -34,7 +34,7 @@ export default function Terms() {
           Bankier.pl (komunikaty spółek ESPI/EBI), Giełdę Papierów Wartościowych w Warszawie (komunikaty, komunikaty
           prasowe, aktualności), Stooq (biznes, kraj, świat) oraz PAP MediaRoom Polskiej Agencji
           Prasowej (komunikaty prasowe: biznes i finanse, nauka i technologie, polityka i społeczeństwo), a także wiadomości
-          z publicznego kanału Walter Bloomberg w serwisie Telegram (niezwiązanego z agencją Bloomberg), z kanałów RSS serwisu investingLive i z kanału RSS Market Currents serwisu Seeking Alpha (tytuły i zajawki;
+          z publicznego kanału Walter Bloomberg w serwisie Telegram (niezwiązanego z agencją Bloomberg), z kanału RSS serwisu investingLive i z kanału RSS Market Currents serwisu Seeking Alpha (tytuły i zajawki;
           Serwis nie pobiera artykułów), pisane po angielsku i domyślnie
           pokazywane w tłumaczeniu maszynowym na język polski (oryginał można wybrać w ustawieniach). Z publicznych kalendariów MacroNext Serwis
           tworzy zapowiedzi publikacji danych makroekonomicznych i wydarzeń banków centralnych, pokazywane 10 minut przed nimi,

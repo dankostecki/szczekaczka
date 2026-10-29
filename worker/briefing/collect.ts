@@ -65,6 +65,9 @@ const ROUTINE_PL: RegExp[] = [
   /\bkorekta\s+raportu\b/i,
   /\braport\s+(?:bieżący|okresowy)\s+nr\b/i,
 ]
+// investingLive's posts by section, in the link ("/technical-analysis/…"): charts and levels, and lessons, are no news for a briefing (what they say is
+// not a fact two sources can confirm). The sections of the general feed seen: news, central-banks, stocks, commodities, cryptocurrency, technical-analysis
+const ROUTINE_LINK = /^https?:\/\/[^/]+\/(?:technical-analysis|education|forex-orders)\//i
 const routineFor = (source: string) => (source === 'WALTER' || source === 'SEEKINGALPHA' || source === 'INVESTINGLIVE' ? ROUTINE_EN : ROUTINE_PL)
 
 // What moves markets: a story whose headline names these goes higher (the model decides in the end). Words of the
@@ -144,7 +147,7 @@ export function inWindow(data: PollerItems, t: EditionTimes, cutoff: number, con
     if (time < t.from || time >= cutoff) { stats.outside++; continue }
     const lead = it.description.slice(0, 400)
     const text = `${it.title} ${lead.slice(0, 200)}`
-    if (routineFor(it.source).some((r) => r.test(text))) { stats.routine++; continue }
+    if (routineFor(it.source).some((r) => r.test(text)) || (it.source === 'INVESTINGLIVE' && ROUTINE_LINK.test(it.link))) { stats.routine++; continue }
     items.push({
       id: it.id, source: it.source, label: it.label, title: it.title.slice(0, 300), lead, link: it.link, time,
       ...(it.pl ? { translation: `${it.pl.title}${it.pl.description ? ` ${it.pl.description}` : ''}`.slice(0, 500) } : {}),
