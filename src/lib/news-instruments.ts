@@ -6,7 +6,7 @@
 import { INSTRUMENTS, MARKET_GROUPS } from './market'
 
 // The channels whose news get quotes; ESPI and GPW (the Warsaw exchange, in the widgets only at the end of the day) and MacroNext not yet
-export const QUOTED_SOURCES: readonly string[] = ['WALTER', 'SEEKINGALPHA', 'STOOQ', 'PAP']
+export const QUOTED_SOURCES: readonly string[] = ['WALTER', 'INVESTINGLIVE', 'SEEKINGALPHA', 'STOOQ', 'PAP']
 export const MAX_QUOTED = 3
 
 interface Alias {

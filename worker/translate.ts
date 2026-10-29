@@ -1,4 +1,4 @@
-// Posts of a channel in English (FeedConfig.translate: Walter Bloomberg, Seeking Alpha) in Polish: each post is translated once on the
+// Posts of a channel in English (FeedConfig.translate: Walter Bloomberg, Seeking Alpha, investingLive) in Polish: each post is translated once on the
 // server with Workers AI and kept beside the original (NewsItem.pl). The page shows the translation unless the reader
 // chose the original (prefs.originalFeeds), and reads it with the Polish voice and the rules of say.ts.
 import type { NewsItem } from '../src/lib/parse'
@@ -16,7 +16,7 @@ const TIMEOUT_MS = 15_000
 // After an error of the service (no capacity, the day's allocation used up): no translations for this long
 export const PAUSE_MS = 10 * 60_000
 
-const SYSTEM = `Tłumaczysz na język polski krótkie wiadomości z rynków finansowych (kanał Walter Bloomberg na Telegramie, serwis Seeking Alpha). Piszesz jak polski serwis finansowy (PAP Biznes, Bankier.pl): zwięźle i rzeczowo.
+const SYSTEM = `Tłumaczysz na język polski krótkie wiadomości z rynków finansowych (kanał Walter Bloomberg na Telegramie, serwisy Seeking Alpha i investingLive). Piszesz jak polski serwis finansowy (PAP Biznes, Bankier.pl): zwięźle i rzeczowo.
 Zasady:
 - Tłumacz wiernie: nic nie dodawaj, niczego nie pomijaj, nie komentuj i nie wyjaśniaj.
 - Pisz zwykłą pisownią, nie wielkimi literami: wielka litera na początku zdania i w nazwach własnych. Skróty zostają wielkimi literami (USA, CPI, PKB, EBC). Oznaczenia spółek z giełdą w nawiasie, np. (NYSE:FMC), zostaw bez zmian.
@@ -110,9 +110,10 @@ export function usEvening(t: number): boolean {
 
 // Translates the posts on the channel's page that have no translation yet, newest first, and adds them to the check's
 // result: the new posts go out already translated, and an older one translated now goes out again, with its translation.
+// `perDay`: the channel's limit of translations a day (FeedConfig.translatePerDay).
 // `usEveningInEnglish`: the posts published in the evening after the close in New York (usEvening) are left in English for good (null),
 // without asking the model. Returns a line for the logs, or nothing when there was nothing to do.
-export async function translateNew(ai: Ai, r: CheckResult, now: number, usEveningInEnglish = false): Promise<string | undefined> {
+export async function translateNew(ai: Ai, r: CheckResult, now: number, usEveningInEnglish = false, perDay = PER_DAY): Promise<string | undefined> {
   const s = r.state
   const onPage = new Set(s.current ?? [])
   let evening = 0
@@ -130,8 +131,8 @@ export async function translateNew(ai: Ai, r: CheckResult, now: number, usEvenin
   if ((s.ai?.retryAt ?? 0) > now) return leftLog
   const day = new Date(now).toISOString().slice(0, 10)
   const used = s.ai?.day === day ? s.ai.n : 0
-  const todo = s.items.filter((i) => i.pl === undefined && onPage.has(i.id)).slice(0, Math.max(0, Math.min(PER_CHECK, PER_DAY - used)))
-  if (todo.length === 0) return used >= PER_DAY ? `translations: the limit of ${PER_DAY} a day is reached` + (leftLog ? `; ${leftLog}` : '') : leftLog
+  const todo = s.items.filter((i) => i.pl === undefined && onPage.has(i.id)).slice(0, Math.max(0, Math.min(PER_CHECK, perDay - used)))
+  if (todo.length === 0) return used >= perDay ? `translations: the limit of ${perDay} a day is reached` + (leftLog ? `; ${leftLog}` : '') : leftLog
 
   const results = await inTurns(todo, PARALLEL, (it) => translateOne(ai, it), (res) => res.pl === undefined)
   const done = new Map<string, NewsItem>()
