@@ -87,7 +87,7 @@ async function translateOne(ai: Ai, post: Text, leadOnly: boolean): Promise<Done
 }
 
 // `n` at a time; after a failure (`stop`) the rest is not started: the poller waits for this, and other channels with it
-async function inTurns<T, R>(list: T[], n: number, f: (x: T) => Promise<R>, stop: (r: R) => boolean): Promise<(R | undefined)[]> {
+export async function inTurns<T, R>(list: T[], n: number, f: (x: T) => Promise<R>, stop: (r: R) => boolean): Promise<(R | undefined)[]> {
   const out: (R | undefined)[] = new Array(list.length).fill(undefined)
   let next = 0, stopped = false
   await Promise.all(Array.from({ length: Math.min(n, list.length) }, async () => {

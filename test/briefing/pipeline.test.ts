@@ -4,9 +4,10 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { ProviderError, type Llm } from '../../worker/briefing/llm'
 import { inspect } from '../../worker/briefing/mp3'
-import { adminEdition, approve, audioOf, nextStep, publicEdition, publicIndex, reject, startByHand, tick, type EditionRecord, type ValidateOutput } from '../../worker/briefing/pipeline'
+import { adminEdition, approve, audioOf, nextStep, publicEdition, publicIndex, reject, startByHand, tick, type EditionRecord, type RankOutput, type ValidateOutput } from '../../worker/briefing/pipeline'
 import { silentMp3 } from '../../worker/briefing/mp3'
-import { harness, item, night, run } from './helpers'
+import { dataOf } from '../../worker/briefing/mock'
+import { fakeAi, harness, item, night, run } from './helpers'
 
 const twoNights = () => [...night(14, '2026-10-27'), ...night(14, '2026-10-28')]
 
@@ -355,4 +356,29 @@ test('the model that picks the stories is told that crypto and commodities are t
   assert.match(asked[0].instructions, /an exchange hack or a freeze of\s+funds/)
   assert.match(asked[0].input, /Binance appears hacked/)
   assert.match(asked[0].input, /WTI crude oil falls 5%/)
+})
+
+test('the ratings of importance reach the pipeline: the candidates carry them, the editor model gets them as a hint, and switched off it gets none', async () => {
+  const triageInput = async (env: Record<string, string>, rate: ReturnType<typeof fakeAi>) => {
+    const h = harness(env)
+    h.d.ai = rate.ai
+    const inputs: string[] = []
+    const llm = h.d.llm!
+    h.d.llm = { ...llm, call: (async (req: Parameters<typeof llm.call>[0]) => { if (req.stage === 'triage') inputs.push(req.input); return llm.call(req) }) as typeof llm.call }
+    h.clock.now = Date.parse('2026-10-28T05:00:00Z')
+    await run(h, () => !!h.d.store.getStep('2026-10-28', 'triage'))
+    return { rank: h.d.store.getStep<RankOutput>('2026-10-28', 'rank')!.output!, candidates: dataOf<{ candidates: { helperImportance?: number }[] }>(inputs[0]).candidates }
+  }
+  const on = fakeAi((t) => (/Orlen/.test(t) ? 9 : 3))
+  const a = await triageInput({}, on)
+  assert.equal(on.calls.n, 1)
+  assert.equal(a.rank.ranking!.mode, 'model')
+  assert.ok(a.rank.candidates.every((c) => c.importance !== undefined))
+  assert.ok(a.candidates.length > 0 && a.candidates.every((c) => typeof c.helperImportance === 'number'))
+  const off = fakeAi(() => 9)
+  const b = await triageInput({ BRIEFING_AI_RANK: 'off' }, off)
+  assert.equal(off.calls.n, 0)
+  assert.equal(b.rank.ranking!.mode, 'rules')
+  assert.ok(b.rank.candidates.every((c) => c.importance === undefined))
+  assert.ok(b.candidates.every((c) => c.helperImportance === undefined))
 })

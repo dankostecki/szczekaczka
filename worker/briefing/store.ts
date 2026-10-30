@@ -52,6 +52,8 @@ export interface Store {
   ttsCharsSince(at: number): number
   getPack(slot: PackSlot): PackRecord | null  // the pack for ChatGPT: the latest one made, and the one being made
   putPack(slot: PackSlot, p: PackRecord | null): void
+  getKv(key: string): string | null           // small settings of the object's own: the calls the ranking model made today
+  putKv(key: string, value: string): void
 }
 
 export const AUDIO_SLICE = 1_000_000
@@ -62,6 +64,7 @@ export function memoryStore(): Store {
   const audio = new Map<string, Uint8Array>()
   const usage: UsageRow[] = []
   const packs = new Map<PackSlot, PackRecord>()
+  const kv = new Map<string, string>()
   const copy = <T>(x: T): T => structuredClone(x)
   return {
     getEdition: (id) => (editions.has(id) ? copy(editions.get(id)!) : null),
@@ -82,5 +85,7 @@ export function memoryStore(): Store {
     ttsCharsSince: (at) => usage.filter((u) => u.at >= at && u.provider === 'google-tts').reduce((n, u) => n + u.characters, 0),
     getPack: (slot) => (packs.has(slot) ? copy(packs.get(slot)!) : null),
     putPack: (slot, p) => { if (p) packs.set(slot, copy(p)); else packs.delete(slot) },
+    getKv: (key) => kv.get(key) ?? null,
+    putKv: (key, value) => { kv.set(key, value) },
   }
 }

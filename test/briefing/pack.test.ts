@@ -8,7 +8,7 @@ import { readConfig, type Env as ConfigEnv } from '../../worker/briefing/config'
 import { calendarOf, duePack, nextPackAt, packOf, packStatus, packText, packTick, packWake, type PackDeps } from '../../worker/briefing/pack'
 import { memoryStore } from '../../worker/briefing/store'
 import type { Env } from '../../worker/env'
-import { item, poller } from './helpers'
+import { fakeAi, item, poller } from './helpers'
 
 const iso = (ms: number) => new Date(ms).toISOString()
 const at = (s: string) => Date.parse(s)
@@ -150,6 +150,49 @@ test('without the calendars the task leaves that part out', async () => {
   const text = packOf(h.d.store)!.text
   assert.doesNotMatch(text, /## Kalendarium na dziś/)
   assert.match(text, /Kalendarium MacroNext na dziś nie było dostępne: pomiń tę część\./)
+})
+
+test('with the model\'s ratings: they go into the order and the text, the record and the status, and the pack says so', async () => {
+  const { ai, calls } = fakeAi((t) => (/Orlen/.test(t) ? 9 : /Nikkei/.test(t) ? 1 : 5))
+  const h = deps()
+  h.d.ai = ai
+  await runUntil(h, '2026-10-28T23:00:00Z')
+  const text = packOf(h.d.store)!.text
+  assert.equal(calls.n, 1)
+  assert.match(text, /Kolejność historii ustaliły reguły automatyczne .* i ocena ważności od 0 do 10 z modelu pomocniczego, podana przy historiach\. Ocena to tylko wskazówka/)
+  assert.match(text, /### 1\. Orlen: szacunkowe wyniki za III kwartał\nESPI · [^\n]* · ważność 9\/10\n/, 'rated high, it comes first')
+  assert.match(text, / · ważność 1\/10\n/)
+  const record = h.d.store.getPack('latest')!
+  assert.equal(record.ranking!.mode, 'model')
+  assert.equal(record.ranking!.scored, 3)
+  assert.equal(packStatus(h.d).latest!.ranking!.mode, 'model')
+  assert.ok(h.logs.some((l) => /pack 2026-10-28: 3 stories .* ranking: model/.test(l)))
+  // by the rules alone the order is another one, and says nothing of ratings
+  const plain = deps()
+  await runUntil(plain, '2026-10-28T23:00:00Z')
+  assert.doesNotMatch(packOf(plain.d.store)!.text, /ważność|modelu pomocniczego/)
+  assert.doesNotMatch(packOf(plain.d.store)!.text, /### 1\. Orlen/)
+})
+
+test('switched off with BRIEFING_AI_RANK=off: no call, and the pack is the one the rules alone make; a failing service changes nothing either', async () => {
+  const items = night() // the same news, with the same links, in every pack
+  const plain = deps({}, '2026-10-28T06:44:59Z', items)
+  await runUntil(plain, '2026-10-28T23:00:00Z')
+  const rated = fakeAi(() => 9)
+  const off = deps({ BRIEFING_AI_RANK: 'off' }, '2026-10-28T06:44:59Z', items)
+  off.d.ai = rated.ai
+  await runUntil(off, '2026-10-28T23:00:00Z')
+  assert.equal(rated.calls.n, 0)
+  assert.equal(packOf(off.d.store)!.text, packOf(plain.d.store)!.text)
+  assert.equal(off.d.store.getPack('latest')!.ranking!.mode, 'rules')
+  assert.match(off.d.store.getPack('latest')!.ranking!.reason!, /BRIEFING_AI_RANK=off/)
+  const down = fakeAi(() => null)
+  const broken = deps({}, '2026-10-28T06:44:59Z', items)
+  broken.d.ai = down.ai
+  await runUntil(broken, '2026-10-28T23:00:00Z')
+  assert.equal(down.calls.n, 1)
+  assert.equal(packOf(broken.d.store)!.text, packOf(plain.d.store)!.text)
+  assert.match(broken.d.store.getPack('latest')!.ranking!.reason!, /the service is down/)
 })
 
 test('the pack off: nothing is made, no wake-up', async () => {

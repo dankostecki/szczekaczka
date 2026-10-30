@@ -30,6 +30,7 @@ export interface Candidate {
   lead: string
   translation?: string    // the site's Polish translation of an English item
   more?: string[]         // the story's other headlines (a company's results come as many), oldest first
+  importance?: number     // 0 to 10, as the model that rated the stories of the night said (importance.ts), when it did
   score: number
 }
 
@@ -182,8 +183,23 @@ export function inWindow(data: PollerItems, t: EditionTimes, cutoff: number, con
   return { items, stats }
 }
 
-// Step "rank": near-duplicates together, the stories scored, the best `maxCandidates` with no source over 40% of them
-export function rank(items: WindowItem[], config: Pick<BriefingConfig, 'maxCandidates'>): { candidates: Candidate[]; groups: number } {
+// A story of the night (the near-duplicates put together) with the score the rules give it; `key` is the id of its best item, the same on every run
+export interface Group {
+  key: string
+  g: { it: WindowItem; words: Set<string> }[]
+  best: { it: WindowItem; words: Set<string> }
+  sources: string[]
+  score: number
+  topics: number
+}
+export interface Pool { groups: Group[]; count: number }
+// What the model says of them (importance.ts), on its scale of 0 to 10, and how much of it is added to the rules' score; a story it
+// did not rate (a call that failed) gets `fill`, the middle of the rest, so that being unrated is neither a gain nor a loss
+export interface Importance { scores: ReadonlyMap<string, number>; weight: number; fill: number }
+const byScore = (a: { score: number; best: { it: WindowItem } }, b: typeof a) => b.score - a.score || a.best.it.time - b.best.it.time
+
+// Step "rank", the first half: near-duplicates together, the stories scored by the rules, the best first
+export function rankPool(items: WindowItem[]): Pool {
   const kept = items.map((it) => ({ it, words: new Set(tokens(`${it.title} ${it.translation?.slice(0, 160) ?? ''}`)) }))
   const parent = kept.map((_, i) => i)
   const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])))
@@ -247,11 +263,17 @@ export function rank(items: WindowItem[], config: Pick<BriefingConfig, 'maxCandi
     const top = g.slice(0, 3).flatMap((k) => [...k.words])
     const movers = moverKinds(top)
     const score = weightOf(best.it.source, best.it.label) + 0.6 * (sources.length - 1) + 0.25 * Math.log2(g.length) + 0.35 * Math.min(movers, 3)
-    return { g, best, sources, score, topics: topicsOf(top) }
+    return { key: best.it.id, g, best, sources, score, topics: topicsOf(top) } satisfies Group
   })
-  const byScore = (a: { score: number; best: { it: WindowItem } }, b: typeof a) => b.score - a.score || a.best.it.time - b.best.it.time
   scored.sort(byScore)
+  return { groups: scored, count: groups.size }
+}
 
+// The second half: the best `maxCandidates` with no source over 40% of them, and the places of crypto and of commodities. With the model's
+// scores (`importance`) a story's score is the rules' plus `weight` times the model's, so a story the rules put low can come in
+export function pickCandidates(pool: Pool, config: Pick<BriefingConfig, 'maxCandidates'>, importance?: Importance): { candidates: Candidate[]; groups: number } {
+  const scored = pool.groups.map((s) => (importance ? { ...s, score: s.score + importance.weight * (importance.scores.get(s.key) ?? importance.fill) } : s))
+  scored.sort(byScore)
   const cap = Math.max(4, Math.ceil(config.maxCandidates * 0.4))
   const perSource = new Map<string, number>()
   const chosen: typeof scored = []
@@ -292,10 +314,14 @@ export function rank(items: WindowItem[], config: Pick<BriefingConfig, 'maxCandi
     lead: clip(s.best.it.lead, 400),
     ...(s.best.it.translation ? { translation: s.best.it.translation } : {}),
     ...moreOf(s.g, s.best),
+    ...(importance?.scores.has(s.key) ? { importance: importance.scores.get(s.key) } : {}),
     score: Math.round(s.score * 100) / 100,
   }))
-  return { candidates, groups: groups.size }
+  return { candidates, groups: pool.count }
 }
+
+// Both halves, by the rules alone
+export const rank = (items: WindowItem[], config: Pick<BriefingConfig, 'maxCandidates'>) => pickCandidates(rankPool(items), config)
 
 // The other headlines of a story, oldest first, without the ones that say what its headline says
 function moreOf(g: { it: WindowItem }[], best: { it: WindowItem }): Pick<Candidate, 'more'> {

@@ -11,6 +11,7 @@ export function sqliteStore(sql: SqlStorage): Store {
     web_searches INTEGER, characters INTEGER, cost_usd REAL NOT NULL, request_id TEXT, ok INTEGER NOT NULL)`)
   sql.exec('CREATE INDEX IF NOT EXISTS usage_at ON usage (at)')
   sql.exec('CREATE TABLE IF NOT EXISTS pack (slot TEXT PRIMARY KEY, data TEXT NOT NULL)')
+  sql.exec('CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
   const one = <T>(cursor: SqlStorageCursor<Record<string, SqlStorageValue>>) => cursor.toArray()[0] as T | undefined
   return {
     getEdition: (id) => { const r = one<{ data: string }>(sql.exec('SELECT data FROM editions WHERE id = ?', id)); return r ? JSON.parse(r.data) : null },
@@ -49,5 +50,7 @@ export function sqliteStore(sql: SqlStorage): Store {
       if (p) sql.exec('INSERT OR REPLACE INTO pack (slot, data) VALUES (?, ?)', slot, JSON.stringify(p))
       else sql.exec('DELETE FROM pack WHERE slot = ?', slot)
     },
+    getKv: (key) => one<{ value: string }>(sql.exec('SELECT value FROM kv WHERE key = ?', key))?.value ?? null,
+    putKv: (key, value) => { sql.exec('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)', key, value) },
   }
 }

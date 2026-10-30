@@ -2,6 +2,9 @@
 // defaults for everything that has a safe one. Nothing paid runs unless BRIEFING_MODE is "live" and every secret it needs is
 // set; the model has no default on purpose (docs/poranny-przeglad.md says which ids OpenAI listed when this was written).
 
+// The Workers AI model that rates the importance of stories (importance.ts), the same as translates (worker/translate.ts)
+export const AI_RANK_MODEL = '@cf/google/gemma-4-26b-a4b-it'
+
 export type Mode = 'off' | 'mock' | 'live'
 export type Approval = 'auto' | 'manual'
 export type SearchProviderName = 'openai' | 'tavily' | 'mock'
@@ -76,6 +79,9 @@ export interface BriefingConfig {
   // The pack for ChatGPT without the API (pack.ts): made at `at` on the days of the briefing, whatever the mode.
   // Its settings' problems are its own: a wrong one does not stop an edition
   pack: { enabled: boolean; at: string; problems: string[] }
+  // A model of Workers AI rating the stories' importance (importance.ts), a helper to the rules that choose them: off, the ranking is the
+  // rules alone. Free (the plan's neurons), so its settings' problems are its own too
+  aiRank: { enabled: boolean; model: string; weight: number; pool: number; maxCalls: number; problems: string[] }
 }
 
 export type Env = Record<string, unknown>
@@ -161,6 +167,17 @@ export function readConfig(env: Env): { config: BriefingConfig; problems: string
   if (packAt < 3 * 60 || packAt > 12 * 60) problems.push('BRIEFING_PACK_AT must be from 03:00 to 12:00 (the pack is made in the morning)')
   pack.problems = problems.splice(mark)
 
+  const markAi = problems.length
+  const aiRank: BriefingConfig['aiRank'] = {
+    enabled: oneOf('BRIEFING_AI_RANK', ['on', 'off'] as const, 'on') === 'on',
+    model: str('BRIEFING_AI_RANK_MODEL') ?? AI_RANK_MODEL,
+    weight: num('BRIEFING_AI_RANK_WEIGHT', 0.3, 0, 1),
+    pool: Math.floor(num('BRIEFING_AI_RANK_POOL', 200, 20, 320)),
+    maxCalls: Math.floor(num('BRIEFING_AI_RANK_MAX_CALLS', 20, 1, 200)),
+    problems: [],
+  }
+  aiRank.problems = problems.splice(markAi)
+
   const rate = str('BRIEFING_TTS_SPEAKING_RATE')
   const speakingRate = rate === undefined ? undefined : num('BRIEFING_TTS_SPEAKING_RATE', 1, 0.25, 2)
 
@@ -236,6 +253,7 @@ export function readConfig(env: Env): { config: BriefingConfig; problems: string
     retentionDays: num('BRIEFING_RETENTION_DAYS', 30, 3, 365),
     adminToken: str('BRIEFING_ADMIN_TOKEN'),
     pack,
+    aiRank,
   }
 
   const [start, end, cut, pub, dead] = [config.windowStart, config.windowEnd, config.cutoff, config.publishAt, config.deadline].map(minutesOf)
