@@ -82,7 +82,8 @@ export interface BriefingConfig {
   pack: { enabled: boolean; at: string; problems: string[] }
   // A model of Workers AI rating the stories' importance (importance.ts), a helper to the rules that choose them: off, the ranking is the
   // rules alone. Free (the plan's neurons), so its settings' problems are its own too
-  aiRank: { enabled: boolean; model: string; weight: number; pool: number; maxCalls: number; problems: string[] }
+  // fromList: the ratings the list gave the news as they came in (worker/rate.ts, the "Top" tab) are taken, and only the stories without one are asked about
+  aiRank: { enabled: boolean; model: string; weight: number; pool: number; maxCalls: number; fromList: boolean; problems: string[] }
 }
 
 export type Env = Record<string, unknown>
@@ -175,6 +176,7 @@ export function readConfig(env: Env): { config: BriefingConfig; problems: string
     weight: num('BRIEFING_AI_RANK_WEIGHT', 0.3, 0, 1),
     pool: Math.floor(num('BRIEFING_AI_RANK_POOL', 200, 20, 320)),
     maxCalls: Math.floor(num('BRIEFING_AI_RANK_MAX_CALLS', 12, 1, 200)),
+    fromList: oneOf('BRIEFING_AI_RANK_FROM_LIST', ['on', 'off'] as const, 'on') === 'on',
     problems: [],
   }
   aiRank.problems = problems.splice(markAi)

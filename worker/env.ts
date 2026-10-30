@@ -8,8 +8,15 @@ export interface Env {
   // The morning briefing (worker/briefing): its settings are BRIEFING_* variables and secrets, read by briefing/config.ts
   BRIEFING: DurableObjectNamespace<Briefing>
   ASSETS: Fetcher
-  // Workers AI, for the translations (worker/translate.ts); without it (local tests) nothing is translated
+  // Workers AI, for the translations (worker/translate.ts) and the ratings of importance (worker/rate.ts); without it (local tests)
+  // nothing is translated or rated
   AI?: Ai
+  // The ratings of the news' importance (worker/rate.ts, the page's "Top" tab): on (the default) or off; the model; the languages of the
+  // channels rated ("en,pl", or "en"); the ratings a day for one channel
+  NEWS_AI_RANK?: string
+  NEWS_AI_RANK_MODEL?: string
+  NEWS_AI_RANK_LANGS?: string
+  NEWS_AI_RANK_PER_DAY?: string
   // Other sites whose pages may use /api/news and /ws, comma-separated (the GitHub Pages copy)
   ALLOWED_ORIGINS?: string
   // Local tests only: fetch feeds from this origin instead of the real sites

@@ -49,6 +49,7 @@ export interface RankingInfo {
   model?: string
   weight?: number
   scored: number        // stories the model rated
+  fromList?: number     // …of them with the rating the list gave their news as they came in (worker/rate.ts), not asked again
   of: number            // stories it was meant to rate
   calls: number
   failed: number
@@ -140,27 +141,37 @@ async function askChat(ai: Ai, model: string, first: number, groups: Group[]): P
   }
 }
 
-async function askDecision(ai: Ai, model: string, first: number, groups: Group[]): Promise<Asked> {
-  const ids = new Set(groups.map((_, i) => first + i))
-  const questions = Object.fromEntries(groups.map((g, i) => {
-    const it = g.best.it, title = oneLine(it.title, 220), lead = oneLine(it.lead ?? '', LEAD_CHARS)
-    return [`h${first + i}`, { type: 'score', criteria: LEVELS, instructions: {
-      question: QUESTION, headline: title, sources: g.sources.map(sourceName).join(', '),
-      ...(g.g.length > 1 ? { headlinesOfThisStory: g.g.length } : {}), ...(lead && lead !== title ? { lead } : {}),
-    } }]
-  }))
+// What a question of the decision model is told about one headline (or one story of several)
+export interface Headline { question: string; headline: string; sources: string; headlinesOfThisStory?: number; lead?: string }
+export function headlineOf(title: string, lead: string, sources: string[], count = 1): Headline {
+  const headline = oneLine(title, 220), shortLead = oneLine(lead, LEAD_CHARS)
+  return { question: QUESTION, headline, sources: sources.map(sourceName).join(', '), ...(count > 1 ? { headlinesOfThisStory: count } : {}),
+    ...(shortLead && shortLead !== headline ? { lead: shortLead } : {}) }
+}
+
+// A decision model's ratings of headlines, 0 to 10 by the ids of their questions (up to 64 in one request): also the news of the list
+// (worker/rate.ts). Never throws: a failure is `error`, with no ratings
+export async function rateHeadlines(ai: Ai, model: string, headlines: [id: string, h: Headline][], tag = 'importance'):
+  Promise<{ scores: Map<string, number>; error?: string; tokensIn: number; tokensOut: number }> {
+  const ids = new Set(headlines.map(([id]) => id))
+  const questions = Object.fromEntries(headlines.map(([id, h]) => [id, { type: 'score', criteria: LEVELS, instructions: h }]))
   try {
-    const res = await (ai as unknown as Run).run(model, { model: model.split('/').pop(), state: STATE, questions }, { signal: AbortSignal.timeout(TIMEOUT_MS), tags: ['importance'] })
-    const scores = new Map<number, number>()
+    const res = await (ai as unknown as Run).run(model, { model: model.split('/').pop(), state: STATE, questions }, { signal: AbortSignal.timeout(TIMEOUT_MS), tags: [tag] })
+    const scores = new Map<string, number>()
     for (const [id, answer] of Object.entries(res.answers ?? {})) {
-      const n = /^h(\d+)$/.exec(id), level = levelOf(answer)
-      if (n && level !== null && ids.has(Number(n[1]))) scores.set(Number(n[1]), toTen(level))
+      const level = levelOf(answer)
+      if (level !== null && ids.has(id)) scores.set(id, toTen(level))
     }
     const used = { tokensIn: res.usage?.input_tokens ?? 0, tokensOut: res.usage?.output_tokens ?? 0 }
     return scores.size ? { scores, ...used } : { scores, error: `no ratings in the answer: ${JSON.stringify(res.answers ?? null).slice(0, 120)}`, ...used }
   } catch (e) {
     return { scores: new Map(), error: String((e as Error)?.message ?? e).slice(0, 200), tokensIn: 0, tokensOut: 0 }
   }
+}
+
+async function askDecision(ai: Ai, model: string, first: number, groups: Group[]): Promise<Asked> {
+  const r = await rateHeadlines(ai, model, groups.map((g, i) => [`h${first + i}`, headlineOf(g.best.it.title, g.best.it.lead ?? '', g.sources, g.g.length)]))
+  return { ...r, scores: new Map([...r.scores].map(([id, score]) => [Number(id.slice(1)), score])) }
 }
 
 const ask = (ai: Ai, model: string, first: number, groups: Group[]) => (isDecisionModel(model) ? askDecision : askChat)(ai, model, first, groups)
@@ -184,30 +195,44 @@ export async function importanceFor(d: ImportanceDeps, pool: Pool): Promise<{ im
   const rules = (reason: string, extra: Partial<RankingInfo> = {}) =>
     ({ ranking: { mode: 'rules' as const, reason, model: c.model, scored: 0, of: list.length, calls: 0, failed: 0, prompt: IMPORTANCE_VERSION, ...extra } })
   if (!c.enabled) return rules('switched off (BRIEFING_AI_RANK=off)')
-  if (!d.ai) return rules('no Workers AI binding')
   if (!list.length) return rules('no stories')
+  const half = Math.ceil(list.length / 2)
 
+  // The ratings the list gave the news as they came in (the best of a story's news): the stories that have one are not asked about again
+  const known = new Map<string, number>()
+  if (c.fromList) for (const g of list) {
+    const rated = g.g.map((k) => k.it.ai).filter((x): x is number => typeof x === 'number')
+    if (rated.length) known.set(g.key, Math.max(...rated))
+  }
+  const toAsk = list.filter((g) => !known.has(g.key))
   const batches: { first: number; groups: Group[] }[] = []
-  for (let i = 0; i < list.length; i += BATCH) batches.push({ first: i + 1, groups: list.slice(i, i + BATCH) })
-  const used = callsToday(d.store, d.now())
-  if (used + batches.length > c.maxCalls) return rules(`the day's limit of ${c.maxCalls} calls (${used} made, ${batches.length} needed)`)
-
-  const ai = d.ai
-  const answers = await inTurns(batches, PARALLEL, (b) => ask(ai, c.model, b.first, b.groups), (r) => r.error !== undefined)
+  for (let i = 0; i < toAsk.length; i += BATCH) batches.push({ first: i + 1, groups: toAsk.slice(i, i + BATCH) })
+  let answers: (Asked | undefined)[] = []
+  if (batches.length && !d.ai && known.size < half) return rules('no Workers AI binding', { fromList: known.size })
+  if (batches.length && d.ai) {
+    const used = callsToday(d.store, d.now())
+    if (used + batches.length > c.maxCalls) {
+      if (known.size < half) return rules(`the day's limit of ${c.maxCalls} calls (${used} made, ${batches.length} needed)`, { fromList: known.size })
+    } else {
+      const ai = d.ai
+      answers = await inTurns(batches, PARALLEL, (b) => ask(ai, c.model, b.first, b.groups), (r) => r.error !== undefined)
+      d.store.putKv(USED_KEY, JSON.stringify({ day: dayOf(d.now()), n: used + answers.filter(Boolean).length }))
+    }
+  }
   const asked = answers.filter((a): a is Asked => a !== undefined)
-  d.store.putKv(USED_KEY, JSON.stringify({ day: dayOf(d.now()), n: used + asked.length }))
 
-  const scores = new Map<string, number>()
+  const scores = new Map(known)
   answers.forEach((a, k) => { if (a) for (const [n, score] of a.scores) scores.set(batches[k].groups[n - batches[k].first].key, score) })
   const failed = asked.filter((a) => a.error !== undefined).length
   const error = asked.find((a) => a.error)?.error
   const tokens = `${asked.reduce((n, a) => n + a.tokensIn, 0)} tokens in, ${asked.reduce((n, a) => n + a.tokensOut, 0)} out`
-  const base = { calls: asked.length, failed, scored: scores.size }
-  if (scores.size < Math.ceil(list.length / 2)) {
-    d.log(`briefing ranking: the model rated ${scores.size}/${list.length} (${asked.length} calls, ${tokens}): rules alone${error ? ` | ${error}` : ''}`)
+  const base = { calls: asked.length, failed, scored: scores.size, ...(known.size ? { fromList: known.size } : {}) }
+  const listed = known.size ? `, ${known.size} with the list's ratings` : ''
+  if (scores.size < half) {
+    d.log(`briefing ranking: the model rated ${scores.size}/${list.length}${listed} (${asked.length} calls, ${tokens}): rules alone${error ? ` | ${error}` : ''}`)
     return rules(`too few ratings (${scores.size} of ${list.length})${error ? `: ${error}` : ''}`, base)
   }
-  d.log(`briefing ranking: ${c.model} rated ${scores.size}/${list.length} stories (${asked.length} calls, ${failed} failed, ${tokens})${error ? ` | ${error}` : ''}`)
+  d.log(`briefing ranking: ${c.model} rated ${scores.size}/${list.length} stories${listed} (${asked.length} calls, ${failed} failed, ${tokens})${error ? ` | ${error}` : ''}`)
   return {
     importance: { scores, weight: c.weight, fill: median([...scores.values()]) },
     ranking: { mode: 'model', model: c.model, weight: c.weight, of: list.length, prompt: IMPORTANCE_VERSION, ...base },
@@ -217,5 +242,5 @@ export async function importanceFor(d: ImportanceDeps, pool: Pool): Promise<{ im
 // For the operator's status: the settings and the calls made today
 export function aiRankStatus(d: Pick<ImportanceDeps, 'ai' | 'config' | 'store' | 'now'>) {
   const c = d.config.aiRank
-  return { enabled: c.enabled, model: c.model, weight: c.weight, pool: c.pool, maxCalls: c.maxCalls, binding: !!d.ai, callsToday: callsToday(d.store, d.now()), problems: c.problems }
+  return { enabled: c.enabled, model: c.model, weight: c.weight, pool: c.pool, maxCalls: c.maxCalls, fromList: c.fromList, binding: !!d.ai, callsToday: callsToday(d.store, d.now()), problems: c.problems }
 }

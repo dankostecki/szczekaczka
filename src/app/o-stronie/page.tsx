@@ -36,6 +36,12 @@ export default function About() {
         Alpha z wieczora po zamknięciu sesji w Nowym Jorku (od 22:00, a w tygodniach, gdy w USA i w Polsce czas zmienia się w różnych
         terminach, od 21:00, do północy) zostają po angielsku.
       </p>
+      <p>
+        Zakładka Top pokazuje najważniejsze wiadomości z ostatnich 4, 8, 12 lub 24 godzin, ze wszystkich źródeł albo z wybranego. Kolejność ustala
+        sztuczna inteligencja: każdą wiadomość, gdy przychodzi, ocenia od 0 do 10 model w usłudze Cloudflare Workers AI, na podstawie tytułu i początku
+        wiadomości (angielskiej przed tłumaczeniem). Ta sama wiadomość z kilku źródeł jest jedną pozycją, nieco wyżej za każde dodatkowe źródło. Ocena
+        może się mylić; nie jest rekomendacją.
+      </p>
 
       {SOURCES.map((src) => {
         const info = SOURCE_INFO[src]

@@ -2,7 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { orderedSources, labelsOf, feedKey, renamedId, renamedItem, sourceName, feedName, type Source } from '@/lib/sources'
+import { orderedSources, labelsOf, feedKey, renamedId, renamedItem, sourceName, feedName, langOf, type Source } from '@/lib/sources'
 import type { NewsItem } from '@/lib/parse'
 import { type Item, type FeedError, freshItems, keyOf, dayKey, dayLabel, clock, withTime, inLanguage, originalOf } from '@/lib/news'
 import { connectLive, type LiveStatus } from '@/lib/live'
@@ -24,6 +24,9 @@ import ScrollRow from './ScrollRow'
 import { SiteFooter } from './LegalPage'
 import { Logo, Speaker, Bell, Refresh, Sun, Moon, Gear, Search, Close, Star, Chart, Radio } from './Icons'
 import type { BriefingPointer } from '@/lib/briefing'
+import type { TopMeta } from '@/lib/protocol'
+import { topStories, type TopStory } from '@/lib/top'
+import Top from './Top'
 
 const READ_KEY  = 'szczekaczka:read'
 const SAVED_KEY = 'szczekaczka:saved'
@@ -31,10 +34,11 @@ const MAX_READ  = 5000
 const FRESH_MS  = 10 * 60_000 // how long a new headline keeps its NOWE badge
 const TITLE = 'Szczekaczka'
 
-// The tabs: everything, the market (quotes and charts, components/Market.tsx), each source, the saved news
-type Filter = 'ALL' | 'MARKET' | Source | 'SAVED'
-const isSource = (f: Filter): f is Source => f !== 'ALL' && f !== 'MARKET' && f !== 'SAVED'
-const filterName = (f: Filter) => (f === 'ALL' ? 'Wszystko' : f === 'MARKET' ? 'Rynek' : f === 'SAVED' ? 'Zapisane' : sourceName(f))
+// The tabs: everything, the most important news (rated by the AI, components/Top.tsx), the market (quotes and charts, components/Market.tsx),
+// each source, the saved news
+type Filter = 'ALL' | 'TOP' | 'MARKET' | Source | 'SAVED'
+const isSource = (f: Filter): f is Source => f !== 'ALL' && f !== 'TOP' && f !== 'MARKET' && f !== 'SAVED'
+const filterName = (f: Filter) => (f === 'ALL' ? 'Wszystko' : f === 'TOP' ? 'Top' : f === 'MARKET' ? 'Rynek' : f === 'SAVED' ? 'Zapisane' : sourceName(f))
 const filterColor = (f: Filter) => (isSource(f) ? `var(--src-${f.toLowerCase()})` : undefined)
 
 // A source tab (or one of its channels) with nothing on it: why. Its channels are shown,
@@ -71,6 +75,7 @@ export default function App() {
   const [status,    setStatus]    = useState<LiveStatus>('connecting')
   const [online,    setOnline]    = useState<number | null>(null) // pages connected right now, all users
   const [briefing,  setBriefing]  = useState<BriefingPointer | null>(null) // the latest morning briefing, when there is one
+  const [top,       setTop]       = useState<TopMeta | null>(null) // the news are rated by their importance: the "Top" tab
   const [updatedAt, setUpdatedAt] = useState<number | null>(null)
   const [prefs,     setPrefs]     = useState<Prefs>(DEFAULT_PREFS)
   const [ready,     setReady]     = useState(false) // prefs restored from this browser
@@ -175,6 +180,7 @@ export default function App() {
       onStatus: setStatus,
       onOnline: setOnline,
       onBriefing: setBriefing,
+      onTop: setTop,
       onError: (message) => { setErrors([{ feed: 'Serwer', message }]); setLoaded(true) },
     })
     liveConn.current = conn
@@ -301,7 +307,7 @@ export default function App() {
   // The channels of a source's tab: the ones that are on, and all of them when none is (a source switched off is looked at whole)
   const tabLabels = (src: Source) => { const on = labelsOf(src).filter((l) => !hidden.has(feedKey(src, l))); return on.length ? on : labelsOf(src) }
   // the tabs: everything, the market, the sources in the order the reader set in the settings, the saved
-  const filters = ['ALL', 'MARKET', ...orderedSources(prefs.sourceOrder), 'SAVED'] as Filter[]
+  const filters = ['ALL', ...(top ? ['TOP'] : []), 'MARKET', ...orderedSources(prefs.sourceOrder), 'SAVED'] as Filter[]
   const activeFilter: Filter = filters.includes(filter) ? filter : 'ALL'
   const activeLabel = label && isSource(activeFilter) && tabLabels(activeFilter).includes(label) ? label : null
   const market = activeFilter === 'MARKET'
@@ -311,10 +317,24 @@ export default function App() {
     const base =
       activeFilter === 'SAVED' ? saved.map((i) => inLanguage(i, original)).sort((a, b) => b.time - a.time)
       : activeFilter === 'ALL' ? shown
-      : activeFilter === 'MARKET' ? []
+      : activeFilter === 'MARKET' || activeFilter === 'TOP' ? []
       : everything.filter((i) => i.source === activeFilter && (stateOf(activeFilter) === 'off' || !hidden.has(keyOf(i))) && (!activeLabel || i.label === activeLabel))
     return q ? base.filter((i) => `${i.title} ${i.description} ${i.source} ${i.label}`.toLowerCase().includes(q)) : base
   }, [shown, everything, hidden, saved, original, activeFilter, activeLabel, q])
+
+  // ── "Top": the most important news of the last hours, of all the sources in "Wszystko" or of one (as on its tab) ──
+  const topTab = activeFilter === 'TOP' && top !== null
+  const topSources = useMemo(() => orderedSources(prefs.sourceOrder)
+    .filter((src) => src !== 'MACRONEXT' && labelsOf(src).some((l) => top?.langs.includes(langOf(src, l)))), [prefs.sourceOrder, top])
+  const topSource = topSources.find((src) => src === prefs.topSource) ?? null
+  const topMinute = Math.floor(now / 60_000) // worked out again once a minute at most
+  const stories = useMemo(() => {
+    if (!topTab) return []
+    const base = topSource ? everything.filter((i) => i.source === topSource && (stateOf(topSource) === 'off' || !hidden.has(keyOf(i)))) : shown
+    const found = q ? base.filter((i) => `${i.title} ${i.description} ${i.source} ${i.label}`.toLowerCase().includes(q)) : base
+    return topStories(found, prefs.topHours, topMinute * 60_000, top.langs)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topTab, topSource, everything, shown, hidden, q, prefs.topHours, topMinute, top])
 
   // News per channel, for the settings (also for hidden channels)
   const counts = useMemo(() => {
@@ -538,7 +558,24 @@ export default function App() {
 
         {!market && !loaded && Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton" />)}
 
-        {!market && loaded && visible.length === 0 && (
+        {topTab && (
+          <Top stories={stories} hours={prefs.topHours} onHours={(h) => updatePrefs({ topHours: h })}
+            source={topSource ?? ''} sources={topSources} onSource={(src) => updatePrefs({ topSource: src })}
+            englishOnly={!top.langs.includes('pl')} loaded={loaded}
+            row={(story: TopStory) => {
+              const it = story.item
+              const read = readIds.has(it.id)
+              return (
+                <NewsRow key={it.id} item={it} now={now} read={read} saved={savedIds.has(it.id)}
+                  fresh={it.id in freshAt && now - freshAt[it.id] < FRESH_MS && !read}
+                  watched={it.source === 'ESPI' && watched(`${it.title} ${it.description}`)} rating={story.ai}
+                  also={story.sources.slice(1).map(sourceName)}
+                  onRead={markRead} onSave={toggleSaved} onSpeak={canSpeak ? readAloud : undefined} onOpen={openReader} speaking={speakingId === it.id} />
+              )
+            }} />
+        )}
+
+        {!market && !topTab && loaded && visible.length === 0 && (
           <p className="empty">
             {activeFilter === 'SAVED' && !q ? 'Nic jeszcze nie zapisano. Kliknij gwiazdkę przy newsie, żeby go tu odłożyć.'
               : q ? 'Brak wyników dla tego wyszukiwania.'

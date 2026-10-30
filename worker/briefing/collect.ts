@@ -5,8 +5,11 @@
 // corrected post) put together, the stories ranked, and the best few go to the model that picks the stories (rank).
 // Two steps of the pipeline, each well within the free plan's CPU for a full night (about 700 news).
 import type { NewsItem } from '../../src/lib/parse'
+import { groupStories, subjectOf, tokens } from '../../src/lib/stories'
 import type { BriefingConfig } from './config'
 import type { EditionTimes } from './time'
+
+export { subjectOf, tokens }
 
 // What the Poller hands over: the items of every channel, and how each channel stood (an error overnight is a gap in the edition)
 export interface PollerFeed { key: string; error: string | null; failures: number; checkedAt: number }
@@ -118,42 +121,12 @@ function moverKinds(words: Iterable<string>): number {
   return kinds.size
 }
 
-const STOP = new Set(('the a an and or of to in on for at by with from as is are was were be its it this that than into over after before amid says said ' +
-  'will would could may up down new per vs via not no yes has have had his her their our ' +
-  'i w z na do od o po za że się nie jest są to ten ta te dla przez oraz lub a jak już ale co by jego jej ich').split(' '))
-
-export function tokens(text: string): string[] {
-  const out: string[] = []
-  for (const w of text.toLowerCase().match(/[\p{L}\p{N}$%&]+/gu) ?? []) if (w.length >= 2 && !STOP.has(w)) out.push(w)
-  return out
-}
-
-const bare = (link: string) => link.replace(/^https?:\/\/(www\.)?/, '').replace(/[?#].*$/, '').replace(/\/$/, '')
 const clip = (s: string, n: number) => (s.length <= n ? s : `${s.slice(0, n - 1).replace(/\s+\S*$/, '')}…`)
-
-function jaccard(a: Set<string>, b: Set<string>): number {
-  let common = 0
-  for (const w of a) if (b.has(w)) common++
-  return common / (a.size + b.size - common || 1)
-}
-
-// The subject of a headline: its first word ("MICROSOFT 1Q REV…", "WARSH: …", "FED'S WALLER…", "Orlen: …"), unless it is one that
-// starts headlines about anything ("U.S. …", "USA: …", "Spółka …"): a country is one (its data and its markets are different news)
-const NOT_A_SUBJECT = new Set(['u.s', 'us', 'usa', 'u.k', 'uk', 'eu', 'china', 'japan', 'germany', 'europe', 'euro', 'eurozone',
-  'chiny', 'japonia', 'niemcy', 'polska', 'europa', 'strefa', 'the', 'breaking', 'update', 'exclusive', 'watch', 'just', 'alert', 'report', 'reports',
-  'what', 'how', 'why', 'here', 'heres', 'new', 'more', 'some', 'another', 'all', 'most', 'today', 'this', 'these', 'those',
-  'spółka', 'spółki', 'zarząd', 'raport', 'komunikat', 'informacja', 'zawiadomienie', 'ogłoszenie', 'uchwała', 'korekta'])
-export function subjectOf(title: string): string | null {
-  const m = /^[\s*"'„“«(]*(\p{L}[\p{L}\p{N}&.-]*)/u.exec(title)
-  const w = m?.[1].toLowerCase().replace(/[.-]+$/, '')
-  return w && w.length >= 3 && !STOP.has(w) && !NOT_A_SUBJECT.has(w) ? w : null
-}
-// The headlines of one subject within this long of the first are one story
-const BURST_MS = 60 * 60_000
 const MORE_HEADLINES = 8
 
 // A news of the window, with only what the next steps need
-export interface WindowItem { id: string; source: string; label: string; title: string; lead: string; translation?: string; link: string; time: number }
+// `ai`: the rating of its importance the list gave it as it came in (worker/rate.ts), 0 to 10
+export interface WindowItem { id: string; source: string; label: string; title: string; lead: string; translation?: string; link: string; time: number; ai?: number }
 
 // Step "collect": the news of the window [from, cutoff) by their publication time, without routine notices
 export function inWindow(data: PollerItems, t: EditionTimes, cutoff: number, config: Pick<BriefingConfig, 'sources'>): { items: WindowItem[]; stats: CollectStats } {
@@ -177,6 +150,7 @@ export function inWindow(data: PollerItems, t: EditionTimes, cutoff: number, con
     items.push({
       id: it.id, source: it.source, label: it.label, title: it.title.slice(0, 300), lead, link: it.link, time,
       ...(it.pl ? { translation: `${it.pl.title}${it.pl.description ? ` ${it.pl.description}` : ''}`.slice(0, 500) } : {}),
+      ...(typeof it.ai === 'number' ? { ai: it.ai } : {}),
     })
   }
   stats.inWindow = items.length
@@ -200,63 +174,9 @@ const byScore = (a: { score: number; best: { it: WindowItem } }, b: typeof a) =>
 
 // Step "rank", the first half: near-duplicates together, the stories scored by the rules, the best first
 export function rankPool(items: WindowItem[]): Pool {
-  const kept = items.map((it) => ({ it, words: new Set(tokens(`${it.title} ${it.translation?.slice(0, 160) ?? ''}`)) }))
-  const parent = kept.map((_, i) => i)
-  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])))
-  const join = (a: number, b: number) => { const x = find(a), y = find(b); if (x !== y) parent[Math.max(x, y)] = Math.min(x, y) }
-  const byLink = new Map<string, number>()
-  const byWord = new Map<string, number[]>()
-  kept.forEach((k, i) => {
-    const link = k.it.link ? bare(k.it.link) : ''
-    if (link) { const j = byLink.get(link); if (j !== undefined) join(i, j); else byLink.set(link, i) }
-    for (const w of k.words) { let l = byWord.get(w); if (!l) byWord.set(w, (l = [])); l.push(i) }
-  })
-  // Two headlines are compared when they share a word that few headlines have (one that many have says nothing about them).
-  // Their words in common are counted on the way: the rarer ones exactly, the common ones at most as many as either has, so
-  // a pair that cannot reach the threshold (common ≥ 0.55 / 1.55 of both sizes together) is not compared at all. Most pairs
-  // share one word: without this, a full night took several times the free plan's CPU.
-  const COMMON = 40
-  const frequent = kept.map((k) => { let n = 0; for (const w of k.words) if (byWord.get(w)!.length > COMMON) n++; return n })
-  const shared = new Int32Array(kept.length)
-  const reached: number[] = []
-  for (const [i, k] of kept.entries()) {
-    if (k.words.size < 3) continue
-    for (const w of k.words) {
-      const list = byWord.get(w)!
-      if (list.length > COMMON) continue
-      for (const j of list) if (j > i && shared[j]++ === 0) reached.push(j)
-    }
-    for (const j of reached) {
-      const rare = shared[j]
-      shared[j] = 0
-      const other = kept[j]
-      if (other.words.size < 3 || Math.abs(other.it.time - k.it.time) > 6 * 3600_000) continue
-      if (rare + Math.min(frequent[i], frequent[j]) < (0.55 / 1.55) * (k.words.size + other.words.size)) continue
-      if (jaccard(k.words, other.words) >= 0.55) join(i, j)
-    }
-    reached.length = 0
-  }
-  // Headlines about one subject within an hour are one story: a company's results come as many one-line headlines (revenue,
-  // profit, guidance, the shares after hours), a central bank's decision as its statement and then the press conference, line
-  // by line. Scored one by one, each is a small news, and they lose their places to whatever came earlier the same evening.
-  // Together they are one candidate, with the other headlines kept (`more`), so nothing is lost when two are put together wrongly.
-  const bySubject = new Map<string, number[]>()
-  kept.forEach((k, i) => {
-    const subject = subjectOf(k.it.title)
-    if (subject) { let l = bySubject.get(subject); if (!l) bySubject.set(subject, (l = [])); l.push(i) }
-  })
-  for (const list of bySubject.values()) {
-    list.sort((a, b) => kept[a].it.time - kept[b].it.time)
-    let first = list[0]
-    for (const i of list.slice(1)) {
-      if (kept[i].it.time - kept[first].it.time <= BURST_MS) join(first, i)
-      else first = i
-    }
-  }
-  const groups = new Map<number, typeof kept>()
-  kept.forEach((k, i) => { const r = find(i); let g = groups.get(r); if (!g) groups.set(r, (g = [])); g.push(k) })
+  const groups = groupStories(items)
 
-  const scored = [...groups.values()].map((g) => {
+  const scored = groups.map((g) => {
     g.sort((a, b) => weightOf(b.it.source, b.it.label) - weightOf(a.it.source, a.it.label) || a.it.time - b.it.time)
     const best = g[0]
     const sources = [...new Set(g.map((k) => k.it.source))]
@@ -266,7 +186,7 @@ export function rankPool(items: WindowItem[]): Pool {
     return { key: best.it.id, g, best, sources, score, topics: topicsOf(top) } satisfies Group
   })
   scored.sort(byScore)
-  return { groups: scored, count: groups.size }
+  return { groups: scored, count: groups.length }
 }
 
 // The second half: the best `maxCandidates` with no source over 40% of them, and the places of crypto and of commodities. With the model's
