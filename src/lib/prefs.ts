@@ -1,6 +1,7 @@
 // User settings, kept in this browser (localStorage).
 import { FEED_KEYS, SOURCES, orderedSources, renamedKey, type Source } from './sources'
 import { MAX_RECENT } from './market'
+import { DEFAULT_TOP_HOURS, isTopHours } from './top'
 
 export type Theme = 'system' | 'light' | 'dark'
 
@@ -23,6 +24,8 @@ export interface Prefs {
   sourceOrder: Source[]  // the order of the sources: the tabs on the page and the rows in settings (the reader moves them there)
   charts: boolean        // the "Rynek" tab shows TradingView's quotes and charts (the reader switched them on: the browser then connects to TradingView)
   marketRecent: string[] // the TradingView symbols whose charts were looked at last, newest first
+  topHours: number       // the "Top" tab: the news of the last 4, 8, 12 or 24 hours (lib/top.ts)
+  topSource: string      // …of one source, or of all ('')
   v: number              // the version of the settings: older ones are brought up to date when loaded (PREFS_VERSION)
 }
 // 2: Seeking Alpha is read aloud and notified like any channel (for a short while it began switched off, and stayed so in the settings saved then)
@@ -50,6 +53,8 @@ export const DEFAULT_PREFS: Prefs = {
   sourceOrder: SOURCES,
   charts: false,
   marketRecent: [],
+  topHours: DEFAULT_TOP_HOURS,
+  topSource: '',
   v: PREFS_VERSION,
 }
 
@@ -86,7 +91,9 @@ export function loadPrefs(): Prefs {
     const brought = (saved.v ?? 1) < 2 && FEED_KEYS.includes(SEEKING_ALPHA) ? [SEEKING_ALPHA] : []
     const cleaned: Prefs = {
       ...p, v: PREFS_VERSION, sourceOrder: orderedSources(p.sourceOrder), charts: p.charts === true,
-      marketRecent: Array.isArray(p.marketRecent) ? p.marketRecent.filter((s) => typeof s === 'string').slice(0, MAX_RECENT) : [], hiddenFeeds: existing(p.hiddenFeeds), originalFeeds: existing(p.originalFeeds), knownFeeds: FEED_KEYS,
+      marketRecent: Array.isArray(p.marketRecent) ? p.marketRecent.filter((s) => typeof s === 'string').slice(0, MAX_RECENT) : [],
+      topHours: isTopHours(p.topHours) ? p.topHours : DEFAULT_TOP_HOURS,
+      topSource: SOURCES.includes(p.topSource as Source) && p.topSource !== 'MACRONEXT' ? p.topSource : '', hiddenFeeds: existing(p.hiddenFeeds), originalFeeds: existing(p.originalFeeds), knownFeeds: FEED_KEYS,
       leadFeeds: [...existing(p.leadFeeds), ...added.filter((k) => DEFAULT_PREFS.leadFeeds.includes(k) && !p.leadFeeds.includes(k))],
       speakFeeds: [...existing(p.speakFeeds), ...[...added, ...brought].filter((k) => !p.speakFeeds.includes(k))],
       notifyFeeds: [...existing(p.notifyFeeds), ...[...added, ...brought].filter((k) => !p.notifyFeeds.includes(k))],

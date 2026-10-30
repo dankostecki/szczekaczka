@@ -280,6 +280,18 @@ test('a pack made before the ratings existed (no settings recorded) is made agai
   assert.equal(duePack(at('2026-11-01T08:00:00Z'), other, h.d.store.getPack('latest')), null, 'Sunday')
 })
 
+test('the news rated as they came in (the list\'s ratings, the "Top" tab): the pack takes their ratings, with no request of its own', async () => {
+  const rated = night().map((it) => (it.source === 'MACRONEXT' ? it : { ...it, ai: /Orlen/.test(it.title) ? 9 : /Nikkei/.test(it.title) ? 2 : 5 }))
+  const h = deps({}, '2026-10-28T06:44:59Z', rated) // no Workers AI at all
+  await runUntil(h, '2026-10-28T23:00:00Z')
+  const record = h.d.store.getPack('latest')!
+  assert.equal(record.ranking!.mode, 'model')
+  assert.equal(record.ranking!.calls, 0)
+  assert.equal(record.ranking!.fromList, 3)
+  assert.match(record.text!, /### 1\. Orlen: szacunkowe wyniki za III kwartał\nESPI · [^\n]* · ważność 9\/10\n/)
+  assert.match(record.text!, /Kolejność historii ustaliły reguły automatyczne/)
+})
+
 test('the pack off: nothing is made, no wake-up', async () => {
   const h = deps({ BRIEFING_PACK: 'off' }, '2026-10-28T06:45:00Z')
   assert.equal(await packTick(h.d), null)

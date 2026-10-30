@@ -19,6 +19,9 @@ export interface NewsItem {
   // The Polish translation of a channel in English (FeedConfig.translate, worker/translate.ts); null: the post could not be
   // translated, or is not translated (Seeking Alpha in the evening after the US close): shown as it is, not tried again
   pl?: { title: string; description: string; body?: string } | null
+  // How important the news is for an investor, 0 to 10, as a model of Workers AI rated it when it came in (worker/rate.ts): the "Top" tab
+  // (lib/top.ts) and the morning briefing go by it. null: the model gave no answer for it, not asked again
+  ai?: number | null
 }
 
 const NAMED: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash: '–', mdash: '—', hellip: '…', bdquo: '„', rdquo: '”', ldquo: '“', oacute: 'ó', Oacute: 'Ó' }

@@ -100,7 +100,9 @@ export default function Terms() {
         <li>
           Treści pochodzą od podmiotów trzecich (Bankier.pl, GPW, Stooq, Walter Bloomberg, investingLive, Seeking Alpha, PAP MediaRoom, MacroNext oraz spółek i instytucji publikujących raporty i komunikaty) i są
           pokazywane w takiej postaci, w jakiej udostępniły je w kanałach RSS i na publicznych stronach. Wyjątkiem są tłumaczenia wiadomości
-          Waltera Bloomberga, investingLive i Seeking Alpha, które automatycznie tworzy model sztucznej inteligencji: mogą zawierać błędy i nie zastępują oryginału. Zapowiedzi MacroNext powstają z kalendarium
+          Waltera Bloomberga, investingLive i Seeking Alpha, które automatycznie tworzy model sztucznej inteligencji: mogą zawierać błędy i nie zastępują oryginału.
+          Kolejność wiadomości w zakładce Top i ich ocenę ważności (od 0 do 10) też ustala automatycznie model sztucznej inteligencji, na podstawie samego tytułu
+          i początku wiadomości: ocena może być błędna, pomija to, czego wiadomość nie mówi, i nie jest rekomendacją ani poradą inwestycyjną. Zapowiedzi MacroNext powstają z kalendarium
           w chwili jego pobrania; godziny publikacji, prognozy, poprzednie odczyty i wydarzenia spółek mogą się potem zmienić. Usługodawca nie odpowiada za ich
           treść, kompletność ani aktualność. Wiążące są wyłącznie raporty i komunikaty opublikowane w oficjalnych
           kanałach (system ESPI/EBI, strony spółek, strona GPW).

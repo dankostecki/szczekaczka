@@ -1,11 +1,15 @@
 // What the Cloudflare Worker sends to the page.
 import type { NewsItem } from './parse'
 import type { BriefingPointer } from './briefing'
+import type { Lang } from './sources'
 
 export interface FeedSnapshot { key: string; items: NewsItem[]; error: string | null }
 
-// GET /api/news: everything, at version v; and the latest morning briefing, when there is one
-export interface Snapshot { v: number; feeds: FeedSnapshot[]; briefing?: BriefingPointer }
+// The news are rated by their importance (worker/rate.ts), those of the channels in these languages: the page has its "Top" tab
+export interface TopMeta { langs: Lang[] }
+
+// GET /api/news: everything, at version v; the latest morning briefing, when there is one; the ratings, when they are on
+export interface Snapshot { v: number; feeds: FeedSnapshot[]; briefing?: BriefingPointer; top?: TopMeta }
 
 // Over the WebSocket (/ws): what changed in one channel since version v - 1
 export interface Delta { t: 'd'; v: number; key: string; add: NewsItem[]; remove: string[]; error: string | null }

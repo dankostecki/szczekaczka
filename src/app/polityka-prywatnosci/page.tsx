@@ -93,7 +93,7 @@ export default function PrivacyPolicy() {
         <tbody>
           <tr>
             <td><code>szczekaczka:prefs</code></td>
-            <td>Ustawienia: motyw, głos, tempo, dźwięk przed czytaniem, co czytać, wybrane kanały, kolejność źródeł (zakładek), język kanałów Walter Bloomberg, investingLive i Seeking Alpha, powiadomienia, lista obserwowanych spółek, włączenie wykresów TradingView w zakładce Rynek i ostatnio oglądane tam symbole (najwyżej 8).</td>
+            <td>Ustawienia: motyw, głos, tempo, dźwięk przed czytaniem, co czytać, wybrane kanały, kolejność źródeł (zakładek), język kanałów Walter Bloomberg, investingLive i Seeking Alpha, powiadomienia, lista obserwowanych spółek, włączenie wykresów TradingView w zakładce Rynek i ostatnio oglądane tam symbole (najwyżej 8), wybrany w zakładce Top okres (4, 8, 12 lub 24 godziny) i źródło.</td>
             <td>Do czasu usunięcia</td>
           </tr>
           <tr>
@@ -167,7 +167,9 @@ export default function PrivacyPolicy() {
       <p>
         Kanały RSS (także investingLive i Seeking Alpha), listę komunikatów Bankier.pl, kanał Walter Bloomberg na Telegramie i kalendarium MacroNext pobiera serwer Serwisu, a nie Twoja przeglądarka, więc serwisy źródłowe nie dostają Twojego adresu IP.
         Wiadomości kanałów Walter Bloomberg, investingLive i Seeking Alpha serwer tłumaczy na polski w usłudze Cloudflare Workers AI: trafia tam wyłącznie treść tych
-        publicznych wiadomości, bez żadnych danych o Tobie.
+        publicznych wiadomości, bez żadnych danych o Tobie. Tytuł i początek każdej wiadomości (wszystkich kanałów poza zapowiedziami MacroNext) serwer
+        wysyła też do Cloudflare Workers AI, której model ocenia ważność wiadomości dla zakładki Top i porannego przeglądu; i tu trafia tylko treść
+        publicznych wiadomości, bez danych o Tobie.
         Gdy klikniesz ikonę linku przy newsie albo „Otwórz źródło” w jego oknie, przechodzisz na stronę źródła (newsy Waltera Bloomberga prowadzą do profilu jego autora
         w serwisie X) i od tej chwili obowiązuje polityka prywatności tamtego serwisu. Tak samo jest z linkiem do profilu
         autora Szczekaczki w serwisie X.

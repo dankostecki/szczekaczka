@@ -2,7 +2,7 @@
 // server sends only what changed. No polling: one connection per page instead of a request
 // every minute, which is what lets the free Cloudflare plan carry many users.
 import { finalizeItems, type NewsItem } from './parse'
-import { HEARTBEAT, type Delta, type Heartbeat, type Hello, type Snapshot } from './protocol'
+import { HEARTBEAT, type Delta, type Heartbeat, type Hello, type Snapshot, type TopMeta } from './protocol'
 import type { BriefingPointer } from './briefing'
 import { FEEDS, feedKey } from './sources'
 import { withTime, type Item, type FeedError } from './news'
@@ -16,6 +16,7 @@ export interface LiveHandlers {
   onError: (message: string) => void
   onOnline?: (pages: number) => void // pages connected right now (all users)
   onBriefing?: (latest: BriefingPointer | null) => void // the latest morning briefing, as the list says
+  onTop?: (top: TopMeta | null) => void // the news are rated by their importance (the "Top" tab), as the list says
 }
 
 const RETRY_MS = [1, 2, 5, 10, 30, 60].map((s) => s * 1000)
@@ -69,6 +70,7 @@ export function connectLive(h: LiveHandlers) {
         buffered = []
         emit()
         h.onBriefing?.(snap.briefing && typeof snap.briefing.id === 'string' ? snap.briefing : null)
+        h.onTop?.(snap.top && Array.isArray(snap.top.langs) ? { langs: snap.top.langs.filter((l) => l === 'en' || l === 'pl') } : null)
       } catch (e) {
         // Shown as "Serwer (…)"; a failed fetch has only an English browser message
         h.onError(e instanceof Error && e.message.startsWith('odpowiedział') ? e.message : 'brak połączenia')

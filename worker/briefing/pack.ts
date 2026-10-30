@@ -44,7 +44,7 @@ export const packAt = (id: string, c: BriefingConfig) => warsawAt(id, c.pack.at)
 // A pack of today made with other ones is made again from the same news, so that switching the model's ratings on or off (or changing the
 // model or the weight) shows at the pack's address within minutes, and switching them off again brings back the ranking by the rules.
 // A failed attempt does not repeat by itself: it was made with these settings too.
-export const rankingKey = (c: BriefingConfig) => (c.aiRank.enabled ? `${c.aiRank.model}|${c.aiRank.weight}|${c.aiRank.pool}` : 'rules')
+export const rankingKey = (c: BriefingConfig) => (c.aiRank.enabled ? `${c.aiRank.model}|${c.aiRank.weight}|${c.aiRank.pool}${c.aiRank.fromList ? '|list' : ''}` : 'rules')
 
 // The pack due now: a day of the briefing past its time, with no pack made for it yet (a deploy later that day makes it at once), or
 // today's made with other ranking settings than the present ones

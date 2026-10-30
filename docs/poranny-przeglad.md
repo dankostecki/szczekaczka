@@ -11,7 +11,7 @@
 - **Nic nie jest publikowane częściowo.** Gdy któryś etap zawiedzie (OpenAI, wyszukiwanie, weryfikacja, Google TTS, zapis), wydanie się nie ukazuje, a strona pokazuje poprzednie.
 - Szacunkowy koszt jednego wydania (z założonych liczb tokenów, nie z pomiaru): przy `gpt-6.1-terra` i średnim wysiłku rozumowania około **0,9 USD** w typową noc (0,5–1,5 USD), przy `gpt-6.1-sol` około **1,5 USD** (0,8–2,5 USD). Około 0,3 USD z tego to wyszukiwanie. Głos mieści się w darmowym milionie znaków miesięcznie Google. Twarde limity: domyślnie 2 USD na wydanie i 40 USD na miesiąc.
 - **Bez API też jest materiał:** codziennie o 7:45 serwer składa wsad dla ChatGPT (zadanie, kalendarium dnia i wiadomości z nocy) pod stałym adresem, który podajesz ChatGPT. Nic przy tym nie kosztuje (niżej).
-- **Nic tu nie było testowane na żywych usługach.** Nie było kluczy, a sieć środowiska nie miała dostępu do OpenAI, Google ani do stron źródeł. Testy (161) sprawdzają logikę i kształt zapytań na symulowanych odpowiedziach. Pierwsze prawdziwe wydanie trzeba obejrzeć ręcznie (krok 6 niżej).
+- **Nic tu nie było testowane na żywych usługach.** Nie było kluczy, a sieć środowiska nie miała dostępu do OpenAI, Google ani do stron źródeł. Testy (174) sprawdzają logikę i kształt zapytań na symulowanych odpowiedziach. Pierwsze prawdziwe wydanie trzeba obejrzeć ręcznie (krok 6 niżej).
 
 ## Architektura
 
@@ -115,6 +115,7 @@ Reguły wyżej nie rozumieją treści: nagłówek bez słów z ich listy dostaje
 
 Język: Clef działa na bazie wielojęzycznych modeli Qwen, ale Cloudflare nie opublikował oceny jakości poza angielskim. Nagłówki idą w oryginale (po angielsku z Waltera i investingLive, po polsku z ESPI, GPW, PAP i Stooq), nie w tłumaczeniu, bo ocena nie musi być po polsku i nie zużywa przez to tłumaczeń. Jak Clef radzi sobie z polskimi komunikatami, trzeba obejrzeć na prawdziwej nocy.
 
+- **Oceny z listy (zakładka Top).** Każda wiadomość dostaje ocenę 0–10 już wtedy, gdy przychodzi (Clef-flash, `worker/rate.ts`, README). Ranking porannego przeglądu bierze ją: ocena historii to najwyższa ocena jej wiadomości, a model jest pytany tylko o historie bez oceny (np. z kanałów, których lista nie ocenia przy `NEWS_AI_RANK_LANGS=en`). Gdy wszystkie mają ocenę, wsad nie wysyła żadnego zapytania. `BRIEFING_AI_RANK_FROM_LIST=off` wraca do pytania o wszystkie historie modelem `BRIEFING_AI_RANK_MODEL`; `BRIEFING_AI_RANK=off` wyłącza ocenę w przeglądzie całkiem, niezależnie od listy. Zmiana `BRIEFING_AI_RANK_FROM_LIST` też składa dzisiejszy wsad jeszcze raz. Oceny listy robi mniejszy model (9B) niż domyślny w przeglądzie (27B); który daje lepszą kolejność, nie sprawdzałem.
 - **Jak liczy się wynik.** Wynik końcowy to wynik reguł plus `BRIEFING_AI_RANK_WEIGHT` (domyślnie 0,3) razy ocena modelu. Reguły dają zwykle od 0,5 do 3,5 punktu, ocena 0–10 przy wadze 0,3 od 0 do 3, więc oba mają podobny wpływ: historia, którą reguły oceniły nisko, a model wysoko, wchodzi do kandydatów. Zostają bez zmian limit 40% miejsc z jednego źródła i zagwarantowane miejsca kryptowalut i surowców (`FLOOR`). Historia, której model nie ocenił (nieudane zapytanie), dostaje środkową ocenę z pozostałych, żeby brak oceny nie był ani zyskiem, ani stratą.
 - **Co jest oceniane.** Najlepsze `BRIEFING_AI_RANK_POOL` historii (domyślnie 200) według wyniku reguł, po 40 w jednym zapytaniu, nie więcej niż 4 zapytania naraz. Zwykła noc to 3–5 zapytań.
 - **Dokąd trafia ocena.** Do wsadu dla ChatGPT: przy historii stoi „ważność N/10” (z przecinkiem przy Clef, np. „6,5/10”), a w nagłówku wsadu jest zdanie, że to wskazówka (decyduje ChatGPT, według zadania). Do płatnego potoku: kandydaci mają `importance`, a model wybierający historie dostaje ją jako `helperImportance` z zastrzeżeniem w prompcie, że to tylko wskazówka, i sam sprawdza każdą historię. Ocena modelu pomocniczego nie zastępuje weryfikacji w źródłach: historia z wysoką oceną, której nie da się potwierdzić, do przeglądu nie trafia.
@@ -245,6 +246,7 @@ Zwykłe zmienne mogą być w `wrangler.jsonc` → `vars` (wtedy są w repozytori
 | `BRIEFING_MAX_STEP_ATTEMPTS`, `BRIEFING_RETENTION_DAYS`, `BRIEFING_SOURCES`, `BRIEFING_BLOCKED_DOMAINS` | `4`, `30`, `WALTER,INVESTINGLIVE,STOOQ,ESPI,GPW,PAP`, brak | `BRIEFING_SOURCES`: źródła listy newsów, z których idą wiadomości. Domyślnie bez Seeking Alpha (kanał nie ma opisów, a po sesji w USA zalewa listę jednowierszowymi wynikami, których nie da się sprawdzić) i bez zapowiedzi MacroNext (to nie newsy). Seeking Alpha można dopisać. |
 | `BRIEFING_PACK`, `BRIEFING_PACK_AT` | `on`, `07:45` | wsad dla ChatGPT (wyżej) |
 | `BRIEFING_AI_RANK`, `BRIEFING_AI_RANK_MODEL`, `BRIEFING_AI_RANK_WEIGHT` | `on`, `@cf/cloudflare/clef`, `0.3` | ocena ważności historii przez model Workers AI (wyżej); `off` wraca do rankingu z samych reguł. Model: `@cf/cloudflare/clef`, `@cf/cloudflare/clef-flash` albo model czatowy, np. `@cf/google/gemma-4-26b-a4b-it`. Waga 0–1 |
+| `BRIEFING_AI_RANK_FROM_LIST` | `on` | brać oceny, które wiadomości dostały na liście (zakładka Top), i pytać tylko o historie bez nich |
 | `BRIEFING_AI_RANK_POOL`, `BRIEFING_AI_RANK_MAX_CALLS` | `200`, `12` | ile historii oceniać (20–320) i ile zapytań na dobę UTC (1–200) |
 | **Sekrety:** `OPENAI_API_KEY`, `GOOGLE_TTS_API_KEY` albo `GOOGLE_SERVICE_ACCOUNT_JSON`, `TAVILY_API_KEY`, `BRIEFING_ADMIN_TOKEN` | | |
 
@@ -310,7 +312,7 @@ Zła wartość nie psuje reszty: zostaje domyślna, a błąd widać w `GET /api/
 ## Test lokalny bez płatnych usług
 
 ```bash
-npm test                                   # 161 testów: czas i DST, okno, daty, duplikaty, sprzeczne źródła, weryfikacja, skrypt,
+npm test                                   # 174 testy: czas i DST, okno, daty, duplikaty, sprzeczne źródła, weryfikacja, skrypt,
                                            # części dla głosu, MP3, OpenAI/Google/Tavily na symulowanych odpowiedziach, SSRF, robots,
                                            # cały potok (ponowienia, idempotencja, terminy, brak sekretów, limity kosztów, zatwierdzanie)
 npm run build && npx wrangler dev          # z .dev.vars: BRIEFING_MODE=mock, BRIEFING_ADMIN_TOKEN=…, FEED_ORIGIN=… (lokalne kanały)

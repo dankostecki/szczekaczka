@@ -213,9 +213,9 @@ test('one batch failing out of three: the stories it did not rate get the middle
 
 test('the settings: on by default, the model and the weight can be changed, and a wrong value only falls back to the default (it does not stop an edition)', () => {
   const c = readConfig({}).config.aiRank
-  assert.deepEqual({ ...c, problems: [] }, { enabled: true, model: CLEF, weight: 0.3, pool: 200, maxCalls: 12, problems: [] })
-  const set = readConfig({ BRIEFING_AI_RANK: 'off', BRIEFING_AI_RANK_MODEL: '@cf/meta/llama-3.3-70b-instruct-fp8-fast', BRIEFING_AI_RANK_WEIGHT: '0.5', BRIEFING_AI_RANK_POOL: '120', BRIEFING_AI_RANK_MAX_CALLS: '6' })
-  assert.deepEqual(set.config.aiRank, { enabled: false, model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast', weight: 0.5, pool: 120, maxCalls: 6, problems: [] })
+  assert.deepEqual({ ...c, problems: [] }, { enabled: true, model: CLEF, weight: 0.3, pool: 200, maxCalls: 12, fromList: true, problems: [] })
+  const set = readConfig({ BRIEFING_AI_RANK: 'off', BRIEFING_AI_RANK_MODEL: '@cf/meta/llama-3.3-70b-instruct-fp8-fast', BRIEFING_AI_RANK_WEIGHT: '0.5', BRIEFING_AI_RANK_POOL: '120', BRIEFING_AI_RANK_MAX_CALLS: '6', BRIEFING_AI_RANK_FROM_LIST: 'off' })
+  assert.deepEqual(set.config.aiRank, { enabled: false, model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast', weight: 0.5, pool: 120, maxCalls: 6, fromList: false, problems: [] })
   const wrong = readConfig({ BRIEFING_AI_RANK: 'maybe', BRIEFING_AI_RANK_WEIGHT: '7', BRIEFING_AI_RANK_POOL: '5000' })
   assert.deepEqual(wrong.problems, [], 'the briefing\'s own problems are not these')
   assert.equal(wrong.config.aiRank.problems.length, 3)
@@ -227,8 +227,39 @@ test('the settings: on by default, the model and the weight can be changed, and 
 test('the status says whether it is on, with what, and how many calls were made today', async () => {
   const { ai } = fakeAi(() => 5)
   const h = deps({}, ai)
-  assert.deepEqual(aiRankStatus(h.d), { enabled: true, model: CLEF, weight: 0.3, pool: 200, maxCalls: 12, binding: true, callsToday: 0, problems: [] })
+  assert.deepEqual(aiRankStatus(h.d), { enabled: true, model: CLEF, weight: 0.3, pool: 200, maxCalls: 12, fromList: true, binding: true, callsToday: 0, problems: [] })
   await importanceFor(h.d, rankPool(quiet(10)))
   assert.equal(aiRankStatus(h.d).callsToday, 1)
   assert.equal(aiRankStatus({ ...h.d, ai: null }).binding, false)
+})
+
+test('the ratings the list gave the news as they came in are taken: only the stories without one are asked about, and none when all have one', async () => {
+  const items = quiet(90).map((it, i) => (i < 60 ? { ...it, ai: i === 5 ? 9.5 : 3 } : it))
+  const { ai, calls } = fakeAi(() => 6)
+  const h = deps({}, ai)
+  const r = await importanceFor(h.d, rankPool(items))
+  assert.equal(calls.n, 1, 'the 30 without a rating: one request')
+  assert.equal(Object.keys((calls.inputs[0] as Decision).questions).length, 30)
+  assert.equal(r.ranking.mode, 'model')
+  assert.equal(r.ranking.fromList, 60)
+  assert.equal(r.ranking.scored, 90)
+  const pool = rankPool(items)
+  const of = (i: number) => r.importance!.scores.get(pool.groups.find((g) => g.best.it.id === `WALTER:${i}`)!.key)
+  assert.deepEqual([of(5), of(0), of(70)], [9.5, 3, 6])
+  assert.match(h.logs[0], /rated 90\/90 stories, 60 with the list's ratings \(1 calls/)
+  // every story with a rating: no request at all, not even without the service
+  const all = quiet(20).map((it) => ({ ...it, ai: 4 }))
+  const none = await importanceFor(deps({}, null).d, rankPool(all))
+  assert.equal(none.ranking.mode, 'model')
+  assert.equal(none.ranking.calls, 0)
+  assert.equal(none.ranking.fromList, 20)
+  // the best rating of a story's news counts
+  const twins = [{ ...win(1, 'Fed holds rates steady'), ai: 5 }, { ...win(2, 'Fed holds rates steady'), source: 'STOOQ', link: 'https://example.net/b', ai: 8 }]
+  const both = await importanceFor(deps({}, null).d, rankPool(twins))
+  assert.deepEqual([...both.importance!.scores.values()], [8])
+  // BRIEFING_AI_RANK_FROM_LIST=off: everything asked, as before; BRIEFING_AI_RANK=off: the rules alone, whatever the list says
+  const asked = fakeAi(() => 6)
+  await importanceFor(deps({ BRIEFING_AI_RANK_FROM_LIST: 'off' }, asked.ai).d, rankPool(items))
+  assert.equal(asked.calls.n, 3)
+  assert.equal((await importanceFor(deps({ BRIEFING_AI_RANK: 'off' }, ai).d, rankPool(all))).ranking.mode, 'rules')
 })

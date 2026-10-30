@@ -9,6 +9,7 @@ import type { PollerItems } from './briefing/collect'
 import { checkFeed, type FeedState } from './feeds'
 import { checkMacro, macroDueAt } from './macro'
 import { translateNew } from './translate'
+import { rateConfig, ratedFeed, rateNew, topMeta, type RateConfig } from './rate'
 import { type Env, hub } from './env'
 
 const MIN_GAP_MS = 2000 // never wake up more often than this
@@ -29,9 +30,16 @@ export class Poller extends DurableObject<Env> {
   private online: number[] = Array(HUBS).fill(0)
   // The latest morning briefing (worker/briefing), as JSON for the snapshot: the page shows the way to it without asking
   private briefingJson: string | null = null
+  // The ratings of importance (rate.ts): their settings, and what the snapshot says of them (null: none, the page has no "Top" tab)
+  private rate: RateConfig
+  private topJson: string | null
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
+    this.rate = rateConfig(env as unknown as Record<string, unknown>)
+    if (this.rate.problems.length) console.log(`ratings: ${this.rate.problems.join('; ')}`)
+    const top = topMeta(this.rate, !!env.AI)
+    this.topJson = top ? JSON.stringify(top) : null
     ctx.blockConcurrencyWhile(async () => {
       const sql = ctx.storage.sql
       sql.exec('CREATE TABLE IF NOT EXISTS feeds (key TEXT PRIMARY KEY, state TEXT NOT NULL)')
@@ -59,6 +67,15 @@ export class Poller extends DurableObject<Env> {
         removed.push(from)
       }
       this.v = sql.exec<{ v: number }>("SELECT v FROM meta WHERE k = 'v'").toArray()[0]?.v ?? 0
+      // The ratings switched on or off (or their languages changed) since the last start (kept beside the briefing's pointer): the version moves
+      // on, so that open pages fetch the list again and show the "Top" tab, or stop showing it, without waiting for a news to change
+      const topWas = sql.exec<{ v: string }>("SELECT v FROM briefing WHERE k = 'top'").toArray()[0]?.v ?? 'null'
+      if (topWas !== (this.topJson ?? 'null')) {
+        this.v++
+        sql.exec("INSERT OR REPLACE INTO meta (k, v) VALUES ('v', ?)", this.v)
+        sql.exec("INSERT OR REPLACE INTO briefing (k, v) VALUES ('top', ?)", this.topJson ?? 'null')
+        console.log(`ratings: ${this.topJson ?? 'off'} (v${this.v})`)
+      }
       for (const row of sql.exec<{ k: string; v: number }>("SELECT k, v FROM meta WHERE k LIKE 'online:%'")) {
         const i = Number(row.k.slice(7))
         if (i >= 0 && i < HUBS) this.online[i] = row.v
@@ -89,7 +106,8 @@ export class Poller extends DurableObject<Env> {
         return json
       })
       // Same shape as a Snapshot object (v first: the Worker reads it for the ETag)
-      this.snapshotJson = `{"v":${this.v},"feeds":[${feeds.join(',')}]${this.briefingJson ? `,"briefing":${this.briefingJson}` : ''}}`
+      this.snapshotJson = `{"v":${this.v},"feeds":[${feeds.join(',')}]${this.briefingJson ? `,"briefing":${this.briefingJson}` : ''}` +
+        `${this.topJson ? `,"top":${this.topJson}` : ''}}`
     }
     return this.snapshotJson
   }
@@ -206,6 +224,11 @@ export class Poller extends DurableObject<Env> {
     // A channel in English: its new posts are translated before they go out (translate.ts)
     if (feed.translate && this.env.AI) {
       const said = await translateNew(this.env.AI, r, Date.now(), { usEveningInEnglish: feed.untranslatedUsEvening, perDay: feed.translatePerDay, leadOnly: feed.translateLeadOnly })
+      if (said) console.log(`feed ${key}: ${said}`)
+    }
+    // Every news channel: its new news are rated by their importance before they go out (rate.ts)
+    if (ratedFeed(feed, this.rate) && this.env.AI) {
+      const said = await rateNew(this.env.AI, r, Date.now(), this.rate)
       if (said) console.log(`feed ${key}: ${said}`)
     }
     this.feeds.set(key, r.state)
