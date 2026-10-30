@@ -96,15 +96,22 @@ function task(p: PackRecord, c: BriefingConfig): string {
     '',
     `1. Wybór. Wybierz od ${c.minStories} do ${c.maxStories} osobnych historii najważniejszych dla rynków na początek dnia w Europie i w Polsce: ` +
       'zamknięcie sesji w USA i wyniki spółek po sesji, sesja w Azji, banki centralne, ważne dane makro, geopolityka i decyzje polityczne, które ruszają ' +
-      'rynkami, surowce, waluty, duże ruchy kryptowalut, największe polskie spółki i GPW. Wiadomości o tym samym to jedna historia. Pomiń rutynowe ' +
+      'rynkami, surowce, waluty, kryptowaluty, największe polskie spółki i GPW. Kryptowaluty i surowce to osobne tematy, nie dodatek: duże wydarzenie ' +
+      'na tych rynkach wybieraj tak samo jak dane makro, także gdy jest o nim jeden nagłówek. Wiadomości o tym samym to jedna historia. Pomiń rutynowe ' +
       'komunikaty, drobne dywidendy, materiały promocyjne, opinie bez nowej informacji, powtórki historii sprzed tego okna i niepotwierdzone plotki.',
     '2. Sprawdzenie. Każdą wybraną historię sprawdź w sieci, zanim o niej napiszesz. Szukaj najpierw źródła pierwotnego (komunikatu spółki, banku ' +
       'centralnego, urzędu statystycznego, regulatora, giełdy), potem co najmniej jednej niezależnej, rzetelnej redakcji z własnym materiałem. Omijaj media ' +
       'społecznościowe, fora, agregatory i strony za paywallem. Liczby, jednostki, okresy i autorzy wypowiedzi muszą się zgadzać ze źródłami. Pomiń ' +
       `historię, której nie potwierdzisz w co najmniej ${c.verify.minSources} niezależnych źródłach, i taką, której sedno wydarzyło się ponad ` +
       `${c.verify.staleHours} godzin temu bez nowego rozwoju.`,
-    `3. Kalendarium. ${calendar}`,
-    '4. Tekst.',
+    '3. Kryptowaluty i surowce. Niezależnie od materiału sprawdź w sieci, czy od wieczora wydarzyło się coś ważnego na rynku kryptowalut (duży ruch bitcoina ' +
+      'albo etheru, hack lub awaria giełdy, zamrożenie środków, decyzja regulatora, napływy lub odpływy z funduszy ETF) i na rynku surowców (ropa Brent i WTI, ' +
+      'gaz, złoto, srebro, miedź: duży ruch ceny, decyzja OPEC, zapasy, przerwy w dostawach, wydarzenia geopolityczne). Takie wydarzenie to osobna historia, ' +
+      'także gdy materiał ma o nim tylko jeden nagłówek albo nic: napisz, co się stało i jak duża jest skala (kwoty, procenty), podaj kursy i zmiany z godziną ' +
+      'oraz z informacją, czy to zamknięcie sesji, czy notowania w trakcie handlu, i potwierdź to w źródłach jak każdą inną historię. Ważne wydarzenie z tych ' +
+      'rynków ma pierwszeństwo przed drobnymi komunikatami spółek. Gdy nic ważnego się nie wydarzyło, pomiń te rynki bez wzmianki o tym.',
+    `4. Kalendarium. ${calendar}`,
+    '5. Tekst.',
     '   - Każde zdanie musi wynikać ze sprawdzonych źródeł. Nie dodawaj kontekstu, przyczyn, prognoz ani ocen, których źródła nie podają, i nie spekuluj.',
     '   - Gdy fakt podaje jedna instytucja, firma lub osoba, powiedz to („podał Departament Pracy”, „poinformowała spółka”).',
     '   - Czas: dni słowami („wczoraj”, „dziś w nocy”), godziny słownie w czasie polskim („o dwudziestej drugiej naszego czasu”), bez dat liczbami.',
@@ -114,7 +121,7 @@ function task(p: PackRecord, c: BriefingConfig): string {
     '   - Liczby cyframi, z przecinkiem dziesiętnym („2,5 procent”), a jednostki i waluty słownie („miliarda dolarów”, „punktów bazowych”, „złotych”). ' +
       'Żadnych skrótów ani symboli: nie pisz mld, mln, tys., proc., pkt, r/r, USD, PLN, %, $, €. Spółki nazwą, nie tickerem. Bez adresów stron i formatowania.',
     `   - Zacznij dokładnie od: „${greeting(p.id, c.windowStart, warsawHHMM(p.to))}” Skończ dokładnie: „To wszystko w porannym przeglądzie rynków.”`,
-    '5. Odpowiedź. Najpierw sam tekst do przeczytania, akapit po akapicie, bez nagłówków. Pod nim, osobno: przy każdej historii linki do źródeł, które ją ' +
+    '6. Odpowiedź. Najpierw sam tekst do przeczytania, akapit po akapicie, bez nagłówków. Pod nim, osobno: przy każdej historii linki do źródeł, które ją ' +
       'potwierdzają, a na końcu historie pominięte i dlaczego, po jednym zdaniu.',
   ].join('\n')
 }
