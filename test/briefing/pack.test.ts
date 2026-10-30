@@ -123,7 +123,10 @@ test('at 07:45: the news from 19:00 the evening before to 07:45, the day\'s cale
   assert.match(text, /co najmniej 2 niezależnych źródłach/)
   assert.match(text, /na około 3 minuty \(około 420 słów\)/)
   assert.match(text, /linki do źródeł/)
-  assert.match(text, /3\. Kalendarium\. Po wiadomościach/)
+  assert.match(text, /4\. Kalendarium\. Po wiadomościach/)
+  assert.match(text, /3\. Kryptowaluty i surowce\. Niezależnie od materiału sprawdź w sieci/)
+  assert.match(text, /hack lub awaria giełdy/)
+  assert.match(text, /Kryptowaluty i surowce to osobne tematy, nie dodatek/)
   // a story of several headlines lists the others
   const burst = deps({}, '2026-10-28T06:45:00Z', [...night(), item('WALTER', 'MICROSOFT 1Q REV. $92.3B, EST. $90.1B', '2026-10-27T20:05:00Z'),
     item('WALTER', 'MICROSOFT SHARES RISE 5% POST-MARKET', '2026-10-27T20:06:00Z')])

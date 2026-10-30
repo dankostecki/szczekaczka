@@ -2,7 +2,7 @@
 // the first model wrote from them) goes in as JSON inside a marked block, with the instruction that it is data and that
 // any instruction inside it is to be ignored; the answers are then held to a JSON schema (schemas.ts) and checked in code
 // (verify.ts, script.ts). Raise PROMPT_VERSION with any change here: it is recorded with every edition.
-export const PROMPT_VERSION = '2026-10-29.1'
+export const PROMPT_VERSION = '2026-10-30.1'
 
 // Control and invisible characters out (a way to hide instructions), whitespace made plain, length capped
 export function clean(text: string, max = 2000): string {
@@ -26,6 +26,10 @@ further headlines about the same subject from the same hour (a company's results
 Pick the distinct stories that matter most for markets at the start of the trading day in Europe and Poland: the close of the US session and
 after-hours company results, the Asian session, central banks, important macro data, geopolitical and policy events that move markets,
 commodities, currencies, major crypto moves, and the largest Polish companies and the Warsaw Stock Exchange.
+Crypto and commodities are topics of their own, not an afterthought: when the candidates report an important event there (an exchange hack or a freeze of
+funds, a large move in bitcoin or ether, a move of several percent in oil, gas, gold, silver or copper, an OPEC decision, a supply disruption, a regulator's
+ruling on crypto exchanges or funds), pick it like a macro release, even when only one candidate reports it, and give it importance 4 or 5 when it moves the
+whole asset class or involves billions of dollars. Do not skip such a story because the day's company filings or macro data fill the list.
 Leave out: routine filings, small dividends, promotional or opinion pieces without news, duplicates, items that only repeat a story older than the
 window, and unattributed rumours.
 

@@ -70,6 +70,16 @@ const ROUTINE_PL: RegExp[] = [
 const ROUTINE_LINK = /^https?:\/\/[^/]+\/(?:technical-analysis|education|forex-orders)\//i
 const routineFor = (source: string) => (source === 'WALTER' || source === 'SEEKINGALPHA' || source === 'INVESTINGLIVE' ? ROUTINE_EN : ROUTINE_PL)
 
+// Crypto and commodities: their words, for the score (a mover like the others) and for the places they are kept (FLOOR below). Without them the story of
+// an exchange hack or of oil falling 5% had a headline with no word of the macro kind and lost its place to the day's company filings
+const CRYPTO_WORDS = ['crypto', 'cryptocurrency', 'cryptocurrencies', 'binance', 'coinbase', 'kraken', 'okx', 'bybit', 'tether', 'usdt', 'usdc', 'stablecoin', 'stablecoins',
+  'ethereum', 'ether', 'eth', 'btc', 'bitcoin', 'solana', 'xrp', 'ripple', 'dogecoin', 'hack', 'hacked', 'hacks', 'exploit', 'exploited', 'liquidations', 'etf', 'etfs']
+const CRYPTO_STEMS = ['krypto', 'stablecoin', 'bitcoin', 'ethereum']
+const COMMODITY_WORDS = ['commodities', 'commodity', 'crude', 'brent', 'wti', 'oil', 'gold', 'silver', 'copper', 'nickel', 'aluminium', 'aluminum', 'lithium', 'uranium',
+  'gas', 'lng', 'coal', 'wheat', 'corn', 'soybeans', 'cocoa', 'coffee', 'sugar', 'opec', 'złoto', 'złota', 'ropa', 'ropy', 'gaz', 'gazu', 'miedź', 'srebro']
+const COMMODITY_STEMS = ['surowc', 'miedz', 'srebr', 'paliw', 'złot', 'ropie', 'ropą']
+const CRYPTO = 1, COMMODITIES = 2
+
 // What moves markets: a story whose headline names these goes higher (the model decides in the end). Words of the
 // headline, looked up (much cheaper than expressions over every news): whole words, and stems of Polish inflected ones.
 const MOVER_WORDS: [kind: number, words: string[], stems: string[]][] = [
@@ -80,7 +90,22 @@ const MOVER_WORDS: [kind: number, words: string[], stems: string[]][] = [
   [5, ['acquire', 'acquires', 'acquired', 'acquisition', 'merger', 'takeover', 'buyout', 'bankruptcy', 'default', 'ipo'], ['przejęci', 'przejmie', 'fuzj', 'upadłoś', 'debiut']],
   [6, ['s&p', 'nasdaq', 'dow', 'nikkei', 'kospi', 'dax', 'wig', 'wig20', 'futures', 'treasury', 'treasuries', 'yield', 'yields', 'brent', 'wti', 'gold', 'bitcoin', 'dollar', 'oil', 'złoto', 'złota', 'ropa', 'ropy'],
     ['kontrakt', 'rentownoś', 'dolar', 'złot']],
+  [7, CRYPTO_WORDS, CRYPTO_STEMS],
+  [8, COMMODITY_WORDS, COMMODITY_STEMS],
 ]
+const CRYPTO_SET = new Set(CRYPTO_WORDS), COMMODITY_SET = new Set(COMMODITY_WORDS)
+// Which of the two topics the words name (a bit each)
+function topicsOf(words: Iterable<string>): number {
+  let topics = 0
+  for (const w of words) {
+    if (CRYPTO_SET.has(w) || (w.length > 4 && CRYPTO_STEMS.some((s) => w.startsWith(s)))) topics |= CRYPTO
+    if (COMMODITY_SET.has(w) || (w.length > 4 && COMMODITY_STEMS.some((s) => w.startsWith(s)))) topics |= COMMODITIES
+  }
+  return topics
+}
+// Places kept for the stories of each topic, however low their score (when there are that many): the model that picks the stories sees
+// what happened in crypto and in commodities even on a night when the macro data and the company results take every place
+const FLOOR = 3
 const MOVER_WORD = new Map(MOVER_WORDS.flatMap(([k, words]) => words.map((w) => [w, k] as const)))
 const MOVER_STEMS = MOVER_WORDS.flatMap(([k, , stems]) => stems.map((s) => [s, k] as const))
 function moverKinds(words: Iterable<string>): number {
@@ -219,10 +244,13 @@ export function rank(items: WindowItem[], config: Pick<BriefingConfig, 'maxCandi
     g.sort((a, b) => weightOf(b.it.source, b.it.label) - weightOf(a.it.source, a.it.label) || a.it.time - b.it.time)
     const best = g[0]
     const sources = [...new Set(g.map((k) => k.it.source))]
-    const movers = moverKinds(g.slice(0, 3).flatMap((k) => [...k.words]))
+    const top = g.slice(0, 3).flatMap((k) => [...k.words])
+    const movers = moverKinds(top)
     const score = weightOf(best.it.source, best.it.label) + 0.6 * (sources.length - 1) + 0.25 * Math.log2(g.length) + 0.35 * Math.min(movers, 3)
-    return { g, best, sources, score }
-  }).sort((a, b) => b.score - a.score || a.best.it.time - b.best.it.time)
+    return { g, best, sources, score, topics: topicsOf(top) }
+  })
+  const byScore = (a: { score: number; best: { it: WindowItem } }, b: typeof a) => b.score - a.score || a.best.it.time - b.best.it.time
+  scored.sort(byScore)
 
   const cap = Math.max(4, Math.ceil(config.maxCandidates * 0.4))
   const perSource = new Map<string, number>()
@@ -234,6 +262,25 @@ export function rank(items: WindowItem[], config: Pick<BriefingConfig, 'maxCandi
     perSource.set(s.best.it.source, n + 1)
     chosen.push(s)
   }
+  // The places of each topic: the best of its stories that did not get in take the place of the lowest of those that are no topic's
+  const added = new Set<typeof scored[number]>()
+  for (const topic of [CRYPTO, COMMODITIES]) {
+    let have = chosen.filter((s) => s.topics & topic).length
+    for (const s of scored) {
+      if (have >= FLOOR) break
+      if (!(s.topics & topic) || chosen.includes(s)) continue
+      if (chosen.length >= config.maxCandidates) {
+        let drop = -1
+        for (let i = chosen.length - 1; i >= 0 && drop < 0; i--) if (!chosen[i].topics && !added.has(chosen[i])) drop = i
+        if (drop < 0) break
+        chosen.splice(drop, 1)
+      }
+      chosen.push(s)
+      added.add(s)
+      have++
+    }
+  }
+  chosen.sort(byScore)
   const candidates = chosen.map((s, i): Candidate => ({
     id: `c${i + 1}`,
     itemIds: s.g.map((k) => k.it.id),

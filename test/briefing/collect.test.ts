@@ -252,3 +252,41 @@ test('investingLive is a source of the briefing by default: its items count by t
   assert.equal(two.candidates.length, 1)
   assert.deepEqual(two.candidates[0].sources.sort(), ['INVESTINGLIVE', 'WALTER'])
 })
+
+test('crypto and commodities keep places on a night when the macro data and the company results take them all', () => {
+  // 40 stories of the macro kind from five sources, each with a first word of its own (so that none is put with another), and five of crypto and commodities
+  const sources = ['WALTER', 'STOOQ', 'ESPI', 'GPW', 'PAP']
+  const macro = Array.from({ length: 40 }, (_, i) => item(sources[i % 5], `Alfa${i}x inflation and rates headline w${i}y`, ms(`2026-10-27T${19 + (i % 4)}:${10 + (i % 40)}:00Z`)))
+  const specials = [
+    item('INVESTINGLIVE', 'Binance appears hacked, CZ says, as Tether and Circle freeze $1.79B in stablecoins', ms('2026-10-27T21:55:00Z')),
+    item('INVESTINGLIVE', 'Bitcoin falls 6% as crypto liquidations pass $2B', ms('2026-10-27T21:20:00Z')),
+    item('INVESTINGLIVE', 'WTI crude oil falls 5% on a surprise build in stocks', ms('2026-10-27T22:10:00Z')),
+    item('STOOQ', 'Złoto drożeje o 2%, srebro o 3%', ms('2026-10-27T22:20:00Z')),
+    item('STOOQ', 'Miedź najdroższa od roku', ms('2026-10-27T22:30:00Z')),
+    item('PAP', 'Cena pszenicy i kukurydzy rośnie, drożeje też cukier', ms('2026-10-27T22:40:00Z')), // a fourth commodity story, with a low score: out
+  ]
+  const without = collect(poller(macro, t.cutoff), t, t.cutoff, { ...config, maxCandidates: 12 })
+  assert.equal(without.candidates.length, 12)
+  const r = collect(poller([...macro, ...specials], t.cutoff), t, t.cutoff, { ...config, maxCandidates: 12 })
+  const titles = r.candidates.map((c) => c.title)
+  assert.equal(r.candidates.length, 12)
+  for (const wanted of ['Binance appears hacked', 'Bitcoin falls 6%', 'WTI crude oil', 'Złoto drożeje', 'Miedź najdroższa']) assert.ok(titles.some((x) => x.startsWith(wanted)), `${wanted}: ${titles.join(' | ')}`)
+  assert.ok(!titles.some((x) => x.startsWith('Cena pszenicy')), 'three places for a topic: its fourth story is not kept for that')
+  // ids follow the order of the score
+  assert.deepEqual(r.candidates.map((c) => c.id), r.candidates.map((_, i) => `c${i + 1}`))
+  assert.ok(r.candidates.every((c, i) => i === 0 || r.candidates[i - 1].score >= c.score))
+  // with room for all of them nothing is moved
+  const roomy = collect(poller([...macro, ...specials], t.cutoff), t, t.cutoff, { ...config, maxCandidates: 120 })
+  assert.equal(roomy.candidates.length, macro.length + specials.length)
+})
+
+test('the words of crypto and of commodities count like the other movers', () => {
+  const time = ms('2026-10-27T20:00:00Z')
+  const r = collect(poller([
+    item('STOOQ', 'ACME OPENS NEW OFFICE IN OHIO', time),
+    item('STOOQ', 'Kryptowaluty tracą po ataku na giełdę', time),
+    item('STOOQ', 'Ceny ropy i gazu w górę po decyzji OPEC', time),
+  ], t.cutoff), t, t.cutoff, config)
+  assert.equal(r.candidates[2].title, 'ACME OPENS NEW OFFICE IN OHIO')
+  assert.ok(r.candidates[0].score > r.candidates[2].score && r.candidates[1].score > r.candidates[2].score)
+})

@@ -340,3 +340,19 @@ test('the model that picks the stories sees a story\'s other headlines (moreHead
   await run(h, () => h.d.store.getStep('2026-10-28', 'triage')?.status === 'done')
   assert.match(inputs[0], /"title":"MICROSOFT 1Q REV\. \$92\.3B, EST\. \$90\.1B"[^}]*"moreHeadlines":\["MICROSOFT SHARES RISE 5% POST-MARKET"\]/)
 })
+
+test('the model that picks the stories is told that crypto and commodities are topics of their own, and gets the candidates of both on a crowded night', async () => {
+  const crowded = Array.from({ length: 40 }, (_, i) => item('WALTER', `FED ${i} says rates and inflation matter w${i}x${i * 7}z`, `2026-10-27T${19 + (i % 4)}:${10 + (i % 40)}:00Z`))
+  const items = [...crowded, item('INVESTINGLIVE', 'Binance appears hacked, CZ says, as Tether and Circle freeze $1.79B in stablecoins', '2026-10-27T21:55:00Z'),
+    item('INVESTINGLIVE', 'WTI crude oil falls 5% on a surprise build in stocks', '2026-10-27T22:10:00Z')]
+  const h = harness({ BRIEFING_MAX_CANDIDATES: '10' }, { items })
+  const asked: { instructions: string; input: string }[] = []
+  const llm = h.d.llm!
+  h.d.llm = { ...llm, call: (req) => { if (req.stage === 'triage') asked.push({ instructions: req.instructions, input: req.input }); return llm.call(req) } }
+  h.clock.now = Date.parse('2026-10-28T05:00:00Z')
+  await run(h, () => h.d.store.getStep('2026-10-28', 'triage')?.status === 'done')
+  assert.match(asked[0].instructions, /Crypto and commodities are topics of their own, not an afterthought/)
+  assert.match(asked[0].instructions, /an exchange hack or a freeze of\s+funds/)
+  assert.match(asked[0].input, /Binance appears hacked/)
+  assert.match(asked[0].input, /WTI crude oil falls 5%/)
+})
