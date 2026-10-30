@@ -36,21 +36,39 @@ test('the window: only the rated news of the last hours, best first; the newer f
   assert.deepEqual(TOP_HOURS, [4, 8, 12, 24])
 })
 
-test('the same news from several channels is one story, under its best rated headline, a little higher for each other source', () => {
+test('the same news from several channels is one story, under its best rated headline; more sources decide between two rated the same', () => {
   const items = [
     news('WALTER', 'TELEGRAM', 'BINANCE HALTS WITHDRAWALS AFTER $1.8B HACK', 2, 8),
     news('INVESTINGLIVE', 'WIADOMOŚCI', 'Binance halts withdrawals after $1.8B hack', 1.9, 8.5),
     news('SEEKINGALPHA', 'MARKET CURRENTS', 'Binance halts withdrawals after hack of $1.8B', 1.8, 7),
     news('WALTER', 'TELEGRAM', 'ECB HOLDS RATES', 1, 9),
+    news('WALTER', 'TELEGRAM', 'KREMLIN AIDE WARNS ON STRIKES DURING HOLIDAY', 0.5, 8.5),
   ]
   const top = topStories(items, 4, NOW, ['en', 'pl'])
-  assert.equal(top.length, 2)
-  assert.equal(top[0].item.source, 'INVESTINGLIVE', 'the best rated of the three')
-  assert.deepEqual(top[0].sources, ['INVESTINGLIVE', 'WALTER', 'SEEKINGALPHA'])
-  assert.equal(top[0].others.length, 2)
-  assert.equal(top[0].ai, 8.5)
-  assert.equal(top[0].score, 9.5, '8.5 and half a point for each other source')
-  assert.equal(top[1].item.title, 'ECB HOLDS RATES')
+  assert.equal(top.length, 3)
+  assert.equal(top[0].item.title, 'ECB HOLDS RATES', 'the best rated first, however many sources the others have')
+  assert.equal(top[1].item.source, 'INVESTINGLIVE', 'the best rated of the three; above the other 8.5, which has one source')
+  assert.deepEqual(top[1].sources, ['INVESTINGLIVE', 'WALTER', 'SEEKINGALPHA'])
+  assert.equal(top[1].others.length, 2)
+  assert.equal(top[1].ai, 8.5)
+  assert.equal(top[2].item.title, 'KREMLIN AIDE WARNS ON STRIKES DURING HOLIDAY')
+})
+
+test('the order never goes against the colours: a news of a lower step is never above one of a higher, whatever its sources', () => {
+  // as seen on the phone: orange news (7.6) that two channels reported were above red ones (8.0) of one channel
+  const items = [
+    news('WALTER', 'TELEGRAM', 'UKRAINE REPORTEDLY HALTS STRIKES ON RUSSIAN REFINERIES', 11, 7.6),
+    news('INVESTINGLIVE', 'WIADOMOŚCI', 'Ukraine reportedly halts strikes on Russian refineries', 10.9, 7.4),
+    news('WALTER', 'TELEGRAM', 'ECB POLICYMAKERS SEE DECEMBER HIKE THEN PAUSE', 3, 8),
+    news('WALTER', 'TELEGRAM', 'TRUMP SAYS US MILITARY OPERATIONS AGAINST IRAN GOING VERY WELL', 1, 7.1),
+    news('INVESTINGLIVE', 'WIADOMOŚCI', 'Trump says US military operations against Iran going very well', 0.9, 6.8),
+    news('WALTER', 'TELEGRAM', 'KREMLIN AIDE SAYS MASS UKRAINIAN STRIKES COULD AFFECT TALKS', 5, 8.2),
+    news('INVESTINGLIVE', 'WIADOMOŚCI', 'Ship on fire in the Strait of Hormuz near Oman', 9, 6.5),
+  ]
+  const top = topStories(items, 24, NOW, ['en', 'pl'])
+  const ratings = top.map((s) => s.ai)
+  assert.deepEqual(ratings, [...ratings].sort((a, b) => b - a))
+  assert.deepEqual(top.map((s) => s.item.title.split(' ')[0]), ['KREMLIN', 'ECB', 'UKRAINE', 'TRUMP', 'Ship'])
 })
 
 test('news shown in Polish are put together by their text as published; the languages the server rates decide what is in', () => {

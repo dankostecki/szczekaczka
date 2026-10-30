@@ -1,6 +1,8 @@
 // The "Top" tab: the most important news of the last hours, by the rating of a model of Workers AI (NewsItem.ai, worker/rate.ts). The same
-// news from several channels is one story (lib/stories.ts, as in the morning briefing), under its best rated headline; a story that more sources
-// report goes a little higher. Worked out here, from the list the page already has: no request of its own, and it works without the network.
+// news from several channels is one story (lib/stories.ts, as in the morning briefing), under its best rated headline. The order is always the
+// rating's, the most important first: of two rated the same, the one that more sources report, then the newer. (A bonus for the sources once
+// put a news of a lower step above one of a higher, against what the colours show.) Worked out here, from the list the page already has: no
+// request of its own, and it works without the network.
 import { groupStories } from './stories'
 import { langOf, type Lang } from './sources'
 import { originalOf, type Item } from './news'
@@ -10,15 +12,12 @@ export type TopHours = (typeof TOP_HOURS)[number]
 export const DEFAULT_TOP_HOURS: TopHours = 12
 export const TOP_FIRST = 10 // shown at first; "Pokaż więcej" shows up to TOP_MORE
 export const TOP_MORE = 25
-const PER_SOURCE = 0.5      // added to a story's rating for each other source that reports it…
-const MAX_SOURCES = 3       // …up to this many
 
 export interface TopStory {
   item: Item        // the best rated headline of the story, as the page shows it
   others: Item[]    // the story's other headlines, best rated first
   sources: string[] // its sources, the item's first
-  ai: number        // the item's rating, 0 to 10
-  score: number     // what the order goes by: the rating and the sources
+  ai: number        // the item's rating, 0 to 10: what the order goes by
 }
 
 // `items`: the news as the page shows them (in the language chosen, without the channels switched off or the other sources); `langs`: the
@@ -33,9 +32,9 @@ export function topStories(items: Item[], hours: number, now: number, langs: rea
       const news = g.map((k) => k.it.it).sort((a, b) => b.ai! - a.ai! || b.time - a.time)
       const [item, ...others] = news
       const sources = [...new Set(news.map((n) => n.source))]
-      return { item, others, sources, ai: item.ai!, score: item.ai! + PER_SOURCE * Math.min(sources.length - 1, MAX_SOURCES) }
+      return { item, others, sources, ai: item.ai! }
     })
-    .sort((a, b) => b.score - a.score || b.item.time - a.item.time)
+    .sort((a, b) => b.ai - a.ai || b.sources.length - a.sources.length || b.item.time - a.item.time)
 }
 
 // What the page shows of a rating (0 to 10): one of four steps, by colour, from a quiet news (green) to a very important one (red). The number
