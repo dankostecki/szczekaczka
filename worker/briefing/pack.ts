@@ -130,7 +130,7 @@ function task(p: PackRecord, c: BriefingConfig): string {
 
 function story(n: number, s: Candidate): string {
   const lines = [`### ${n}. ${clean(s.title, 300)}`,
-    `${s.sources.map(nameOf).join(', ')} · ${warsawLabel(Date.parse(s.publishedAt))}${s.importance !== undefined ? ` · ważność ${s.importance}/10` : ''}`]
+    `${s.sources.map(nameOf).join(', ')} · ${warsawLabel(Date.parse(s.publishedAt))}${s.importance !== undefined ? ` · ważność ${String(s.importance).replace('.', ',')}/10` : ''}`]
   const lead = clean(s.lead, 400)
   if (lead && lead !== clean(s.title, 300)) lines.push(lead)
   if (s.translation) lines.push(`Po polsku: ${clean(s.translation, 500)}`)

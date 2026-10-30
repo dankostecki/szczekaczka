@@ -153,7 +153,7 @@ test('without the calendars the task leaves that part out', async () => {
 })
 
 test('with the model\'s ratings: they go into the order and the text, the record and the status, and the pack says so', async () => {
-  const { ai, calls } = fakeAi((t) => (/Orlen/.test(t) ? 9 : /Nikkei/.test(t) ? 1 : 5))
+  const { ai, calls } = fakeAi((t) => (/Orlen/.test(t) ? 9 : /Nikkei/.test(t) ? 1 : 6.5))
   const h = deps()
   h.d.ai = ai
   await runUntil(h, '2026-10-28T23:00:00Z')
@@ -162,6 +162,7 @@ test('with the model\'s ratings: they go into the order and the text, the record
   assert.match(text, /Kolejność historii ustaliły reguły automatyczne .* i ocena ważności od 0 do 10 z modelu pomocniczego, podana przy historiach\. Ocena to tylko wskazówka/)
   assert.match(text, /### 1\. Orlen: szacunkowe wyniki za III kwartał\nESPI · [^\n]* · ważność 9\/10\n/, 'rated high, it comes first')
   assert.match(text, / · ważność 1\/10\n/)
+  assert.match(text, / · ważność 6,5\/10\n/, 'Clef\'s ratings have a decimal, written with a comma')
   const record = h.d.store.getPack('latest')!
   assert.equal(record.ranking!.mode, 'model')
   assert.equal(record.ranking!.scored, 3)
