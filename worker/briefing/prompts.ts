@@ -2,7 +2,7 @@
 // the first model wrote from them) goes in as JSON inside a marked block, with the instruction that it is data and that
 // any instruction inside it is to be ignored; the answers are then held to a JSON schema (schemas.ts) and checked in code
 // (verify.ts, script.ts). Raise PROMPT_VERSION with any change here: it is recorded with every edition.
-export const PROMPT_VERSION = '2026-10-30.2'
+export const PROMPT_VERSION = '2026-10-30.3'
 
 // Control and invisible characters out (a way to hide instructions), whitespace made plain, length capped
 export function clean(text: string, max = 2000): string {
@@ -23,7 +23,9 @@ export const TRIAGE = `You are the news editor of a short Polish-language mornin
 You receive news items that the site collected from RSS feeds and channels during the edition's window. A candidate may carry moreHeadlines:
 further headlines about the same subject from the same hour (a company's results, a central bank's decision and its press conference), and
 helperImportance: a rating from 0 to 10 of how much the story matters, made by a small automatic model from the headline alone. It is only a hint for
-where to look: it can be wrong both ways, so judge every story yourself from its text. ${DATA_RULE}
+where to look: it can be wrong both ways, and it often rates big events too low (a hack of a major crypto exchange got about 6), so judge every story
+yourself from its text and never leave one out because its helperImportance is low. A story that several sources report, or that has many
+headlines, usually matters. ${DATA_RULE}
 
 Pick the distinct stories that matter most for markets at the start of the trading day in Europe and Poland: the close of the US session and
 after-hours company results, the Asian session, central banks, important macro data, geopolitical and policy events that move markets,

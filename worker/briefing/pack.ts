@@ -30,7 +30,7 @@ export interface PackRecord {
   builtAt?: number
   candidates?: number
   ranking?: RankingInfo   // how the stories were ranked: by the rules, or with the model's ratings of their importance (importance.ts)
-  rankingKey?: string     // the ranking settings it was made with (rankingKey): another one, and the day's pack is made again
+  rankingKey?: string     // what it was made with (packKey: the ranking settings and the task's version): another one, and the day's pack is made again
 }
 
 export type PackDeps = Pick<Deps, 'store' | 'config' | 'now' | 'pollerItems' | 'log' | 'ai'>
@@ -45,13 +45,17 @@ export const packAt = (id: string, c: BriefingConfig) => warsawAt(id, c.pack.at)
 // model or the weight) shows at the pack's address within minutes, and switching them off again brings back the ranking by the rules.
 // A failed attempt does not repeat by itself: it was made with these settings too.
 export const rankingKey = (c: BriefingConfig) => (c.aiRank.enabled ? `${c.aiRank.model}|${c.aiRank.weight}|${c.aiRank.pool}${c.aiRank.fromList ? '|list' : ''}` : 'rules')
+// The version of the task (task() below): a new one, and today's pack is made again too, from the same news, so that the address has the new
+// task at once (a deploy that changes it would otherwise wait for the next morning)
+export const TASK_VERSION = '2026-10-30.1'
+export const packKey = (c: BriefingConfig) => `${rankingKey(c)}#${TASK_VERSION}`
 
 // The pack due now: a day of the briefing past its time, with no pack made for it yet (a deploy later that day makes it at once), or
 // today's made with other ranking settings than the present ones
 export function duePack(now: number, c: BriefingConfig, latest: PackRecord | null): string | null {
   const id = editionIdAt(now)
   if (!c.days.includes(weekday(id)) || now < packAt(id, c)) return null
-  return latest?.id !== id || latest.rankingKey !== rankingKey(c) ? id : null
+  return latest?.id !== id || latest.rankingKey !== packKey(c) ? id : null
 }
 
 export function nextPackAt(now: number, c: BriefingConfig): number {
@@ -109,7 +113,9 @@ function task(p: PackRecord, c: BriefingConfig): string {
       'zamknięcie sesji w USA i wyniki spółek po sesji, sesja w Azji, banki centralne, ważne dane makro, geopolityka i decyzje polityczne, które ruszają ' +
       'rynkami, surowce, waluty, kryptowaluty, największe polskie spółki i GPW. Kryptowaluty i surowce to osobne tematy, nie dodatek: duże wydarzenie ' +
       'na tych rynkach wybieraj tak samo jak dane makro, także gdy jest o nim jeden nagłówek. Wiadomości o tym samym to jedna historia. Pomiń rutynowe ' +
-      'komunikaty, drobne dywidendy, materiały promocyjne, opinie bez nowej informacji, powtórki historii sprzed tego okna i niepotwierdzone plotki.',
+      'komunikaty, drobne dywidendy, materiały promocyjne, opinie bez nowej informacji, powtórki historii sprzed tego okna i niepotwierdzone plotki. ' +
+      'Kolejność historii w materiale i ocena ważności przy nich (gdy jest) to tylko wskazówka automatu: nie pomijaj historii dlatego, że stoi nisko ' +
+      'albo ma niską ocenę. Historia, o której piszą różne kanały albo która ma wiele nagłówków, jest zwykle ważna.',
     '2. Sprawdzenie. Każdą wybraną historię sprawdź w sieci, zanim o niej napiszesz. Szukaj najpierw źródła pierwotnego (komunikatu spółki, banku ' +
       'centralnego, urzędu statystycznego, regulatora, giełdy), potem co najmniej jednej niezależnej, rzetelnej redakcji z własnym materiałem. Omijaj media ' +
       'społecznościowe, fora, agregatory i strony za paywallem. Liczby, jednostki, okresy i autorzy wypowiedzi muszą się zgadzać ze źródłami. Pomiń ' +
@@ -120,9 +126,14 @@ function task(p: PackRecord, c: BriefingConfig): string {
       'gaz, złoto, srebro, miedź: duży ruch ceny, decyzja OPEC, zapasy, przerwy w dostawach, wydarzenia geopolityczne). Takie wydarzenie to osobna historia, ' +
       'także gdy materiał ma o nim tylko jeden nagłówek albo nic: napisz, co się stało i jak duża jest skala (kwoty, procenty), podaj kursy i zmiany z godziną ' +
       'oraz z informacją, czy to zamknięcie sesji, czy notowania w trakcie handlu, i potwierdź to w źródłach jak każdą inną historię. Ważne wydarzenie z tych ' +
-      'rynków ma pierwszeństwo przed drobnymi komunikatami spółek. Gdy nic ważnego się nie wydarzyło, pomiń te rynki bez wzmianki o tym.',
-    `4. Kalendarium. ${calendar}`,
-    '5. Tekst.',
+      'rynków ma pierwszeństwo przed drobnymi komunikatami spółek. Nie kieruj się przy tym oceną ważności z materiału: automat często ją tu zaniża. ' +
+      'Gdy nic ważnego się nie wydarzyło, pomiń te rynki bez wzmianki o tym.',
+    '4. Kompletność. Zanim napiszesz tekst, sprawdź w sieci, o czym od wczorajszego wieczora najwięcej piszą duże serwisy finansowe (np. Reuters, ' +
+      'Bloomberg, CNBC, Financial Times, a w Polsce PAP Biznes, Bankier.pl, Parkiet), we wszystkich tematach z punktu 1. Wydarzenie, o którym piszą ' +
+      'szeroko, a którego brakuje w materiale albo które ma w nim niską ocenę lub dalekie miejsce, dodaj jako historię i sprawdź jak każdą inną (punkt 2). ' +
+      'Gdy przez to historii jest więcej niż ' + `${c.maxStories}` + ', pomiń najmniej ważne z materiału.',
+    `5. Kalendarium. ${calendar}`,
+    '6. Tekst.',
     '   - Każde zdanie musi wynikać ze sprawdzonych źródeł. Nie dodawaj kontekstu, przyczyn, prognoz ani ocen, których źródła nie podają, i nie spekuluj.',
     '   - Gdy fakt podaje jedna instytucja, firma lub osoba, powiedz to („podał Departament Pracy”, „poinformowała spółka”).',
     '   - Czas: dni słowami („wczoraj”, „dziś w nocy”), godziny słownie w czasie polskim („o dwudziestej drugiej naszego czasu”), bez dat liczbami.',
@@ -132,7 +143,7 @@ function task(p: PackRecord, c: BriefingConfig): string {
     '   - Liczby cyframi, z przecinkiem dziesiętnym („2,5 procent”), a jednostki i waluty słownie („miliarda dolarów”, „punktów bazowych”, „złotych”). ' +
       'Żadnych skrótów ani symboli: nie pisz mld, mln, tys., proc., pkt, r/r, USD, PLN, %, $, €. Spółki nazwą, nie tickerem. Bez adresów stron i formatowania.',
     `   - Zacznij dokładnie od: „${greeting(p.id, c.windowStart, warsawHHMM(p.to))}” Skończ dokładnie: „To wszystko w porannym przeglądzie rynków.”`,
-    '6. Odpowiedź. Najpierw sam tekst do przeczytania, akapit po akapicie, bez nagłówków. Pod nim, osobno: przy każdej historii linki do źródeł, które ją ' +
+    '7. Odpowiedź. Najpierw sam tekst do przeczytania, akapit po akapicie, bez nagłówków. Pod nim, osobno: przy każdej historii linki do źródeł, które ją ' +
       'potwierdzają, a na końcu historie pominięte i dlaczego, po jednym zdaniu.',
   ].join('\n')
 }
@@ -162,7 +173,8 @@ export function packText(p: PackRecord, candidates: Candidate[], c: BriefingConf
       `Złożone automatycznie ${moment(builtAt)}.`,
     ...(ranking?.mode === 'model'
       ? ['', 'Kolejność historii ustaliły reguły automatyczne (liczba źródeł, waga kanału, słowa kluczowe rynków) i ocena ważności od 0 do 10 z modelu ' +
-          'pomocniczego, podana przy historiach. Ocena to tylko wskazówka: o wyborze decydujesz ty, według zadania niżej.']
+          'pomocniczego, podana przy historiach. Model ocenia sam nagłówek i bywa w błędzie w obie strony, także przy wydarzeniach bardzo ważnych ' +
+          '(np. hack dużej giełdy kryptowalut dostał od niego około 6 na 10). Ocena to tylko wskazówka: o wyborze decydujesz ty, według zadania niżej.']
       // asked and failed: said, so that the pack does not pass for one with ratings (what came of the model is otherwise seen only in the operator's status)
       : ranking?.mode === 'rules' && ranking.calls > 0
         ? ['', `Ocena ważności przez model pomocniczy nie powiodła się (${clean(ranking.reason ?? 'brak powodu', 160)}): kolejność historii ustaliły same reguły automatyczne.`]
@@ -190,7 +202,7 @@ export async function packTick(d: PackDeps): Promise<number | null> {
     const { importance, ranking } = await importanceFor(d, pool)
     const r = pickCandidates(pool, c, importance)
     const { items: _, ...rest } = work
-    const done: PackRecord = { ...rest, text: packText(work, r.candidates, c, now, ranking), builtAt: now, candidates: r.candidates.length, ranking, rankingKey: rankingKey(c) }
+    const done: PackRecord = { ...rest, text: packText(work, r.candidates, c, now, ranking), builtAt: now, candidates: r.candidates.length, ranking, rankingKey: packKey(c) }
     d.store.putPack('latest', done)
     d.store.putPack('work', null)
     d.log(`briefing pack ${done.id}: ${done.candidates} stories of ${done.stats.inWindow} news, ${done.calendar.length} calendars, ${done.text!.length} characters, ranking: ${ranking.mode}`)

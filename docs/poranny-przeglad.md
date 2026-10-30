@@ -11,7 +11,7 @@
 - **Nic nie jest publikowane częściowo.** Gdy któryś etap zawiedzie (OpenAI, wyszukiwanie, weryfikacja, Google TTS, zapis), wydanie się nie ukazuje, a strona pokazuje poprzednie.
 - Szacunkowy koszt jednego wydania (z założonych liczb tokenów, nie z pomiaru): przy `gpt-6.1-terra` i średnim wysiłku rozumowania około **0,9 USD** w typową noc (0,5–1,5 USD), przy `gpt-6.1-sol` około **1,5 USD** (0,8–2,5 USD). Około 0,3 USD z tego to wyszukiwanie. Głos mieści się w darmowym milionie znaków miesięcznie Google. Twarde limity: domyślnie 2 USD na wydanie i 40 USD na miesiąc.
 - **Bez API też jest materiał:** codziennie o 7:45 serwer składa wsad dla ChatGPT (zadanie, kalendarium dnia i wiadomości z nocy) pod stałym adresem, który podajesz ChatGPT. Nic przy tym nie kosztuje (niżej).
-- **Nic tu nie było testowane na żywych usługach.** Nie było kluczy, a sieć środowiska nie miała dostępu do OpenAI, Google ani do stron źródeł. Testy (174) sprawdzają logikę i kształt zapytań na symulowanych odpowiedziach. Pierwsze prawdziwe wydanie trzeba obejrzeć ręcznie (krok 6 niżej).
+- **Nic tu nie było testowane na żywych usługach.** Nie było kluczy, a sieć środowiska nie miała dostępu do OpenAI, Google ani do stron źródeł. Testy (176) sprawdzają logikę i kształt zapytań na symulowanych odpowiedziach. Pierwsze prawdziwe wydanie trzeba obejrzeć ręcznie (krok 6 niżej).
 
 ## Architektura
 
@@ -82,6 +82,10 @@ Zanim podepniesz API, możesz robić przegląd sam w aplikacji ChatGPT. W dni wy
 - **Wiadomości z nocy:** do 50 najważniejszych historii (ten sam wybór i łączenie co w potoku, opis niżej) z wiadomości opublikowanych od 19:00 dnia poprzedniego **do chwili złożenia, czyli 7:45** (płatny potok zamyka wydanie o 6:00, bo potrzebuje czasu na sprawdzanie). Przy każdej: źródło, godzina, zajawka, tłumaczenie wiadomości angielskiej, do 3 linków. Na górze są też kanały, które w nocy miały błędy.
 
 W zadaniu są też osobne instrukcje o **kryptowalutach i surowcach** (krok 3): ChatGPT ma niezależnie od materiału sprawdzić w sieci, czy od wieczora wydarzyło się coś ważnego (duży ruch bitcoina, hack giełdy, zamrożenie środków, decyzja OPEC, duży ruch ropy, złota, miedzi), i jeśli tak, zrobić z tego osobną historię z kursami, skalą i godziną, nawet gdy materiał ma o tym jeden nagłówek albo nic. Ten sam akapit jest w prompcie wyboru historii w płatnym przeglądzie (`TRIAGE`, `PROMPT_VERSION` `2026-10-30.1`), który widzi jednak tylko kandydatów z kanałów, bez wyszukiwania. Wydarzenia, którego nie ma w kanałach, płatny przegląd sam nie znajdzie.
+
+**Ocena ważności to tylko wskazówka, a ważne wydarzenia ChatGPT ma znaleźć sam.** Oceny małego modelu (Clef, z samego nagłówka) bywają za niskie także przy bardzo ważnych wydarzeniach: 30 października 2026 hack Binance, o którym pisały wszystkie media, miał w aplikacji 6,6 na 10. Dlatego zadanie mówi wprost: nagłówek wsadu, że model bywa w błędzie w obie strony; krok 1, że nie wolno pomijać historii dlatego, że stoi nisko albo ma niską ocenę, a historia z kilku kanałów albo z wieloma nagłówkami jest zwykle ważna; krok 3, żeby przy kryptowalutach i surowcach nie kierować się oceną; i krok 4 **Kompletność**: przed pisaniem ChatGPT sprawdza w sieci, o czym od wieczora najwięcej piszą duże serwisy finansowe (Reuters, Bloomberg, CNBC, Financial Times, PAP Biznes, Bankier.pl, Parkiet), we wszystkich tematach, i dodaje wydarzenie, którego brakuje w materiale albo które ma w nim niską ocenę, sprawdzając je jak każde inne. To samo zastrzeżenie (niska `helperImportance` nie jest powodem do pominięcia) ma prompt wyboru historii w płatnym potoku; on jednak nie szuka w sieci historii spoza kandydatów.
+
+**Nowa treść zadania od razu pod adresem.** Wsad zapamiętuje, z jakimi ustawieniami oceny i z jaką wersją zadania (`TASK_VERSION` w `worker/briefing/pack.ts`) powstał. Po wdrożeniu, które zmienia jedno z nich, dzisiejszy wsad jest składany jeszcze raz z tych samych wiadomości (do chwili pierwszego wsadu dnia), w ciągu około 10 minut. Przy zmianie treści zadania trzeba więc podnieść `TASK_VERSION`.
 
 Wsad powstaje **niezależnie od `BRIEFING_MODE`** (także przy `off`) i nie woła żadnej płatnej usługi. Składa się w dwóch krokach alarmu `Briefing` (`worker/briefing/pack.ts`). Pierwszy wsad po wdrożeniu, w dzień wydania po 7:45, powstaje od razu, z wiadomościami do tej chwili.
 
@@ -312,7 +316,7 @@ Zła wartość nie psuje reszty: zostaje domyślna, a błąd widać w `GET /api/
 ## Test lokalny bez płatnych usług
 
 ```bash
-npm test                                   # 174 testy: czas i DST, okno, daty, duplikaty, sprzeczne źródła, weryfikacja, skrypt,
+npm test                                   # 176 testów: czas i DST, okno, daty, duplikaty, sprzeczne źródła, weryfikacja, skrypt,
                                            # części dla głosu, MP3, OpenAI/Google/Tavily na symulowanych odpowiedziach, SSRF, robots,
                                            # cały potok (ponowienia, idempotencja, terminy, brak sekretów, limity kosztów, zatwierdzanie)
 npm run build && npx wrangler dev          # z .dev.vars: BRIEFING_MODE=mock, BRIEFING_ADMIN_TOKEN=…, FEED_ORIGIN=… (lokalne kanały)

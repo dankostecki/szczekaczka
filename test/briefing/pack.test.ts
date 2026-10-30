@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import type { NewsItem } from '../../src/lib/parse'
 import { briefingApi } from '../../worker/briefing/api'
 import { readConfig, type Env as ConfigEnv } from '../../worker/briefing/config'
-import { calendarOf, duePack, nextPackAt, packOf, packStatus, packText, packTick, packWake, rankingKey, type PackDeps } from '../../worker/briefing/pack'
+import { calendarOf, duePack, nextPackAt, packOf, packStatus, packText, packKey, packTick, packWake, rankingKey, TASK_VERSION, type PackDeps } from '../../worker/briefing/pack'
 import { memoryStore } from '../../worker/briefing/store'
 import type { Env } from '../../worker/env'
 import { fakeAi, item, poller } from './helpers'
@@ -61,7 +61,7 @@ test('defaults: on, at 07:45, on the days of the briefing (not Sunday); a day ma
   assert.equal(duePack(at('2026-10-28T06:44:59Z'), config, null), null)
   assert.equal(duePack(at('2026-10-28T06:45:00Z'), config, null), '2026-10-28')
   assert.equal(duePack(at('2026-10-28T15:00:00Z'), config, null), '2026-10-28', 'a deploy later in the day makes it at once')
-  assert.equal(duePack(at('2026-10-28T07:00:00Z'), config, { id: '2026-10-28', rankingKey: rankingKey(config) } as never), null)
+  assert.equal(duePack(at('2026-10-28T07:00:00Z'), config, { id: '2026-10-28', rankingKey: packKey(config) } as never), null)
   assert.equal(duePack(at('2026-11-01T08:00:00Z'), config, null), null, 'Sunday')
   assert.equal(iso(nextPackAt(at('2026-10-31T08:00:00Z'), config)), '2026-11-02T06:45:00.000Z', 'Saturday after the pack: Monday')
   assert.equal(iso(nextPackAt(at('2026-07-15T03:00:00Z'), config)), '2026-07-15T05:45:00.000Z', 'summer time: 05:45 UTC')
@@ -123,7 +123,13 @@ test('at 07:45: the news from 19:00 the evening before to 07:45, the day\'s cale
   assert.match(text, /co najmniej 2 niezależnych źródłach/)
   assert.match(text, /na około 3 minuty \(około 420 słów\)/)
   assert.match(text, /linki do źródeł/)
-  assert.match(text, /4\. Kalendarium\. Po wiadomościach/)
+  assert.match(text, /5\. Kalendarium\. Po wiadomościach/)
+  // what the material does not say, or rates too low: looked for in the news of the night, in every topic
+  assert.match(text, /4\. Kompletność\. Zanim napiszesz tekst, sprawdź w sieci, o czym od wczorajszego wieczora najwięcej piszą duże serwisy finansowe/)
+  assert.match(text, /nie pomijaj historii dlatego, że stoi nisko albo ma niską ocenę/)
+  assert.match(text, /Nie kieruj się przy tym oceną ważności z materiału/)
+  assert.match(text, /pomiń najmniej ważne z materiału/)
+  assert.match(text, /7\. Odpowiedź\./)
   assert.match(text, /3\. Kryptowaluty i surowce\. Niezależnie od materiału sprawdź w sieci/)
   assert.match(text, /hack lub awaria giełdy/)
   assert.match(text, /Kryptowaluty i surowce to osobne tematy, nie dodatek/)
@@ -159,7 +165,7 @@ test('with the model\'s ratings: they go into the order and the text, the record
   await runUntil(h, '2026-10-28T23:00:00Z')
   const text = packOf(h.d.store)!.text
   assert.equal(calls.n, 1)
-  assert.match(text, /Kolejność historii ustaliły reguły automatyczne .* i ocena ważności od 0 do 10 z modelu pomocniczego, podana przy historiach\. Ocena to tylko wskazówka/)
+  assert.match(text, /Kolejność historii ustaliły reguły automatyczne .* i ocena ważności od 0 do 10 z modelu pomocniczego, podana przy historiach\. Model ocenia sam nagłówek i bywa w błędzie w obie strony, także przy wydarzeniach bardzo ważnych .*\. Ocena to tylko wskazówka/)
   assert.match(text, /### 1\. Orlen: szacunkowe wyniki za III kwartał\nESPI · [^\n]* · ważność 9\/10\n/, 'rated high, it comes first')
   assert.match(text, / · ważność 1\/10\n/)
   assert.match(text, / · ważność 6,5\/10\n/, 'Clef\'s ratings have a decimal, written with a comma')
@@ -211,7 +217,7 @@ test('switching the ratings on or off makes today\'s pack again from the same ne
   await runUntil(h, '2026-10-28T07:00:00Z') // made at 07:45 by the rules alone
   const first = h.d.store.getPack('latest')!
   assert.equal(calls.n, 0)
-  assert.equal(first.rankingKey, 'rules')
+  assert.equal(first.rankingKey, `rules#${TASK_VERSION}`)
   assert.equal(first.to, at('2026-10-28T06:45:00Z'))
   // news that came after it was taken must not get into the remake
   items.push(item('WALTER', 'LATE: a story that came after the pack was made', '2026-10-28T07:10:00Z'))
@@ -227,7 +233,7 @@ test('switching the ratings on or off makes today\'s pack again from the same ne
   const rated = h.d.store.getPack('latest')!
   assert.equal(calls.n, 1)
   assert.equal(rated.ranking!.mode, 'model')
-  assert.equal(rated.rankingKey, rankingKey(on))
+  assert.equal(rated.rankingKey, packKey(on))
   assert.equal(rated.from, first.from)
   assert.equal(rated.to, first.to)
   assert.equal(rated.stats.inWindow, first.stats.inWindow)
@@ -244,12 +250,20 @@ test('switching the ratings on or off makes today\'s pack again from the same ne
   await runUntil(h, '2026-10-28T23:00:00Z')
   assert.equal(calls.n, 1, 'no call')
   const back = h.d.store.getPack('latest')!
-  assert.equal(back.rankingKey, 'rules')
+  assert.equal(back.rankingKey, `rules#${TASK_VERSION}`)
   assert.equal(sameNews(back.text!), sameNews(first.text!))
   // another model or weight counts as other settings; the day\'s pack is made again
   for (const env of [{ BRIEFING_AI_RANK_MODEL: '@cf/cloudflare/clef-flash' }, { BRIEFING_AI_RANK_WEIGHT: '0.5' }, { BRIEFING_AI_RANK_POOL: '100' }]) {
     assert.equal(duePack(h.clock.now, readConfig(env).config, back), '2026-10-28', JSON.stringify(env))
   }
+})
+
+test('a new version of the task makes today\'s pack again too (the same news), once', () => {
+  const { config } = readConfig({})
+  const made = { id: '2026-10-28', rankingKey: `${rankingKey(config)}#2026-01-01.1` } as never
+  assert.equal(duePack(at('2026-10-28T09:00:00Z'), config, made), '2026-10-28', 'made with an older task')
+  assert.equal(duePack(at('2026-10-28T09:00:00Z'), config, { id: '2026-10-28', rankingKey: packKey(config) } as never), null)
+  assert.equal(packKey(config), `${rankingKey(config)}#${TASK_VERSION}`)
 })
 
 test('a pack made before the ratings existed (no settings recorded) is made again once; a failed attempt is not repeated by itself', async () => {
@@ -268,7 +282,7 @@ test('a pack made before the ratings existed (no settings recorded) is made agai
   await runUntil(h, '2026-10-28T23:00:00Z')
   assert.equal(down.calls.n, 1)
   assert.match(packOf(h.d.store)!.text, /Ocena ważności przez model pomocniczy nie powiodła się/)
-  assert.equal(h.d.store.getPack('latest')!.rankingKey, rankingKey(h.d.config))
+  assert.equal(h.d.store.getPack('latest')!.rankingKey, packKey(h.d.config))
   h.d.ai = good.ai
   h.clock.now = at('2026-10-28T10:00:00Z')
   assert.equal(iso(packWake(h.d.store, h.d.config, h.clock.now)!), '2026-10-29T06:45:00.000Z')
