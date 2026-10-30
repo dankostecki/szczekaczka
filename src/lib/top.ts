@@ -38,7 +38,15 @@ export function topStories(items: Item[], hours: number, now: number, langs: rea
     .sort((a, b) => b.score - a.score || b.item.time - a.item.time)
 }
 
-// "8,5" (the ratings have one decimal)
-export const ratingText = (ai: number) => String(Math.round(ai * 10) / 10).replace('.', ',')
+// What the page shows of a rating (0 to 10): one of four steps, by colour, from a quiet news (green) to a very important one (red). The number
+// itself is not shown: the steps say at a glance what a decimal would not
+export const IMPORTANCE = [
+  { name: 'spokojna', from: 0 },
+  { name: 'umiarkowana', from: 4 },
+  { name: 'ważna', from: 6 },
+  { name: 'bardzo ważna', from: 8 },
+] as const
+export type ImportanceLevel = 1 | 2 | 3 | 4
+export const importanceLevel = (ai: number): ImportanceLevel => (ai >= 8 ? 4 : ai >= 6 ? 3 : ai >= 4 ? 2 : 1)
 
 export const isTopHours = (n: unknown): n is TopHours => TOP_HOURS.includes(n as TopHours)

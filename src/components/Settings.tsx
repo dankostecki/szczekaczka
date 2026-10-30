@@ -11,6 +11,7 @@ import { isInstalledApp, promptInstall, useCanInstall } from '@/lib/install'
 import type { AwakeState } from '@/lib/wakeLock'
 import type { LiveStatus } from '@/lib/live'
 import { Close, Speaker, Bell, Play, Eye, ArrowUp, ArrowDown } from './Icons'
+import { ImportanceLegend } from './Importance'
 
 interface Props {
   prefs: Prefs
@@ -31,6 +32,7 @@ interface Props {
   savedCount: number
   onClearRead: () => void
   onClearSaved: () => void
+  ratingsOn: boolean // the news are rated by their importance (the server says so): the switch to show it everywhere
 }
 
 function Switch({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
@@ -359,6 +361,19 @@ export default function Settings(p: Props) {
             Przy pustej liście widać wszystkie raporty ESPI i głos czyta każdy, a powiadomień o nich nie ma, bo przychodzi ich bardzo dużo.
           </p>
         </section>
+
+        {p.ratingsOn && (
+          <section>
+            <h3>Ważność wiadomości</h3>
+            <Switch label="Pokazuj ważność przy każdej wiadomości" checked={prefs.showImportance}
+              onChange={() => onChange({ showImportance: !prefs.showImportance })} />
+            <p className="hint">
+              Sztuczna inteligencja ocenia każdą wiadomość, gdy przychodzi, i kolor mówi, jak ważna jest dla inwestora. Może się mylić.
+              W zakładce Top ważność widać zawsze.
+            </p>
+            <ImportanceLegend />
+          </section>
+        )}
 
         <section>
           <h3>Rynek</h3>

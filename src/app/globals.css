@@ -12,6 +12,8 @@
   --accent: #e5484d;
   --accent-soft: rgba(229, 72, 77, 0.1);
   --fresh: rgba(229, 72, 77, 0.07);
+  /* the four steps of a news' importance (components/Importance.tsx): quiet, moderate, important, very important */
+  --imp-1: #16a34a; --imp-2: #ca8a04; --imp-3: #ea580c; --imp-4: #dc2626;
   --header: rgba(255, 255, 255, 0.86);
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.14);
   --src-espi: #4f46e5;
@@ -38,6 +40,7 @@
     --accent: #ff6369;
     --accent-soft: rgba(255, 99, 105, 0.14);
     --fresh: rgba(255, 99, 105, 0.08);
+    --imp-1: #22c55e; --imp-2: #eab308; --imp-3: #fb923c; --imp-4: #f87171;
     --header: rgba(17, 17, 19, 0.86);
     --shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
     --src-espi: #9b9cfa;
@@ -64,6 +67,7 @@
   --accent: #ff6369;
   --accent-soft: rgba(255, 99, 105, 0.14);
   --fresh: rgba(255, 99, 105, 0.08);
+  --imp-1: #22c55e; --imp-2: #eab308; --imp-3: #fb923c; --imp-4: #f87171;
   --header: rgba(17, 17, 19, 0.86);
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
   --src-espi: #9b9cfa;
@@ -280,15 +284,21 @@ button:disabled { cursor: default; opacity: 0.5; }
 .badge.new { background: var(--accent); color: #fff; }
 .badge.watch { border: 1px solid var(--c); color: var(--c); font-weight: 600; letter-spacing: 0; }
 .badge.tr { border: 1px solid var(--border-strong); color: var(--text-2); font-weight: 600; letter-spacing: 0; }
-.badge.ai { border: 1px solid var(--accent); color: var(--accent); letter-spacing: 0; font-variant-numeric: tabular-nums; }
-/* "Top": the rating and the other sources of a story; on a phone the rating moves from the line above the headline to this one */
-.also { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 6px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--text-3); }
-.badge.ai.narrow { display: none; }
-@media (min-width: 481px) { .also.only-rating { display: none; } }
-@media (max-width: 480px) {
-  .meta .badge.ai.wide { display: none; }
-  .badge.ai.narrow { display: inline-block; }
-}
+/* The importance of a news (components/Importance.tsx): four bars, as many lit as its step, in the step's colour */
+.imp { display: inline-flex; align-items: flex-end; gap: 2px; height: 13px; flex-shrink: 0; }
+.imp i { width: 4px; border-radius: 1.5px; background: var(--border-strong); }
+.imp i:nth-child(1) { height: 5px; }
+.imp i:nth-child(2) { height: 7.5px; }
+.imp i:nth-child(3) { height: 10px; }
+.imp i:nth-child(4) { height: 13px; }
+.imp.l1 i.on { background: var(--imp-1); }
+.imp.l2 i.on { background: var(--imp-2); }
+.imp.l3 i.on { background: var(--imp-3); }
+.imp.l4 i.on { background: var(--imp-4); }
+.imp-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 2px 0 6px; font-size: 12.5px; color: var(--text-3); }
+.imp-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+/* "Top": the other sources of a story */
+.also { margin: 4px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--text-3); }
 
 /* ── "Top": the hours, the source, what the order means ─────────────── */
 .top-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 12px 0 2px; }

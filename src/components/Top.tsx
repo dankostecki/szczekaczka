@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from 'react'
 import { sourceName, type Source } from '@/lib/sources'
 import { TOP_FIRST, TOP_HOURS, TOP_MORE, type TopHours, type TopStory } from '@/lib/top'
+import { ImportanceLegend } from './Importance'
 
 interface Props {
   stories: TopStory[]           // all of the window, best first (lib/top.ts)
@@ -36,9 +37,10 @@ export default function Top({ stories, hours, onHours, source, sources, onSource
         </select>
       </div>
       <p className="top-note">
-        Kolejność ustala sztuczna inteligencja: ocenia, jak ważna jest każda wiadomość dla inwestora (od 0 do 10). Może się mylić.
+        Kolejność ustala sztuczna inteligencja: ocenia, jak ważna jest każda wiadomość dla inwestora. Może się mylić.
         {englishOnly && ' Oceniane są tylko wiadomości z kanałów po angielsku.'}
       </p>
+      <ImportanceLegend />
       {loaded && shown.length === 0 && (
         <p className="empty">W ostatnich {hours} godz. nie ma jeszcze ocenionych wiadomości{source ? ' z tego źródła' : ''}.</p>
       )}

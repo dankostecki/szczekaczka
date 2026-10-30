@@ -93,7 +93,7 @@ export default function PrivacyPolicy() {
         <tbody>
           <tr>
             <td><code>szczekaczka:prefs</code></td>
-            <td>Ustawienia: motyw, głos, tempo, dźwięk przed czytaniem, co czytać, wybrane kanały, kolejność źródeł (zakładek), język kanałów Walter Bloomberg, investingLive i Seeking Alpha, powiadomienia, lista obserwowanych spółek, włączenie wykresów TradingView w zakładce Rynek i ostatnio oglądane tam symbole (najwyżej 8), wybrany w zakładce Top okres (4, 8, 12 lub 24 godziny) i źródło.</td>
+            <td>Ustawienia: motyw, głos, tempo, dźwięk przed czytaniem, co czytać, wybrane kanały, kolejność źródeł (zakładek), język kanałów Walter Bloomberg, investingLive i Seeking Alpha, powiadomienia, lista obserwowanych spółek, włączenie wykresów TradingView w zakładce Rynek i ostatnio oglądane tam symbole (najwyżej 8), wybrany w zakładce Top okres (4, 8, 12 lub 24 godziny) i źródło, pokazywanie ważności przy każdej wiadomości.</td>
             <td>Do czasu usunięcia</td>
           </tr>
           <tr>

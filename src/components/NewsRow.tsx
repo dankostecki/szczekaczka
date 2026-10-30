@@ -2,7 +2,7 @@
 
 import { memo } from 'react'
 import { type Item, tagOf, clock, ago, fullDate } from '@/lib/news'
-import { ratingText } from '@/lib/top'
+import { Importance } from './Importance'
 import { itemLang } from '@/lib/lang'
 import { linkOf } from '@/lib/sources'
 import { Star, Speaker, External } from './Icons'
@@ -19,11 +19,9 @@ interface Props {
   onSpeak?: (item: Item) => void
   onOpen: (item: Item, origin: { x: number; y: number }) => void // the news in a window of its own (Reader.tsx), growing out of where it was clicked
   speaking?: boolean  // this headline is being read now
-  rating?: number     // the "Top" tab: the AI's rating of the news, 0 to 10 (lib/top.ts)
-  also?: string[]     // …and the other sources of the same story
+  rating?: number     // the AI's rating of the news, 0 to 10, shown as its step (the "Top" tab; elsewhere when the reader wants it)
+  also?: string[]     // the "Top" tab: the other sources of the same story
 }
-
-const RATING_TITLE = 'Ważność wiadomości dla inwestora w ocenie sztucznej inteligencji (od 0 do 10)'
 
 function NewsRow({ item, now, read, saved, fresh, watched, onRead, onSave, onSpeak, onOpen, speaking = false, rating, also }: Props) {
   const since = ago(item.time, now)
@@ -38,7 +36,7 @@ function NewsRow({ item, now, read, saved, fresh, watched, onRead, onSave, onSpe
         <time dateTime={item.pubDate || undefined} title={fullDate(item.time)}>{clock(item.time)}</time>
         {since && <span className="ago">· {since}</span>}
         {fresh && <span className="badge new">NOWE</span>}
-        {rating !== undefined && <span className="badge ai wide" title={RATING_TITLE}>AI {ratingText(rating)}/10</span>}
+        {rating !== undefined && <Importance ai={rating} />}
         {watched && <span className="badge watch">obserwowana</span>}
         {item.translated && <span className="badge tr" title="Tłumaczenie maszynowe (AI) z angielskiego. Oryginał można włączyć w ustawieniach.">tłumaczenie AI</span>}
         <span className="tools">
@@ -66,13 +64,7 @@ function NewsRow({ item, now, read, saved, fresh, watched, onRead, onSave, onSpe
         onOpen(item, e.detail > 0 ? { x: e.clientX, y: e.clientY } : { x: box.left + box.width / 2, y: box.top + box.height / 2 })
       }}>{item.title}</button>
       {item.description && <p className="desc" lang={lang === 'pl' ? undefined : lang}>{item.description}</p>}
-      {/* on a phone the rating is here, under the headline: in the line above it would leave no room for the source's name */}
-      {(rating !== undefined || (also && also.length > 0)) && (
-        <p className={`also${also?.length ? '' : ' only-rating'}`}>
-          {rating !== undefined && <span className="badge ai narrow" title={RATING_TITLE}>AI {ratingText(rating)}/10</span>}
-          {also && also.length > 0 && <span>Piszą o tym też: {also.join(', ')}</span>}
-        </p>
-      )}
+      {also && also.length > 0 && <p className="also">Piszą o tym też: {also.join(', ')}</p>}
     </article>
   )
 }
