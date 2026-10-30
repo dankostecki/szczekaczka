@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import type { NewsItem } from '../src/lib/parse'
 import { inLanguage, withTime, type Item } from '../src/lib/news'
 import { loadPrefs, PREFS_KEY } from '../src/lib/prefs'
-import { DEFAULT_TOP_HOURS, ratingText, TOP_HOURS, topStories } from '../src/lib/top'
+import { DEFAULT_TOP_HOURS, IMPORTANCE, importanceLevel, TOP_HOURS, topStories } from '../src/lib/top'
 
 const NOW = Date.parse('2026-10-30T12:00:00Z')
 let n = 0
@@ -65,10 +65,10 @@ test('news shown in Polish are put together by their text as published; the lang
   assert.deepEqual(topStories(shown, 4, NOW, ['en']).map((s) => s.item.source), ['WALTER'])
 })
 
-test('a rating as the badge says it, and the hours the tab remembers', () => {
-  assert.equal(ratingText(8), '8')
-  assert.equal(ratingText(8.5), '8,5')
-  assert.equal(ratingText(6.25), '6,3')
+test('a rating as the page shows it: four steps, from a quiet news to a very important one; and what the tab and the list remember', () => {
+  assert.deepEqual([0, 2.5, 3.9, 4, 5.9, 6, 7.9, 8, 10].map(importanceLevel), [1, 1, 1, 2, 2, 3, 3, 4, 4])
+  assert.deepEqual(IMPORTANCE.map((s) => s.name), ['spokojna', 'umiarkowana', 'ważna', 'bardzo ważna'])
+  for (const step of IMPORTANCE) assert.equal(IMPORTANCE[importanceLevel(step.from) - 1], step, 'each step starts where it says')
   const store = new Map<string, string>()
   ;(globalThis as { localStorage?: unknown }).localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => { store.set(k, v) } }
   try {
@@ -78,6 +78,12 @@ test('a rating as the badge says it, and the hours the tab remembers', () => {
     assert.deepEqual([loadPrefs().topHours, loadPrefs().topSource], [DEFAULT_TOP_HOURS, ''], 'what the tab does not have: the defaults')
     store.set(PREFS_KEY, JSON.stringify({ topSource: 'NOWHERE' }))
     assert.equal(loadPrefs().topSource, '')
+    // the importance in every list: off until the reader switches it on
+    assert.equal(loadPrefs().showImportance, false)
+    store.set(PREFS_KEY, JSON.stringify({ showImportance: true }))
+    assert.equal(loadPrefs().showImportance, true)
+    store.set(PREFS_KEY, JSON.stringify({ showImportance: 'yes' }))
+    assert.equal(loadPrefs().showImportance, false)
   } finally {
     delete (globalThis as { localStorage?: unknown }).localStorage
   }

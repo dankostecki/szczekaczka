@@ -328,6 +328,8 @@ export default function App() {
     .filter((src) => src !== 'MACRONEXT' && labelsOf(src).some((l) => top?.langs.includes(langOf(src, l)))), [prefs.sourceOrder, top])
   const topSource = topSources.find((src) => src === prefs.topSource) ?? null
   const topMinute = Math.floor(now / 60_000) // worked out again once a minute at most
+  // The rating of a news, when the server rates its channel now (a channel no longer rated may keep an old one)
+  const ratingOf = (it: Item) => (top && typeof it.ai === 'number' && top.langs.includes(langOf(it.source, it.label)) ? it.ai : undefined)
   const stories = useMemo(() => {
     if (!topTab) return []
     const base = topSource ? everything.filter((i) => i.source === topSource && (stateOf(topSource) === 'off' || !hidden.has(keyOf(i)))) : shown
@@ -595,7 +597,7 @@ export default function App() {
             <Fragment key={it.id}>
               {newDay && <h2 className="day">{dayLabel(it.time, now)}</h2>}
               <NewsRow item={it} now={now} read={read} saved={savedIds.has(it.id)} fresh={fresh}
-                watched={it.source === 'ESPI' && watched(`${it.title} ${it.description}`)}
+                watched={it.source === 'ESPI' && watched(`${it.title} ${it.description}`)} rating={prefs.showImportance ? ratingOf(it) : undefined}
                 onRead={markRead} onSave={toggleSaved} onSpeak={canSpeak ? readAloud : undefined} onOpen={openReader} speaking={speakingId === it.id} />
             </Fragment>
           )
@@ -639,7 +641,7 @@ export default function App() {
           canSpeak={canSpeak} voices={voices} voiceOn={voiceOn} onVoiceToggle={toggleVoice}
           perm={perm} onNotifyToggle={toggleNotify} onNotifyTest={testNotification}
           awake={awake} counts={counts} status={status} online={online}
-          readCount={readIds.size} savedCount={saved.length} onClearRead={clearRead} onClearSaved={clearSaved}
+          readCount={readIds.size} savedCount={saved.length} onClearRead={clearRead} onClearSaved={clearSaved} ratingsOn={top !== null}
         />
       )}
     </div>

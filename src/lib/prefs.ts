@@ -26,6 +26,7 @@ export interface Prefs {
   marketRecent: string[] // the TradingView symbols whose charts were looked at last, newest first
   topHours: number       // the "Top" tab: the news of the last 4, 8, 12 or 24 hours (lib/top.ts)
   topSource: string      // …of one source, or of all ('')
+  showImportance: boolean // the AI's rating of each news (its step, components/Importance.tsx) in every list, not only in "Top"
   v: number              // the version of the settings: older ones are brought up to date when loaded (PREFS_VERSION)
 }
 // 2: Seeking Alpha is read aloud and notified like any channel (for a short while it began switched off, and stayed so in the settings saved then)
@@ -55,6 +56,7 @@ export const DEFAULT_PREFS: Prefs = {
   marketRecent: [],
   topHours: DEFAULT_TOP_HOURS,
   topSource: '',
+  showImportance: false,
   v: PREFS_VERSION,
 }
 
@@ -93,7 +95,8 @@ export function loadPrefs(): Prefs {
       ...p, v: PREFS_VERSION, sourceOrder: orderedSources(p.sourceOrder), charts: p.charts === true,
       marketRecent: Array.isArray(p.marketRecent) ? p.marketRecent.filter((s) => typeof s === 'string').slice(0, MAX_RECENT) : [],
       topHours: isTopHours(p.topHours) ? p.topHours : DEFAULT_TOP_HOURS,
-      topSource: SOURCES.includes(p.topSource as Source) && p.topSource !== 'MACRONEXT' ? p.topSource : '', hiddenFeeds: existing(p.hiddenFeeds), originalFeeds: existing(p.originalFeeds), knownFeeds: FEED_KEYS,
+      topSource: SOURCES.includes(p.topSource as Source) && p.topSource !== 'MACRONEXT' ? p.topSource : '', showImportance: p.showImportance === true,
+      hiddenFeeds: existing(p.hiddenFeeds), originalFeeds: existing(p.originalFeeds), knownFeeds: FEED_KEYS,
       leadFeeds: [...existing(p.leadFeeds), ...added.filter((k) => DEFAULT_PREFS.leadFeeds.includes(k) && !p.leadFeeds.includes(k))],
       speakFeeds: [...existing(p.speakFeeds), ...[...added, ...brought].filter((k) => !p.speakFeeds.includes(k))],
       notifyFeeds: [...existing(p.notifyFeeds), ...[...added, ...brought].filter((k) => !p.notifyFeeds.includes(k))],

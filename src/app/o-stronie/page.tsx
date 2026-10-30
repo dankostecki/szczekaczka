@@ -39,8 +39,10 @@ export default function About() {
       <p>
         Zakładka Top pokazuje najważniejsze wiadomości z ostatnich 4, 8, 12 lub 24 godzin, ze wszystkich źródeł albo z wybranego. Kolejność ustala
         sztuczna inteligencja: każdą wiadomość, gdy przychodzi, ocenia od 0 do 10 model w usłudze Cloudflare Workers AI, na podstawie tytułu i początku
-        wiadomości (angielskiej przed tłumaczeniem). Ta sama wiadomość z kilku źródeł jest jedną pozycją, nieco wyżej za każde dodatkowe źródło. Ocena
-        może się mylić; nie jest rekomendacją.
+        wiadomości (angielskiej przed tłumaczeniem). Ta sama wiadomość z kilku źródeł jest jedną pozycją, nieco wyżej za każde dodatkowe źródło. Przy
+        wiadomości ważność widać jako kolor w czterech stopniach: zielony to wiadomość spokojna, żółty umiarkowana, pomarańczowy ważna, czerwony bardzo
+        ważna. W ustawieniach („Ważność wiadomości”) można ją pokazać przy każdej wiadomości, nie tylko w zakładce Top. Ocena może się mylić; nie jest
+        rekomendacją.
       </p>
 
       {SOURCES.map((src) => {
