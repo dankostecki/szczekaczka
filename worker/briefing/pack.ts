@@ -30,6 +30,7 @@ export interface PackRecord {
   builtAt?: number
   candidates?: number
   ranking?: RankingInfo   // how the stories were ranked: by the rules, or with the model's ratings of their importance (importance.ts)
+  rankingKey?: string     // the ranking settings it was made with (rankingKey): another one, and the day's pack is made again
 }
 
 export type PackDeps = Pick<Deps, 'store' | 'config' | 'now' | 'pollerItems' | 'log' | 'ai'>
@@ -39,10 +40,18 @@ const LINKS_PER_STORY = 3
 
 export const packAt = (id: string, c: BriefingConfig) => warsawAt(id, c.pack.at)
 
-// The pack due now: a day of the briefing past its time, with no pack made for it yet (a deploy later that day makes it at once)
+// The settings that decide how the stories are ranked (BRIEFING_AI_RANK*): what a pack was asked to be made with, not what came of it.
+// A pack of today made with other ones is made again from the same news, so that switching the model's ratings on or off (or changing the
+// model or the weight) shows at the pack's address within minutes, and switching them off again brings back the ranking by the rules.
+// A failed attempt does not repeat by itself: it was made with these settings too.
+export const rankingKey = (c: BriefingConfig) => (c.aiRank.enabled ? `${c.aiRank.model}|${c.aiRank.weight}|${c.aiRank.pool}` : 'rules')
+
+// The pack due now: a day of the briefing past its time, with no pack made for it yet (a deploy later that day makes it at once), or
+// today's made with other ranking settings than the present ones
 export function duePack(now: number, c: BriefingConfig, latest: PackRecord | null): string | null {
   const id = editionIdAt(now)
-  return c.days.includes(weekday(id)) && now >= packAt(id, c) && latest?.id !== id ? id : null
+  if (!c.days.includes(weekday(id)) || now < packAt(id, c)) return null
+  return latest?.id !== id || latest.rankingKey !== rankingKey(c) ? id : null
 }
 
 export function nextPackAt(now: number, c: BriefingConfig): number {
@@ -154,7 +163,10 @@ export function packText(p: PackRecord, candidates: Candidate[], c: BriefingConf
     ...(ranking?.mode === 'model'
       ? ['', 'Kolejność historii ustaliły reguły automatyczne (liczba źródeł, waga kanału, słowa kluczowe rynków) i ocena ważności od 0 do 10 z modelu ' +
           'pomocniczego, podana przy historiach. Ocena to tylko wskazówka: o wyborze decydujesz ty, według zadania niżej.']
-      : []),
+      // asked and failed: said, so that the pack does not pass for one with ratings (what came of the model is otherwise seen only in the operator's status)
+      : ranking?.mode === 'rules' && ranking.calls > 0
+        ? ['', `Ocena ważności przez model pomocniczy nie powiodła się (${clean(ranking.reason ?? 'brak powodu', 160)}): kolejność historii ustaliły same reguły automatyczne.`]
+        : []),
     ...(failing.length ? ['', `Kanały z błędami w nocy (w materiale może czegoś brakować): ${failing.join(', ')}.`] : []),
   ].join('\n')
   const calendar = p.calendar.length
@@ -178,7 +190,7 @@ export async function packTick(d: PackDeps): Promise<number | null> {
     const { importance, ranking } = await importanceFor(d, pool)
     const r = pickCandidates(pool, c, importance)
     const { items: _, ...rest } = work
-    const done: PackRecord = { ...rest, text: packText(work, r.candidates, c, now, ranking), builtAt: now, candidates: r.candidates.length, ranking }
+    const done: PackRecord = { ...rest, text: packText(work, r.candidates, c, now, ranking), builtAt: now, candidates: r.candidates.length, ranking, rankingKey: rankingKey(c) }
     d.store.putPack('latest', done)
     d.store.putPack('work', null)
     d.log(`briefing pack ${done.id}: ${done.candidates} stories of ${done.stats.inWindow} news, ${done.calendar.length} calendars, ${done.text!.length} characters, ranking: ${ranking.mode}`)
@@ -189,9 +201,11 @@ export async function packTick(d: PackDeps): Promise<number | null> {
   const id = duePack(now, c, latest)
   if (!id) return nextPackAt(now, c)
   const t = editionTimes(id, c)
-  const data = await d.pollerItems(t.from, now)
-  const w = inWindow(data, t, now, c)
-  d.store.putPack('work', { id, from: t.from, to: now, startedAt: now, items: w.items, calendar: calendarOf(data.items, id), stats: w.stats })
+  // Made again (other ranking settings): the same news as in the pack it replaces, up to the moment it was taken, so that the two compare
+  const to = latest?.id === id ? latest.to : now
+  const data = await d.pollerItems(t.from, to)
+  const w = inWindow(data, t, to, c)
+  d.store.putPack('work', { id, from: t.from, to, startedAt: now, items: w.items, calendar: calendarOf(data.items, id), stats: w.stats })
   return d.now() + STEP_GAP_MS
 }
 

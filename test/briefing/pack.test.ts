@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import type { NewsItem } from '../../src/lib/parse'
 import { briefingApi } from '../../worker/briefing/api'
 import { readConfig, type Env as ConfigEnv } from '../../worker/briefing/config'
-import { calendarOf, duePack, nextPackAt, packOf, packStatus, packText, packTick, packWake, type PackDeps } from '../../worker/briefing/pack'
+import { calendarOf, duePack, nextPackAt, packOf, packStatus, packText, packTick, packWake, rankingKey, type PackDeps } from '../../worker/briefing/pack'
 import { memoryStore } from '../../worker/briefing/store'
 import type { Env } from '../../worker/env'
 import { fakeAi, item, poller } from './helpers'
@@ -61,7 +61,7 @@ test('defaults: on, at 07:45, on the days of the briefing (not Sunday); a day ma
   assert.equal(duePack(at('2026-10-28T06:44:59Z'), config, null), null)
   assert.equal(duePack(at('2026-10-28T06:45:00Z'), config, null), '2026-10-28')
   assert.equal(duePack(at('2026-10-28T15:00:00Z'), config, null), '2026-10-28', 'a deploy later in the day makes it at once')
-  assert.equal(duePack(at('2026-10-28T07:00:00Z'), config, { id: '2026-10-28' } as never), null)
+  assert.equal(duePack(at('2026-10-28T07:00:00Z'), config, { id: '2026-10-28', rankingKey: rankingKey(config) } as never), null)
   assert.equal(duePack(at('2026-11-01T08:00:00Z'), config, null), null, 'Sunday')
   assert.equal(iso(nextPackAt(at('2026-10-31T08:00:00Z'), config)), '2026-11-02T06:45:00.000Z', 'Saturday after the pack: Monday')
   assert.equal(iso(nextPackAt(at('2026-07-15T03:00:00Z'), config)), '2026-07-15T05:45:00.000Z', 'summer time: 05:45 UTC')
@@ -192,8 +192,92 @@ test('switched off with BRIEFING_AI_RANK=off: no call, and the pack is the one t
   broken.d.ai = down.ai
   await runUntil(broken, '2026-10-28T23:00:00Z')
   assert.equal(down.calls.n, 1)
-  assert.equal(packOf(broken.d.store)!.text, packOf(plain.d.store)!.text)
+  // the pack says that the ratings failed, so that it does not pass for one with them; apart from that line it is the rules' pack
+  const failed = packOf(broken.d.store)!.text
+  assert.match(failed, /\nOcena ważności przez model pomocniczy nie powiodła się \(too few ratings \(0 of 3\): the service is down\): kolejność historii ustaliły same reguły automatyczne\.\n/)
+  assert.equal(failed.replace(/\nOcena ważności przez model pomocniczy[^\n]*\n/, ''), packOf(plain.d.store)!.text)
   assert.match(broken.d.store.getPack('latest')!.ranking!.reason!, /the service is down/)
+})
+
+// the pack without the line of the time it was made at (which is the only thing two packs of the same news differ in)
+const sameNews = (text: string) => text.replace(/Złożone automatycznie [^.]*\./, '')
+
+test('switching the ratings on or off makes today\'s pack again from the same news, up to the moment of the first one; off brings back the rules\' pack', async () => {
+  const items = night()
+  const { ai, calls } = fakeAi((t) => (/Orlen/.test(t) ? 9 : /Nikkei/.test(t) ? 1 : 6.5))
+  const off = readConfig({ BRIEFING_AI_RANK: 'off' }).config, on = readConfig({}).config
+  const h = deps({ BRIEFING_AI_RANK: 'off' }, '2026-10-28T06:45:00Z', items)
+  h.d.ai = ai
+  await runUntil(h, '2026-10-28T07:00:00Z') // made at 07:45 by the rules alone
+  const first = h.d.store.getPack('latest')!
+  assert.equal(calls.n, 0)
+  assert.equal(first.rankingKey, 'rules')
+  assert.equal(first.to, at('2026-10-28T06:45:00Z'))
+  // news that came after it was taken must not get into the remake
+  items.push(item('WALTER', 'LATE: a story that came after the pack was made', '2026-10-28T07:10:00Z'))
+  h.clock.now = at('2026-10-28T08:30:00Z')
+  assert.equal(packWake(h.d.store, off, h.clock.now)!, at('2026-10-29T06:45:00.000Z'), 'nothing changed: the next morning')
+  assert.equal(duePack(h.clock.now, off, first), null)
+
+  // switched on: made again at once (the cron brings the wake-up), from the same window
+  h.d.config = on
+  assert.equal(duePack(h.clock.now, on, first), '2026-10-28')
+  assert.equal(packWake(h.d.store, on, h.clock.now), h.clock.now)
+  await runUntil(h, '2026-10-28T23:00:00Z')
+  const rated = h.d.store.getPack('latest')!
+  assert.equal(calls.n, 1)
+  assert.equal(rated.ranking!.mode, 'model')
+  assert.equal(rated.rankingKey, rankingKey(on))
+  assert.equal(rated.from, first.from)
+  assert.equal(rated.to, first.to)
+  assert.equal(rated.stats.inWindow, first.stats.inWindow)
+  assert.match(rated.text!, /ważność 9\/10/)
+  assert.doesNotMatch(rated.text!, /LATE/)
+  assert.match(rated.text!, /Wiadomości opublikowane od 27 października, 19:00, do 28 października, 07:45 \(czas polski\)/)
+  assert.equal(h.d.store.getPack('work'), null)
+  assert.equal(h.logs.filter((l) => /briefing pack/.test(l)).length, 2)
+  assert.equal(iso(packWake(h.d.store, on, h.clock.now)!), '2026-10-29T06:45:00.000Z', 'once: it does not go on repeating')
+
+  // switched off again: the rules\' pack of the same news
+  h.d.config = off
+  h.clock.now = at('2026-10-28T09:00:00Z')
+  await runUntil(h, '2026-10-28T23:00:00Z')
+  assert.equal(calls.n, 1, 'no call')
+  const back = h.d.store.getPack('latest')!
+  assert.equal(back.rankingKey, 'rules')
+  assert.equal(sameNews(back.text!), sameNews(first.text!))
+  // another model or weight counts as other settings; the day\'s pack is made again
+  for (const env of [{ BRIEFING_AI_RANK_MODEL: '@cf/cloudflare/clef-flash' }, { BRIEFING_AI_RANK_WEIGHT: '0.5' }, { BRIEFING_AI_RANK_POOL: '100' }]) {
+    assert.equal(duePack(h.clock.now, readConfig(env).config, back), '2026-10-28', JSON.stringify(env))
+  }
+})
+
+test('a pack made before the ratings existed (no settings recorded) is made again once; a failed attempt is not repeated by itself', async () => {
+  const items = night()
+  const good = fakeAi((t) => (/Orlen/.test(t) ? 9 : 5))
+  const h = deps({}, '2026-10-28T06:45:00Z', items)
+  await runUntil(h, '2026-10-28T07:00:00Z') // no service: by the rules
+  const old = h.d.store.getPack('latest')!
+  delete old.rankingKey; delete old.ranking
+  h.d.store.putPack('latest', old)
+  h.clock.now = at('2026-10-28T08:30:00Z')
+  assert.equal(duePack(h.clock.now, h.d.config, old), '2026-10-28')
+  // the service is down: made again with the rules, and said so; not again until the settings change
+  const down = fakeAi(() => null)
+  h.d.ai = down.ai
+  await runUntil(h, '2026-10-28T23:00:00Z')
+  assert.equal(down.calls.n, 1)
+  assert.match(packOf(h.d.store)!.text, /Ocena ważności przez model pomocniczy nie powiodła się/)
+  assert.equal(h.d.store.getPack('latest')!.rankingKey, rankingKey(h.d.config))
+  h.d.ai = good.ai
+  h.clock.now = at('2026-10-28T10:00:00Z')
+  assert.equal(iso(packWake(h.d.store, h.d.config, h.clock.now)!), '2026-10-29T06:45:00.000Z')
+  await runUntil(h, '2026-10-28T23:00:00Z')
+  assert.equal(good.calls.n, 0, 'it does not try again by itself')
+  // another day, not due yet, or not a day of the pack: nothing is made again whatever the settings
+  const other = readConfig({ BRIEFING_AI_RANK_WEIGHT: '0.5' }).config
+  assert.equal(duePack(at('2026-10-29T05:00:00Z'), other, h.d.store.getPack('latest')), null, 'the next morning, before its time')
+  assert.equal(duePack(at('2026-11-01T08:00:00Z'), other, h.d.store.getPack('latest')), null, 'Sunday')
 })
 
 test('the pack off: nothing is made, no wake-up', async () => {
