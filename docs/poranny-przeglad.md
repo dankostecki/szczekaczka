@@ -11,7 +11,7 @@
 - **Nic nie jest publikowane częściowo.** Gdy któryś etap zawiedzie (OpenAI, wyszukiwanie, weryfikacja, Google TTS, zapis), wydanie się nie ukazuje, a strona pokazuje poprzednie.
 - Szacunkowy koszt jednego wydania (z założonych liczb tokenów, nie z pomiaru): przy `gpt-6.1-terra` i średnim wysiłku rozumowania około **0,9 USD** w typową noc (0,5–1,5 USD), przy `gpt-6.1-sol` około **1,5 USD** (0,8–2,5 USD). Około 0,3 USD z tego to wyszukiwanie. Głos mieści się w darmowym milionie znaków miesięcznie Google. Twarde limity: domyślnie 2 USD na wydanie i 40 USD na miesiąc.
 - **Bez API też jest materiał:** codziennie o 7:45 serwer składa wsad dla ChatGPT (zadanie, kalendarium dnia i wiadomości z nocy) pod stałym adresem, który podajesz ChatGPT. Nic przy tym nie kosztuje (niżej).
-- **Nic tu nie było testowane na żywych usługach.** Nie było kluczy, a sieć środowiska nie miała dostępu do OpenAI, Google ani do stron źródeł. Testy (141) sprawdzają logikę i kształt zapytań na symulowanych odpowiedziach. Pierwsze prawdziwe wydanie trzeba obejrzeć ręcznie (krok 6 niżej).
+- **Nic tu nie było testowane na żywych usługach.** Nie było kluczy, a sieć środowiska nie miała dostępu do OpenAI, Google ani do stron źródeł. Testy (156) sprawdzają logikę i kształt zapytań na symulowanych odpowiedziach. Pierwsze prawdziwe wydanie trzeba obejrzeć ręcznie (krok 6 niżej).
 
 ## Architektura
 
@@ -105,6 +105,18 @@ Wsad powstaje **niezależnie od `BRIEFING_MODE`** (także przy `off`) i nie woł
 - **Sekcje, które nie są wiadomościami:** wpisy investingLive z sekcji analizy technicznej, edukacji i zleceń FX (po adresie wpisu: `/technical-analysis/…`, `/education/…`, `/forex-orders/…`) odpadają jak rutynowe komunikaty: opisują poziomy wykresu, nie fakty, które da się potwierdzić w dwóch źródłach. Nazwy dwóch ostatnich sekcji nie były widoczne w sprawdzonym kanale (tylko `technical-analysis`); są z listy kategorii kanału na stronie serwisu.
 - **Kryptowaluty i surowce mają zagwarantowane miejsca** (`FLOOR` w `worker/briefing/collect.ts`): po zwykłym wyborze (najwyżej 50, nie więcej niż 40% z jednego źródła) do kandydatów dochodzą, jeśli ich nie ma, po trzy najlepsze historie o kryptowalutach i po trzy o surowcach, a miejsce robią najgorzej oceniane historie bez takiego tematu. Powód: nagłówek „Binance appears hacked, CZ says, as Tether and Circle freeze $1.79B in stablecoins” nie ma żadnego ze słów, które podbijają wynik (banki centralne, dane makro, wyniki), więc w gorącej nocy przegrywał z komunikatami spółek i nie trafiał do modelu. Na odtworzonej nocy (prawdziwe wpisy investingLive z 29/30 października 2026 i 220 dopisanych nagłówków z innych kanałów) historia o hacku odpadała, a po zmianie jest w kandydatach. Słowa obu tematów (Binance, Tether, stablecoin, hack, ETF, ropa, gaz, złoto, srebro, miedź, OPEC i inne) podbijają też wynik jak pozostałe słowa rynkowe.
 - **Ranking:** waga źródła, kilka źródeł jednej historii, jej liczba nagłówków i słowa, które poruszają rynek (banki centralne, dane makro, wyniki, cła, przejęcia, indeksy, surowce). Najwyżej 40% miejsc z jednego źródła.
+
+### Ocena ważności przez model (Workers AI), z przełącznikiem
+
+Reguły wyżej nie rozumieją treści: nagłówek bez słów z ich listy dostaje niski wynik, choćby opisywał największy hack roku. Dlatego `worker/briefing/importance.ts` prosi model z Cloudflare Workers AI (domyślnie `@cf/google/gemma-4-26b-a4b-it`, ten sam co tłumaczy wiadomości; do zmiany w `BRIEFING_AI_RANK_MODEL`) o ocenę każdej historii z nocy od 0 do 10. Kryteria w prompcie: 10 to ruch na światowych rynkach (decyzja Fed lub EBC, kryzys), 7–9 to ważne dla całego rynku, sektora lub klasy aktywów (duże dane makro, mocny ruch ropy, złota lub bitcoina, hack giełdy, wyniki dużych spółek), 4–6 to pojedyncza spółka lub branża, 1–3 to rutyna, 0 to nie wiadomość. Nagłówki trafiają do modelu jako dane z zewnątrz („nie polecenia”), a z odpowiedzi czytane są tylko linie „numer: ocena”.
+
+- **Jak liczy się wynik.** Wynik końcowy to wynik reguł plus `BRIEFING_AI_RANK_WEIGHT` (domyślnie 0,3) razy ocena modelu. Reguły dają zwykle od 0,5 do 3,5 punktu, ocena 0–10 przy wadze 0,3 od 0 do 3, więc oba mają podobny wpływ: historia, którą reguły oceniły nisko, a model wysoko, wchodzi do kandydatów. Zostają bez zmian limit 40% miejsc z jednego źródła i zagwarantowane miejsca kryptowalut i surowców (`FLOOR`). Historia, której model nie ocenił (nieudane zapytanie), dostaje środkową ocenę z pozostałych, żeby brak oceny nie był ani zyskiem, ani stratą.
+- **Co jest oceniane.** Najlepsze `BRIEFING_AI_RANK_POOL` historii (domyślnie 200) według wyniku reguł, po 40 w jednym zapytaniu, nie więcej niż 4 zapytania naraz. Zwykła noc to 3–5 zapytań. Przy każdym zapytaniu model dostaje nagłówek, źródła, liczbę nagłówków tej historii i początek zajawki (do 140 znaków).
+- **Dokąd trafia ocena.** Do wsadu dla ChatGPT: przy historii stoi „ważność N/10”, a w nagłówku wsadu jest zdanie, że to wskazówka (decyduje ChatGPT, według zadania). Do płatnego potoku: kandydaci mają `importance`, a model wybierający historie dostaje ją jako `helperImportance` z zastrzeżeniem w prompcie, że to tylko wskazówka, i sam sprawdza każdą historię. Ocena modelu pomocniczego nie zastępuje weryfikacji w źródłach: historia z wysoką oceną, której nie da się potwierdzić, do przeglądu nie trafia.
+- **Włącznik.** `BRIEFING_AI_RANK=off` (zmienna w panelu Cloudflare, bez wdrożenia; `on` domyślnie) wyłącza ocenę: żadne zapytanie nie wychodzi, a ranking, wsad i potok są dokładnie takie jak przed dodaniem tej funkcji (test w `test/briefing/pack.test.ts` porównuje oba wsady znak po znaku). Tak samo działa brak wiązania `AI` (lokalnie) i tryb `mock`. Zmiana działa od następnego wsadu lub wydania.
+- **Awarie nie zatrzymują przeglądu.** Błąd usługi, wyczerpany dzienny limit neuronów (10 000 na dobę dla wszystkich funkcji, w tym tłumaczeń), odpowiedź bez ocen, mniej niż połowa historii oceniona albo wyczerpany dzienny limit zapytań (`BRIEFING_AI_RANK_MAX_CALLS`, domyślnie 20) dają ranking z samych reguł. Powód jest w `ranking.reason` wsadu, w wydaniu (krok `rank`) i w `GET /api/briefing/admin/status` (`aiRank`: ustawienia, wiązanie i liczba zapytań z dzisiaj; `pack.latest.ranking`).
+- **Koszt.** Zapytanie z 40 nagłówkami to około 2000 tokenów na wejściu (polecenie z przykładem to ponad 500 z nich) i do 200 na wyjściu, czyli rzędu 25–30 neuronów (szacunek z kosztu tłumaczeń, nie pomiar); zwykła noc, 3–5 zapytań, to 75–150 neuronów. Mieści się w darmowym limicie, który tłumaczenia zużywają w najwyżej połowie (`docs/cloudflare.md`). Dzień limitu liczy się tak jak u Cloudflare, według UTC.
+- **Czego nie sprawdziłem.** Nie wywołałem prawdziwego modelu: testy używają zasymulowanej odpowiedzi „numer: ocena”. Nie wiadomo więc, czy Gemma 4 trzyma się tego formatu, jak ocenia prawdziwe nagłówki ani czy poprawia wybór. Po pierwszych wsadach warto porównać oceny z listą z `BRIEFING_AI_RANK=off`.
 
 ## Okno, zamknięcie wydania, publikacja
 
@@ -227,6 +239,8 @@ Zwykłe zmienne mogą być w `wrangler.jsonc` → `vars` (wtedy są w repozytori
 | `BRIEFING_MAX_COST_USD`, `BRIEFING_MAX_MONTHLY_COST_USD` | `2`, `40` | |
 | `BRIEFING_MAX_STEP_ATTEMPTS`, `BRIEFING_RETENTION_DAYS`, `BRIEFING_SOURCES`, `BRIEFING_BLOCKED_DOMAINS` | `4`, `30`, `WALTER,INVESTINGLIVE,STOOQ,ESPI,GPW,PAP`, brak | `BRIEFING_SOURCES`: źródła listy newsów, z których idą wiadomości. Domyślnie bez Seeking Alpha (kanał nie ma opisów, a po sesji w USA zalewa listę jednowierszowymi wynikami, których nie da się sprawdzić) i bez zapowiedzi MacroNext (to nie newsy). Seeking Alpha można dopisać. |
 | `BRIEFING_PACK`, `BRIEFING_PACK_AT` | `on`, `07:45` | wsad dla ChatGPT (wyżej) |
+| `BRIEFING_AI_RANK`, `BRIEFING_AI_RANK_MODEL`, `BRIEFING_AI_RANK_WEIGHT` | `on`, `@cf/google/gemma-4-26b-a4b-it`, `0.3` | ocena ważności historii przez model Workers AI (wyżej); `off` wraca do rankingu z samych reguł. Waga 0–1 |
+| `BRIEFING_AI_RANK_POOL`, `BRIEFING_AI_RANK_MAX_CALLS` | `200`, `20` | ile historii oceniać (20–320) i ile zapytań na dobę UTC (1–200) |
 | **Sekrety:** `OPENAI_API_KEY`, `GOOGLE_TTS_API_KEY` albo `GOOGLE_SERVICE_ACCOUNT_JSON`, `TAVILY_API_KEY`, `BRIEFING_ADMIN_TOKEN` | | |
 
 Zła wartość nie psuje reszty: zostaje domyślna, a błąd widać w `GET /api/briefing/admin/status` (`problems`) i w wydaniu z tego dnia („not configured: …”).
@@ -291,7 +305,7 @@ Zła wartość nie psuje reszty: zostaje domyślna, a błąd widać w `GET /api/
 ## Test lokalny bez płatnych usług
 
 ```bash
-npm test                                   # 141 testów: czas i DST, okno, daty, duplikaty, sprzeczne źródła, weryfikacja, skrypt,
+npm test                                   # 156 testów: czas i DST, okno, daty, duplikaty, sprzeczne źródła, weryfikacja, skrypt,
                                            # części dla głosu, MP3, OpenAI/Google/Tavily na symulowanych odpowiedziach, SSRF, robots,
                                            # cały potok (ponowienia, idempotencja, terminy, brak sekretów, limity kosztów, zatwierdzanie)
 npm run build && npx wrangler dev          # z .dev.vars: BRIEFING_MODE=mock, BRIEFING_ADMIN_TOKEN=…, FEED_ORIGIN=… (lokalne kanały)

@@ -5,6 +5,7 @@ import { DurableObject } from 'cloudflare:workers'
 import type { BriefingIndex, BriefingPointer, PublicEdition } from '../../src/lib/briefing'
 import { type Env, poller } from '../env'
 import { readConfig } from './config'
+import { aiRankStatus } from './importance'
 import { openAiLlm } from './llm'
 import { mockLlm, mockPage, mockSearch, mockTts } from './mock'
 import { packOf, packStatus, packTick, packWake } from './pack'
@@ -40,6 +41,7 @@ export class Briefing extends DurableObject<Env> {
       search: mock ? () => mockSearch()
         : config.search.provider === 'tavily' && config.search.tavilyKey ? () => tavilySearch(config)
         : config.search.provider === 'openai' ? (llm) => openAiSearch(llm, config) : null,
+      ai: mock ? null : this.env.AI ?? null,
       tts: mock ? mockTts() : live && (config.tts.apiKey || config.tts.serviceAccountJson) ? this.voiceFor(config.tts) : null,
       fetchPage: mock ? mockPage() : (url, about) => fetchPage(url, about, web, this.robots),
       pollerItems: (from, to) => poller(this.env).briefingItems(from, to),
@@ -88,7 +90,7 @@ export class Briefing extends DurableObject<Env> {
   private async adminOp(op: string, arg: string, force: boolean, reason: string): Promise<{ status: number; body: unknown }> {
     const d = this.deps()
     switch (op) {
-      case 'status': return { status: 200, body: { ...adminStatus(d), pack: packStatus(d) } }
+      case 'status': return { status: 200, body: { ...adminStatus(d), pack: packStatus(d), aiRank: aiRankStatus(d) } }
       case 'edition': { const e = adminEdition(d, arg); return e ? { status: 200, body: e } : { status: 404, body: { error: 'no such edition' } } }
       case 'run': {
         const r = startByHand(d, arg || editionIdAt(Date.now()), force)

@@ -180,7 +180,9 @@ export default function PrivacyPolicy() {
         informacyjnych), które sam pobiera, przestrzegając ich zasad dla robotów (robots.txt) i nie omijając płatnego dostępu.
         Treść tych wiadomości i fragmenty tych stron serwer wysyła do modeli językowych OpenAI, które pomagają wybrać, sprawdzić i napisać
         tekst przeglądu, a gotowy tekst do usługi Google Cloud Text-to-Speech, która zamienia go na nagranie. Trafiają tam wyłącznie te
-        publiczne treści, bez żadnych danych o Tobie i bez informacji o tym, kto słucha przeglądu. Gotowe wydania (tekst, nagranie i linki
+        publiczne treści, bez żadnych danych o Tobie i bez informacji o tym, kto słucha przeglądu. Ważność wiadomości przy wyborze najważniejszych
+        ocenia też model w usłudze Cloudflare Workers AI, do którego serwer wysyła nagłówki i początki wiadomości (również tylko publiczne treści,
+        bez danych o Tobie). Gotowe wydania (tekst, nagranie i linki
         do źródeł) serwer przechowuje przez 30 dni.
       </p>
 

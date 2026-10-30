@@ -5,8 +5,9 @@
 // Made in two steps, as the pipeline's collect and rank, each well within the free plan's CPU.
 import type { NewsItem } from '../../src/lib/parse'
 import { SOURCE_INFO, sourceName, type Source } from '../../src/lib/sources'
-import { inWindow, rank, type Candidate, type CollectStats, type PollerItems, type WindowItem } from './collect'
+import { inWindow, pickCandidates, rankPool, type Candidate, type CollectStats, type PollerItems, type WindowItem } from './collect'
 import { targetWords, type BriefingConfig } from './config'
+import { importanceFor, type RankingInfo } from './importance'
 import type { Deps } from './pipeline'
 import { clean } from './prompts'
 import { greeting } from './script'
@@ -28,9 +29,10 @@ export interface PackRecord {
   text?: string
   builtAt?: number
   candidates?: number
+  ranking?: RankingInfo   // how the stories were ranked: by the rules, or with the model's ratings of their importance (importance.ts)
 }
 
-export type PackDeps = Pick<Deps, 'store' | 'config' | 'now' | 'pollerItems' | 'log'>
+export type PackDeps = Pick<Deps, 'store' | 'config' | 'now' | 'pollerItems' | 'log' | 'ai'>
 
 const STEP_GAP_MS = 500
 const LINKS_PER_STORY = 3
@@ -127,7 +129,8 @@ function task(p: PackRecord, c: BriefingConfig): string {
 }
 
 function story(n: number, s: Candidate): string {
-  const lines = [`### ${n}. ${clean(s.title, 300)}`, `${s.sources.map(nameOf).join(', ')} · ${warsawLabel(Date.parse(s.publishedAt))}`]
+  const lines = [`### ${n}. ${clean(s.title, 300)}`,
+    `${s.sources.map(nameOf).join(', ')} · ${warsawLabel(Date.parse(s.publishedAt))}${s.importance !== undefined ? ` · ważność ${s.importance}/10` : ''}`]
   const lead = clean(s.lead, 400)
   if (lead && lead !== clean(s.title, 300)) lines.push(lead)
   if (s.translation) lines.push(`Po polsku: ${clean(s.translation, 500)}`)
@@ -136,7 +139,7 @@ function story(n: number, s: Candidate): string {
   return lines.join('\n')
 }
 
-export function packText(p: PackRecord, candidates: Candidate[], c: BriefingConfig, builtAt: number): string {
+export function packText(p: PackRecord, candidates: Candidate[], c: BriefingConfig, builtAt: number, ranking?: RankingInfo): string {
   // the channels of the pack's sources (and MacroNext's, for the calendars) that were failing: "GPW · PRASA"
   const failing = p.stats.feedProblems
     .filter((key) => [...c.sources, 'MACRONEXT'].includes(key.split(':')[0]))
@@ -148,6 +151,10 @@ export function packText(p: PackRecord, candidates: Candidate[], c: BriefingConf
       `${plural(candidates.length, 'najważniejsza historia', 'najważniejsze historie', 'najważniejszych historii')} z ${p.stats.inWindow} ` +
       `${plural(p.stats.inWindow, 'wiadomości', 'wiadomości', 'wiadomości')} z kanałów: ${c.sources.map(channelOf).join(', ')}. ` +
       `Złożone automatycznie ${moment(builtAt)}.`,
+    ...(ranking?.mode === 'model'
+      ? ['', 'Kolejność historii ustaliły reguły automatyczne (liczba źródeł, waga kanału, słowa kluczowe rynków) i ocena ważności od 0 do 10 z modelu ' +
+          'pomocniczego, podana przy historiach. Ocena to tylko wskazówka: o wyborze decydujesz ty, według zadania niżej.']
+      : []),
     ...(failing.length ? ['', `Kanały z błędami w nocy (w materiale może czegoś brakować): ${failing.join(', ')}.`] : []),
   ].join('\n')
   const calendar = p.calendar.length
@@ -167,12 +174,14 @@ export async function packTick(d: PackDeps): Promise<number | null> {
 
   // Step 2: the stories ranked, the text written; the previous pack stays at the address until then
   if (work) {
-    const r = rank(work.items ?? [], c)
+    const pool = rankPool(work.items ?? [])
+    const { importance, ranking } = await importanceFor(d, pool)
+    const r = pickCandidates(pool, c, importance)
     const { items: _, ...rest } = work
-    const done: PackRecord = { ...rest, text: packText(work, r.candidates, c, now), builtAt: now, candidates: r.candidates.length }
+    const done: PackRecord = { ...rest, text: packText(work, r.candidates, c, now, ranking), builtAt: now, candidates: r.candidates.length, ranking }
     d.store.putPack('latest', done)
     d.store.putPack('work', null)
-    d.log(`briefing pack ${done.id}: ${done.candidates} stories of ${done.stats.inWindow} news, ${done.calendar.length} calendars, ${done.text!.length} characters`)
+    d.log(`briefing pack ${done.id}: ${done.candidates} stories of ${done.stats.inWindow} news, ${done.calendar.length} calendars, ${done.text!.length} characters, ranking: ${ranking.mode}`)
     return nextPackAt(now, c)
   }
 
@@ -194,7 +203,7 @@ export function packStatus(d: Pick<PackDeps, 'store' | 'config' | 'now'>) {
     enabled: c.enabled, at: c.at, problems: c.problems,
     next: c.enabled ? new Date(nextPackAt(d.now(), d.config)).toISOString() : null,
     latest: latest ? { id: latest.id, from: new Date(latest.from).toISOString(), to: new Date(latest.to).toISOString(),
-      builtAt: latest.builtAt ? new Date(latest.builtAt).toISOString() : null, candidates: latest.candidates, news: latest.stats.inWindow,
+      builtAt: latest.builtAt ? new Date(latest.builtAt).toISOString() : null, candidates: latest.candidates, news: latest.stats.inWindow, ranking: latest.ranking ?? null,
       calendars: latest.calendar.map((p) => p.title), characters: latest.text?.length ?? 0 } : null,
   }
 }

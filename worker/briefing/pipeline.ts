@@ -11,7 +11,8 @@
 // Nothing is published unless every stage succeeded: no partial audio, no unverified story, no text the checks rejected.
 import type { PublicEdition, BriefingPointer, BriefingIndex, TodayState, BriefingStory } from '../../src/lib/briefing'
 import { type BriefingConfig, type Stage, missingForLive, modelOf, targetWords, STAGES } from './config'
-import { inWindow, rank, type Candidate, type CollectStats, type PollerItems, type WindowItem } from './collect'
+import { inWindow, pickCandidates, rankPool, type Candidate, type CollectStats, type PollerItems, type WindowItem } from './collect'
+import { importanceFor, type RankingInfo } from './importance'
 import { ProviderError, costOf, worstCost, type Llm, type LlmRequest, type Usage } from './llm'
 import { joinMp3, inspect } from './mp3'
 import { PROMPT_VERSION, TRIAGE, VERIFY, WRITE, VALIDATE, clean, untrusted } from './prompts'
@@ -61,6 +62,7 @@ export interface Deps {
   llm: Llm | null
   search: ((llm: Llm) => SearchProvider) | null
   tts: Tts | null
+  ai?: Ai | null                                          // Workers AI, for the ratings of importance (importance.ts); none: the rules alone
   fetchPage: (url: string, about: string[]) => Promise<Page>
   pollerItems: (from: number, to: number) => Promise<PollerItems>
   onPublished: (latest: BriefingPointer | null) => Promise<void>
@@ -78,7 +80,7 @@ const RESEARCH_SHARE = 0.75
 
 // ── Outputs of the steps ──
 export interface CollectOutput { items: WindowItem[]; stats: CollectStats; collectedAt: number; cutoff: number }
-export interface RankOutput { candidates: Candidate[]; groups: number }
+export interface RankOutput { candidates: Candidate[]; groups: number; ranking?: RankingInfo }
 export interface TriageOutput { stories: TriageStory[]; model: string }
 export interface SearchOutput { provider: string; hits: SearchHit[]; pages: string[] }
 export interface VerifyOutput { checked: CheckedStory; pages: string[] }
@@ -267,9 +269,11 @@ const STEPS: Record<string, (d: Deps, e: EditionRecord, key: string, attempt: nu
 
   async rank(d, e) {
     const { items } = stepState(d.store, e.id).out<CollectOutput>('collect')!
-    const r = rank(items, d.config)
+    const pool = rankPool(items)
+    const { importance, ranking } = await importanceFor(d, pool)
+    const r: RankOutput = { ...pickCandidates(pool, d.config, importance), ranking }
     if (r.candidates.length < d.config.minStories) throw new RuleFailure(`only ${r.candidates.length} distinct stories in the window`, r)
-    return { output: r satisfies RankOutput }
+    return { output: r }
   },
 
   async triage(d, e, _key, attempt) {
@@ -283,6 +287,7 @@ const STEPS: Record<string, (d: Deps, e: EditionRecord, key: string, attempt: nu
         id: c.id, sources: c.sources, published: `${warsawLabel(Date.parse(c.publishedAt))} (${c.publishedAt})`,
         title: clean(c.title, 300), lead: clean(c.lead, 400), ...(c.translation ? { polishTranslation: clean(c.translation, 500) } : {}),
         ...(c.more?.length ? { moreHeadlines: c.more.map((m) => clean(m, 200)) } : {}),
+        ...(c.importance !== undefined ? { helperImportance: c.importance } : {}),
       })),
     })
     const r = await metered(d, e).call<TriageAnswer>({

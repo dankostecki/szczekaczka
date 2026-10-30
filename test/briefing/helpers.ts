@@ -57,3 +57,21 @@ export async function run(h: Harness, until: () => boolean, max = 400): Promise<
   }
   throw new Error(`not done in ${max} ticks; last logs:\n${h.logs.slice(-8).join('\n')}`)
 }
+
+// Workers AI as the ratings of importance see it (importance.ts): answers "number: score" for every headline of the request's last message,
+// the score from `rate` (the headline's text), and keeps what it was asked
+export interface AiCalls { n: number; users: string[]; systems: string[]; models: string[] }
+export function fakeAi(rate: (headline: string, n: number) => number | string | null, calls: AiCalls = { n: 0, users: [], systems: [], models: [] }): { ai: Ai; calls: AiCalls } {
+  const ai = {
+    run: async (model: string, input: { messages: { role: string; content: string }[] }) => {
+      calls.n++
+      const user = input.messages[input.messages.length - 1].content
+      calls.users.push(user); calls.systems.push(input.messages[0].content); calls.models.push(model)
+      const lines = user.split('\n').flatMap((l) => { const m = /^(\d+)\. (.*)$/.exec(l); return m ? [{ n: Number(m[1]), text: m[2] }] : [] })
+      const rates = lines.map((l) => ({ n: l.n, score: rate(l.text, l.n) }))
+      if (rates.some((r) => r.score === null)) throw new Error('the service is down')
+      return { choices: [{ message: { content: rates.map((r) => `${r.n}: ${r.score}`).join('\n') } }], usage: { prompt_tokens: 1500, completion_tokens: 200 } }
+    },
+  } as unknown as Ai
+  return { ai, calls }
+}
