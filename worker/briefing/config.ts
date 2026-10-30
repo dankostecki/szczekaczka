@@ -2,8 +2,9 @@
 // defaults for everything that has a safe one. Nothing paid runs unless BRIEFING_MODE is "live" and every secret it needs is
 // set; the model has no default on purpose (docs/poranny-przeglad.md says which ids OpenAI listed when this was written).
 
-// The Workers AI model that rates the importance of stories (importance.ts), the same as translates (worker/translate.ts)
-export const AI_RANK_MODEL = '@cf/google/gemma-4-26b-a4b-it'
+// The Workers AI model that rates the importance of stories (importance.ts): Cloudflare's decision model Clef (27B). Other ones to
+// choose with BRIEFING_AI_RANK_MODEL: @cf/cloudflare/clef-flash (9B, a sixth of the price), or a chat model such as @cf/google/gemma-4-26b-a4b-it
+export const AI_RANK_MODEL = '@cf/cloudflare/clef'
 
 export type Mode = 'off' | 'mock' | 'live'
 export type Approval = 'auto' | 'manual'
@@ -173,7 +174,7 @@ export function readConfig(env: Env): { config: BriefingConfig; problems: string
     model: str('BRIEFING_AI_RANK_MODEL') ?? AI_RANK_MODEL,
     weight: num('BRIEFING_AI_RANK_WEIGHT', 0.3, 0, 1),
     pool: Math.floor(num('BRIEFING_AI_RANK_POOL', 200, 20, 320)),
-    maxCalls: Math.floor(num('BRIEFING_AI_RANK_MAX_CALLS', 20, 1, 200)),
+    maxCalls: Math.floor(num('BRIEFING_AI_RANK_MAX_CALLS', 12, 1, 200)),
     problems: [],
   }
   aiRank.problems = problems.splice(markAi)

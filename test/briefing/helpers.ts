@@ -58,15 +58,27 @@ export async function run(h: Harness, until: () => boolean, max = 400): Promise<
   throw new Error(`not done in ${max} ticks; last logs:\n${h.logs.slice(-8).join('\n')}`)
 }
 
-// Workers AI as the ratings of importance see it (importance.ts): answers "number: score" for every headline of the request's last message,
-// the score from `rate` (the headline's text), and keeps what it was asked
-export interface AiCalls { n: number; users: string[]; systems: string[]; models: string[] }
-export function fakeAi(rate: (headline: string, n: number) => number | string | null, calls: AiCalls = { n: 0, users: [], systems: [], models: [] }): { ai: Ai; calls: AiCalls } {
+// Workers AI as the ratings of importance see it (importance.ts). A chat model answers "number: score" for every headline of the request's last
+// message; a decision model (Clef) answers a `score` level for every question; the score from `rate` (the headline's text and its number, 0 to 10, or
+// null for a service that is down). Keeps what it was asked.
+export interface AiCalls { n: number; users: string[]; systems: string[]; models: string[]; inputs: unknown[] }
+export function fakeAi(rate: (headline: string, n: number) => number | string | null, calls: AiCalls = { n: 0, users: [], systems: [], models: [], inputs: [] }): { ai: Ai; calls: AiCalls } {
   const ai = {
-    run: async (model: string, input: { messages: { role: string; content: string }[] }) => {
+    run: async (model: string, input: { messages?: { role: string; content: string }[]; questions?: Record<string, { instructions: { headline: string } }> }) => {
       calls.n++
-      const user = input.messages[input.messages.length - 1].content
-      calls.users.push(user); calls.systems.push(input.messages[0].content); calls.models.push(model)
+      calls.models.push(model); calls.inputs.push(input)
+      if (input.questions) {
+        const rates = Object.entries(input.questions).map(([id, q]) => ({ id, score: rate(q.instructions.headline, Number(id.slice(1))) }))
+        if (rates.some((r) => r.score === null)) throw new Error('the service is down')
+        return {
+          model: (input as { model?: string }).model,
+          answers: Object.fromEntries(rates.map((r) => [r.id, { type: 'score', score: (Number(r.score) / 10) * 4, legend: {}, probabilities: {}, confidence: 0.9 }])),
+          usage: { input_tokens: 1500, output_tokens: 0 },
+        }
+      }
+      const messages = input.messages!
+      const user = messages[messages.length - 1].content
+      calls.users.push(user); calls.systems.push(messages[0].content)
       const lines = user.split('\n').flatMap((l) => { const m = /^(\d+)\. (.*)$/.exec(l); return m ? [{ n: Number(m[1]), text: m[2] }] : [] })
       const rates = lines.map((l) => ({ n: l.n, score: rate(l.text, l.n) }))
       if (rates.some((r) => r.score === null)) throw new Error('the service is down')

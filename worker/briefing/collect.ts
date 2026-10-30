@@ -30,7 +30,7 @@ export interface Candidate {
   lead: string
   translation?: string    // the site's Polish translation of an English item
   more?: string[]         // the story's other headlines (a company's results come as many), oldest first
-  importance?: number     // 0 to 10, as the model that rated the stories of the night said (importance.ts), when it did
+  importance?: number     // 0 to 10 (a decimal for Clef), as the model that rated the stories of the night said (importance.ts), when it did
   score: number
 }
 
