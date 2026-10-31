@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import type { NewsItem } from '../../src/lib/parse'
 import { briefingApi } from '../../worker/briefing/api'
 import { readConfig, type Env as ConfigEnv } from '../../worker/briefing/config'
-import { calendarOf, duePack, nextPackAt, packOf, packStatus, packText, packKey, packTick, packWake, rankingKey, TASK_VERSION, type PackDeps } from '../../worker/briefing/pack'
+import { calendarOf, duePack, nextPackAt, packOf, packStatus, packText, PACK_WORDS, packKey, packTick, packWake, rankingKey, TASK_VERSION, type PackDeps } from '../../worker/briefing/pack'
 import { memoryStore } from '../../worker/briefing/store'
 import type { Env } from '../../worker/env'
 import { fakeAi, item, poller } from './helpers'
@@ -121,28 +121,47 @@ test('at 07:45: the news from 19:00 the evening before to 07:45, the day\'s cale
   assert.match(text, /## Zadanie/)
   assert.match(text, /„Dzień dobry\. Jest środa, dwudziesty ósmy października\. Oto poranny przegląd rynków: najważniejsze wiadomości od wczoraj, od godziny dziewiętnastej, do dziś do godziny siódmej czterdzieści pięć\.”/)
   assert.match(text, /co najmniej 2 niezależnych źródłach/)
-  assert.match(text, /na około 3 minuty \(około 420 słów, nie mniej\)/)
+  assert.match(text, /na około 5–6 minut \(650–800 słów\)/)
   // the voice of a radio newsroom: whole stories with their causes, and what is not confirmed said so, not left out
   assert.match(text, /Jesteś redaktorem serwisu informacyjnego w stacji radiowej/)
-  assert.match(text, /Słuchacz ma usłyszeć całe historie, jak w serwisie radiowym, a nie listę notowań/)
+  assert.match(text, /Przygotuj poranny przegląd rynków po polsku jako scenariusz dla słuchaczy, a nie listę nagłówków i liczb/)
   assert.match(text, /Poziom pewności decyduje o tym, jak historię podasz, a nie czy ją podasz/)
   assert.match(text, /Potwierdzoną w co najmniej 2 niezależnych źródłach opowiedz jako fakt/)
   assert.match(text, /z przypisaniem \(„według Financial Times”\)/)
   assert.match(text, /„według niepotwierdzonych doniesień”, „na rynku spekuluje się”/)
   assert.match(text, /Pomiń historię tylko wtedy, gdy nie ma dla niej żadnego nazwanego źródła albo jej sedno wydarzyło się ponad 36 godzin temu/)
   assert.match(text, /Plotka albo niepotwierdzone doniesienie, które mogło ruszyć notowaniami .* to też historia, ale podana jako niepotwierdzona/)
-  assert.match(text, /Każda historia to krótki materiał radiowy na 50 do 90 słów/)
+  assert.match(text, /Wybierz od 6 do 8 osobnych historii/)
+  // the style of a script for listeners, the four questions every story answers, the numbers kept to what explains the scale
+  assert.match(text, /scenariusz dla słuchaczy, a nie listę nagłówków i liczb/)
+  assert.match(text, /Zakładaj, że słuchacz nie widzi wykresu/)
+  assert.match(text, /Skróty i terminy techniczne wyjaśnij przy pierwszym użyciu zwykłymi słowami/)
+  assert.match(text, /Bez sensacji, sztucznego dramatyzmu i waty słownej/)
+  assert.match(text, /Każda historia \(około 80–120 słów\) prowadzi słuchacza przez cztery pytania, w tej kolejności:\n {7}- Co się stało\? Konkretne wydarzenie, data i, gdy ma to znaczenie, godzina\.\n {7}- Co za tym stało\? Potwierdzony powód/)
+  assert.match(text, /- Jak zareagowały rynki\? Skala ruchu i odpowiednie porównanie; odróżnij ruch indeksu od ruchu pojedynczej spółki lub sektora\./)
+  assert.match(text, /- Dlaczego to ważne\? Krótko, co to może znaczyć dla inwestorów, firm, konsumentów albo najbliższych sesji\./)
+  assert.match(text, /Liczby oszczędnie: podawaj je tylko tam, gdzie pomagają zrozumieć skalę lub znaczenie wydarzenia, z porównaniem i, gdy to ważne, z godziną pomiaru/)
+  // facts apart from interpretation; what is behind a move of the market; records; causes
+  assert.match(text, /Oddzielaj fakty od interpretacji\. Najpierw ustal, co potwierdza spółka, instytucja albo dokument pierwotny/)
+  assert.match(text, /Ruchy rynku: szukaj, co za nimi stało, zamiast poprzestawać na „Nasdaq spadł”\. Ustal, czy spadek albo wzrost był szeroki, czy skupiony/)
+  assert.match(text, /sam spadek jej kursu tego samego dnia tego nie dowodzi/)
+  assert.match(text, /Rekordy i porównania \(„największy spadek od 1974 roku”\): ustal, czego dokładnie dotyczą: zmiany procentowej czy kwotowej, kursu zamknięcia czy notowań w trakcie sesji/)
+  assert.match(text, /nie przypisuj przyczyny tylko dlatego, że coś wydarzyło się w tym samym czasie\. Gdy źródła nie wskazują wyraźnej przyczyny, powiedz to wprost/)
+  assert.match(text, /Spekulacji nigdy nie podawaj jako ustalonej przyczyny/)
+  assert.match(text, /powiedz słuchaczowi, że to jedno źródło/)
   assert.match(text, /w trybie przypuszczającym: „według analityków”, „jak pisze Financial Times”, „według Axios”, „na rynku spekuluje się, że”/)
   assert.match(text, /Fakt mów jako fakt, hipotezę jako hipotezę i nie mieszaj ich\. Nie wymyślaj liczb, cytatów, nazwisk ani źródeł/)
   assert.match(text, /Nie dawaj rekomendacji inwestycyjnych/)
-  assert.match(text, /w żadnym razie nie mniej niż 400\. Policz je\. Gdy wychodzi krócej, dopisz tło, przyczyny, skutki/)
+  assert.match(text, /Długość: docelowo 650–800 słów, około 5–6 minut czytania na głos\. Policz słowa\. Jeśli brakuje zweryfikowanych informacji, skróć tekst zamiast wypełniać go spekulacją: krótszy tekst jest lepszy niż uzupełniony domysłami\./)
+  assert.match(text, /Zanim jednak skrócisz, dodaj historie z jednego źródła albo niepotwierdzone, podane z przypisaniem/)
   // the work in four roles (agents), whatever the model can do
   assert.match(text, /Sposób pracy\. Jeśli możesz, uruchom osobnych agentów i daj każdemu jedno zadanie; jeśli nie możesz, wykonaj te cztery etapy kolejno/)
   assert.match(text, /- Agent zbierający informacje: wykonuje punkty 1, 3 i 4/)
-  assert.match(text, /- Agent redagujący informacje: z tej listy układa historie i pisze tekst według punktów 5 i 6/)
-  assert.match(text, /- Agent sprawdzający informacje: bierze tekst i listę z linkami i porównuje każde zdanie z liczbami, nazwiskami, godzinami i przypisaniami ze źródłami/)
+  assert.match(text, /- Agent redagujący informacje: z tej listy układa historie i pisze scenariusz według punktów 5 i 6/)
+  assert.match(text, /- Agent sprawdzający informacje: bierze tekst i listę z linkami i porównuje każde zdanie z liczbami, nazwiskami, godzinami, przypisaniami i przyczynami ze źródłami/)
   assert.match(text, /- Agent sprawdzający tekst: sprawdza i poprawia język i zasady z punktu 6: długość \(policz słowa\)/)
-  assert.match(text, /Gdy słów jest za mało, odsyła tekst do redagującego po uzupełnienie/)
+  assert.match(text, /Gdy słów jest za mało, a są jeszcze zweryfikowane informacje do dopisania, odsyła tekst do redagującego; gdy ich nie ma, zostawia tekst krótszy/)
+  assert.match(text, /rekord opisany innym miernikiem niż w źródle, przyczynę ruchu rynku bez oparcia w źródłach/)
   assert.match(text, /W odpowiedzi nie opisuj pracy agentów: pokaż tylko to, o co prosi punkt 7\./)
   assert.ok(text.indexOf('Sposób pracy.') < text.indexOf('1. Wybór.'), 'the roles come before the steps they refer to')
   // what the first version said, and the model took literally (a text of 280 words, three stories left out): gone
@@ -150,6 +169,9 @@ test('at 07:45: the news from 19:00 the evening before to 07:45, the day\'s cale
   assert.doesNotMatch(text, /Każde zdanie musi wynikać ze sprawdzonych źródeł/)
   assert.doesNotMatch(text, /Pomiń historię, której nie potwierdzisz/)
   assert.doesNotMatch(text, /i niepotwierdzone plotki\./)
+  assert.doesNotMatch(text, /w żadnym razie nie mniej niż 400/)
+  assert.doesNotMatch(text, /Każda historia to krótki materiał radiowy na 50 do 90 słów/)
+  assert.doesNotMatch(text, /Wybierz od 3 do 8/)
   assert.match(text, /linki do źródeł/)
   assert.match(text, /5\. Kalendarium\. Po wiadomościach/)
   // what the material does not say, or rates too low: looked for in the news of the night, in every topic
@@ -157,7 +179,7 @@ test('at 07:45: the news from 19:00 the evening before to 07:45, the day\'s cale
   assert.match(text, /nie pomijaj historii dlatego, że stoi nisko albo ma niską ocenę/)
   assert.match(text, /Nie kieruj się przy tym oceną ważności z materiału/)
   assert.match(text, /pomiń najmniej ważne z materiału/)
-  assert.match(text, /7\. Odpowiedź\. Najpierw sam tekst do przeczytania, akapit po akapicie, bez nagłówków\. Pod nim, osobno: przy każdej historii linki do źródeł, z zaznaczeniem, które historie podałeś jako niepotwierdzone albo z jednego źródła, a na końcu tylko te historie, które naprawdę pominąłeś/)
+  assert.match(text, /7\. Odpowiedź\. Najpierw sam scenariusz do przeczytania, akapit po akapicie, bez nagłówków\. Pod nim, osobno: lista źródeł, przy każdej historii linki do źródeł, z zaznaczeniem, które historie podałeś jako niepotwierdzone albo z jednego źródła, a na końcu krótko ważne historie, które naprawdę pominąłeś, i dlaczego/)
   assert.match(text, /3\. Kryptowaluty i surowce\. Niezależnie od materiału sprawdź w sieci/)
   assert.match(text, /hack lub awaria giełdy/)
   assert.match(text, /Kryptowaluty i surowce to osobne tematy, nie dodatek/)
@@ -171,14 +193,17 @@ test('at 07:45: the news from 19:00 the evening before to 07:45, the day\'s cale
   assert.ok(h.logs.some((l) => /pack 2026-10-28: 3 stories of 3 news, 2 calendars/.test(l)))
 })
 
-test('the least length is 400 words; a shorter target (BRIEFING_TARGET_SECONDS) is its own least', async () => {
-  const long = deps({}, '2026-10-28T06:44:59Z')
-  await runUntil(long, '2026-10-28T23:00:00Z')
-  assert.match(packOf(long.d.store)!.text, /na około 3 minuty \(około 420 słów, nie mniej\)/)
-  assert.match(packOf(long.d.store)!.text, /około 420 słów, w żadnym razie nie mniej niż 400\./)
+test('the pack\'s length is its own (5 to 6 minutes, 6 to 8 stories): the paid pipeline\'s target (BRIEFING_TARGET_SECONDS) does not change it', async () => {
   const short = deps({ BRIEFING_TARGET_SECONDS: '120' }, '2026-10-28T06:44:59Z')
   await runUntil(short, '2026-10-28T23:00:00Z')
-  assert.match(packOf(short.d.store)!.text, /około 280 słów, w żadnym razie nie mniej niż 280\./)
+  const text = packOf(short.d.store)!.text
+  assert.match(text, /na około 5–6 minut \(650–800 słów\)/)
+  assert.match(text, /docelowo 650–800 słów/)
+  // fewer stories allowed than the least: the least is the most
+  const few = deps({ BRIEFING_MAX_STORIES: '4', BRIEFING_MAX_RESEARCH: '10' }, '2026-10-28T06:44:59Z')
+  await runUntil(few, '2026-10-28T23:00:00Z')
+  assert.match(packOf(few.d.store)!.text, /Wybierz od 4 do 4 osobnych historii/)
+  assert.deepEqual(PACK_WORDS, [650, 800])
 })
 
 test('the morning calendars are the day\'s ones (their links end in "-rano")', () => {
