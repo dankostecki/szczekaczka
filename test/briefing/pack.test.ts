@@ -135,7 +135,16 @@ test('at 07:45: the news from 19:00 the evening before to 07:45, the day\'s cale
   assert.match(text, /w trybie przypuszczającym: „według analityków”, „jak pisze Financial Times”, „według Axios”, „na rynku spekuluje się, że”/)
   assert.match(text, /Fakt mów jako fakt, hipotezę jako hipotezę i nie mieszaj ich\. Nie wymyślaj liczb, cytatów, nazwisk ani źródeł/)
   assert.match(text, /Nie dawaj rekomendacji inwestycyjnych/)
-  assert.match(text, /nie mniej niż 378\. Gdy wychodzi krócej, dopisz tło, przyczyny, skutki/)
+  assert.match(text, /w żadnym razie nie mniej niż 400\. Policz je\. Gdy wychodzi krócej, dopisz tło, przyczyny, skutki/)
+  // the work in four roles (agents), whatever the model can do
+  assert.match(text, /Sposób pracy\. Jeśli możesz, uruchom osobnych agentów i daj każdemu jedno zadanie; jeśli nie możesz, wykonaj te cztery etapy kolejno/)
+  assert.match(text, /- Agent zbierający informacje: wykonuje punkty 1, 3 i 4/)
+  assert.match(text, /- Agent redagujący informacje: z tej listy układa historie i pisze tekst według punktów 5 i 6/)
+  assert.match(text, /- Agent sprawdzający informacje: bierze tekst i listę z linkami i porównuje każde zdanie z liczbami, nazwiskami, godzinami i przypisaniami ze źródłami/)
+  assert.match(text, /- Agent sprawdzający tekst: sprawdza i poprawia język i zasady z punktu 6: długość \(policz słowa\)/)
+  assert.match(text, /Gdy słów jest za mało, odsyła tekst do redagującego po uzupełnienie/)
+  assert.match(text, /W odpowiedzi nie opisuj pracy agentów: pokaż tylko to, o co prosi punkt 7\./)
+  assert.ok(text.indexOf('Sposób pracy.') < text.indexOf('1. Wybór.'), 'the roles come before the steps they refer to')
   // what the first version said, and the model took literally (a text of 280 words, three stories left out): gone
   assert.doesNotMatch(text, /Nie dodawaj kontekstu, przyczyn, prognoz ani ocen/)
   assert.doesNotMatch(text, /Każde zdanie musi wynikać ze sprawdzonych źródeł/)
@@ -160,6 +169,16 @@ test('at 07:45: the news from 19:00 the evening before to 07:45, the day\'s cale
   // nothing more that day: the next wake-up is the next morning
   assert.equal(iso(await packTick(h.d) as number), '2026-10-29T06:45:00.000Z')
   assert.ok(h.logs.some((l) => /pack 2026-10-28: 3 stories of 3 news, 2 calendars/.test(l)))
+})
+
+test('the least length is 400 words; a shorter target (BRIEFING_TARGET_SECONDS) is its own least', async () => {
+  const long = deps({}, '2026-10-28T06:44:59Z')
+  await runUntil(long, '2026-10-28T23:00:00Z')
+  assert.match(packOf(long.d.store)!.text, /na około 3 minuty \(około 420 słów, nie mniej\)/)
+  assert.match(packOf(long.d.store)!.text, /około 420 słów, w żadnym razie nie mniej niż 400\./)
+  const short = deps({ BRIEFING_TARGET_SECONDS: '120' }, '2026-10-28T06:44:59Z')
+  await runUntil(short, '2026-10-28T23:00:00Z')
+  assert.match(packOf(short.d.store)!.text, /około 280 słów, w żadnym razie nie mniej niż 280\./)
 })
 
 test('the morning calendars are the day\'s ones (their links end in "-rano")', () => {
