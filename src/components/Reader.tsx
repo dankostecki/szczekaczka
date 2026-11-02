@@ -10,6 +10,8 @@ import { Close, Star, Speaker, External } from './Icons'
 import { useSheet } from './useSheet'
 import NewsQuotes from './NewsQuotes'
 import type { Origin } from './Market'
+import { Importance } from './Importance'
+import { importanceName } from '@/lib/top'
 
 interface Props {
   item: Item
@@ -21,6 +23,7 @@ interface Props {
   onSave: (item: Item) => void
   onSpeak?: (item: Item) => void
   charts: boolean // TradingView switched on: the quotes of what the news names
+  rating?: number // the AI's rating of the news (0 to 10), when the reader wants it shown (the setting for every news, or the "Top" tab): its step is shown beside the time
   onChart: (symbol: string, from: Origin | null) => void
 }
 
@@ -29,7 +32,7 @@ const line = (i: number) => ({ '--i': i }) as CSSProperties
 // The whole lead of a news in a window of its own: the title, the text with its lines (paragraphs, lists, MacroNext's rows), the way to the source.
 // After the text, the quotes of the companies, indices, currencies and commodities it names (NewsQuotes). The text scrolls inside the window
 // and the page behind it stays where it was. Closed with the X, Esc, a click outside or a pull down (useSheet).
-export default function Reader({ item, origin, now, saved, speaking, onClose, onSave, onSpeak, charts, onChart }: Props) {
+export default function Reader({ item, origin, now, saved, speaking, onClose, onSave, onSpeak, charts, onChart, rating }: Props) {
   const [original, setOriginal] = useState(false) // a translation: the original beside it
   const panel = useRef<HTMLDivElement>(null)
   const scroller = useRef<HTMLDivElement>(null)
@@ -54,6 +57,7 @@ export default function Reader({ item, origin, now, saved, speaking, onClose, on
             <time dateTime={item.pubDate || undefined} title={fullDate(item.time)}>{clock(item.time)}</time>
             {since && <span className="ago">· {since}</span>}
             {item.translated && <span className="badge tr" title="Tłumaczenie maszynowe (AI) z angielskiego">tłumaczenie AI</span>}
+            {rating !== undefined && <span className="reader-imp"><Importance ai={rating} />ważność: {importanceName(rating)}</span>}
           </div>
           <button className="reader-close" onClick={close} title="Zamknij" aria-label="Zamknij"><Close size={20} /></button>
         </div>
