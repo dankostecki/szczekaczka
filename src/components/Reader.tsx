@@ -11,7 +11,6 @@ import { useSheet } from './useSheet'
 import NewsQuotes from './NewsQuotes'
 import type { Origin } from './Market'
 import { Importance } from './Importance'
-import { importanceName } from '@/lib/top'
 
 interface Props {
   item: Item
@@ -23,7 +22,7 @@ interface Props {
   onSave: (item: Item) => void
   onSpeak?: (item: Item) => void
   charts: boolean // TradingView switched on: the quotes of what the news names
-  rating?: number // the AI's rating of the news (0 to 10), when the reader wants it shown (the setting for every news, or the "Top" tab): its step is shown beside the time
+  rating?: number // the AI's rating of the news (0 to 10), when the reader wants it shown (the setting for every news, or the "Top" tab): the same meter as in the list, after the time
   onChart: (symbol: string, from: Origin | null) => void
 }
 
@@ -56,8 +55,8 @@ export default function Reader({ item, origin, now, saved, speaking, onClose, on
             <span className="tag"><i className="dot" /><span>{tagOf(item)}</span></span>
             <time dateTime={item.pubDate || undefined} title={fullDate(item.time)}>{clock(item.time)}</time>
             {since && <span className="ago">· {since}</span>}
+            {rating !== undefined && <Importance ai={rating} />}
             {item.translated && <span className="badge tr" title="Tłumaczenie maszynowe (AI) z angielskiego">tłumaczenie AI</span>}
-            {rating !== undefined && <span className="reader-imp"><Importance ai={rating} />ważność: {importanceName(rating)}</span>}
           </div>
           <button className="reader-close" onClick={close} title="Zamknij" aria-label="Zamknij"><Close size={20} /></button>
         </div>
