@@ -626,7 +626,8 @@ export default function App() {
         const it = visible.find((i) => i.id === reader.item.id) ?? reader.item
         return (
           <Reader key={reader.item.id} item={it} origin={reader.origin} now={now} saved={savedIds.has(it.id)} speaking={speakingId === it.id}
-            onClose={closeReader} onSave={toggleSaved} onSpeak={canSpeak ? readAloud : undefined} charts={prefs.charts} onChart={openNewsChart} />
+            onClose={closeReader} onSave={toggleSaved} onSpeak={canSpeak ? readAloud : undefined} charts={prefs.charts} onChart={openNewsChart}
+            rating={prefs.showImportance || topTab ? ratingOf(it) : undefined} />
         )
       })()}
 

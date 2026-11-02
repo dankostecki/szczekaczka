@@ -47,5 +47,6 @@ export const IMPORTANCE = [
 ] as const
 export type ImportanceLevel = 1 | 2 | 3 | 4
 export const importanceLevel = (ai: number): ImportanceLevel => (ai >= 8 ? 4 : ai >= 6 ? 3 : ai >= 4 ? 2 : 1)
+export const importanceName = (ai: number) => IMPORTANCE[importanceLevel(ai) - 1].name
 
 export const isTopHours = (n: unknown): n is TopHours => TOP_HOURS.includes(n as TopHours)

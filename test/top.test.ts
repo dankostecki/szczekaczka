@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import type { NewsItem } from '../src/lib/parse'
 import { inLanguage, withTime, type Item } from '../src/lib/news'
 import { loadPrefs, PREFS_KEY } from '../src/lib/prefs'
-import { DEFAULT_TOP_HOURS, IMPORTANCE, importanceLevel, TOP_HOURS, topStories } from '../src/lib/top'
+import { DEFAULT_TOP_HOURS, IMPORTANCE, importanceLevel, importanceName, TOP_HOURS, topStories } from '../src/lib/top'
 
 const NOW = Date.parse('2026-10-30T12:00:00Z')
 let n = 0
@@ -86,6 +86,7 @@ test('news shown in Polish are put together by their text as published; the lang
 test('a rating as the page shows it: four steps, from a quiet news to a very important one; and what the tab and the list remember', () => {
   assert.deepEqual([0, 2.5, 3.9, 4, 5.9, 6, 7.9, 8, 10].map(importanceLevel), [1, 1, 1, 2, 2, 3, 3, 4, 4])
   assert.deepEqual(IMPORTANCE.map((s) => s.name), ['spokojna', 'umiarkowana', 'ważna', 'bardzo ważna'])
+  assert.deepEqual([0, 4.5, 7.6, 9.2].map(importanceName), ['spokojna', 'umiarkowana', 'ważna', 'bardzo ważna'], 'the name beside the bars in the news\'s window')
   for (const step of IMPORTANCE) assert.equal(IMPORTANCE[importanceLevel(step.from) - 1], step, 'each step starts where it says')
   const store = new Map<string, string>()
   ;(globalThis as { localStorage?: unknown }).localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => { store.set(k, v) } }
