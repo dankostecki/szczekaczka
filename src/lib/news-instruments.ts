@@ -94,6 +94,24 @@ const NAMED: Named[] = [
   ['CMCMARKETS:CHFPLN', ...fixed(['frank szwajcarski', 'franka szwajcarskiego', 'frankiem szwajcarskim', 'franku szwajcarskim', 'franki szwajcarskie'])],
 ]
 
+// ── Topics: a news that is about one gets its instruments even when it names none of them (an Iran war news does not say "oil", and moves it) ──
+// A topic is its instruments and what the text must have (the one of the language shown, or of the other one)
+interface Topic { symbols: string[]; fits: (text: string) => boolean }
+const NOT_IN_WORD = String.raw`(?<![\p{L}\p{N}])`
+const END_OF_WORD = String.raw`(?![\p{L}\p{N}])`
+const oneOf = (list: string, flags = 'iu') => new RegExp(`${NOT_IN_WORD}(?:${list})${END_OF_WORD}`, flags)
+// Iran, as Polish and English write it (its capital for its government: "Tehran warns")
+const IRAN = oneOf(String.raw`Iran(?:u|owi|em|ie|ian|ians)?|irańsk\p{L}*|Irańczyk\p{L}*|Teheran\p{L}*|Tehran\p{L}*`)
+// What makes it a war news: the fighting itself ...
+const WAR = oneOf(String.raw`wojn\p{L}*|wojsk\p{L}*|wojenn\p{L}*|wars?|warfare|military|atak\p{L}*|attack\p{L}*|strik(?:e|es|ing)|struck|airstrikes?|uderz\p{L}*|nalot\p{L}*|bomb\p{L}*|missiles?|rakiet\p{L}*|drones?|dron(?:y|ów|ami|ach)|troops|żołnierz\p{L}*|operations?|operacj\p{L}*|conflict\p{L}*|konflikt\p{L}*|cease-?fire|rozejm\p{L}*|escalat\p{L}*|eskalac\p{L}*|retaliat\p{L}*|odwet\p{L}*|invasion|inwazj\p{L}*|Hormuz\p{L}*|Ormuz\p{L}*`)
+// ... or the other side of it (US as the letters are: "us" is a word of its own)
+const US_LETTERS = oneOf('US|USA|U\\.S\\.', 'u')
+const US_NAMES = oneOf(String.raw`United States|Stan\p{L}*\s+Zjednoczon\p{L}*|Trump\p{L}*|Pentagon\p{L}*|White House|Biał\p{L}*\s+Dom\p{L}*|amerykańsk\p{L}*|Waszyngton\p{L}*|Washington`)
+const TOPICS: Topic[] = [
+  // Iran at war, with the United States or alone: the oil that goes through its waters (Brent and WTI, both from CMC, as for any news of oil)
+  { symbols: OIL, fits: (t) => IRAN.test(t) && (WAR.test(t) || US_LETTERS.test(t) || US_NAMES.test(t)) },
+]
+
 // Tickers in "$TSLA" that are not a share of the American exchanges, and other share classes of one company
 const CASHTAGS: Record<string, string> = {
   BTC: 'BITSTAMP:BTCUSD', ETH: 'BITSTAMP:ETHUSD', XRP: 'BITSTAMP:XRPUSD', SOL: 'BITSTAMP:SOLUSD',
@@ -190,11 +208,16 @@ function hitsIn(text: string): Hit[] {
   return kept
 }
 
-// The symbols named in these texts (the one shown first: its order wins), each once, at most MAX_QUOTED
+// The symbols named in these texts (the one shown first: its order wins), each once, at most MAX_QUOTED; then those of the topics they are about
 export function instrumentsIn(texts: string[]): string[] {
   const out: string[] = []
   for (const t of texts) for (const h of hitsIn(t)) for (const s of h.symbols) if (!out.includes(s)) out.push(s)
-  return out.slice(0, MAX_QUOTED)
+  const quoted = out.slice(0, MAX_QUOTED)
+  // what a topic adds comes after the instruments named, however many they are (so a news of the Iran war that names three shares still has the oil)
+  for (const topic of TOPICS) {
+    if (texts.some(topic.fits)) for (const s of topic.symbols) if (!quoted.includes(s)) quoted.push(s)
+  }
+  return quoted
 }
 
 type Text = { title: string; description: string; body?: string }
