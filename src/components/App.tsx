@@ -432,8 +432,8 @@ export default function App() {
                 + (online !== null ? ` Online: tyle stron Szczekaczki jest teraz otwartych (każda karta liczy się osobno).` : '')
               : 'Łączę z serwerem…'}>
             <i className={`pulse ${status === 'live' ? 'on' : ''}`} />
-            {loading ? 'pobieram…' : status === 'live' ? 'na żywo' : 'łączę…'}
-            {!loading && status === 'live' && online !== null && <span className="online"> · {online} online</span>}
+            {/* live: the green dot says so, and the words are the pages online when the server says how many */}
+            <span className="updated-text">{loading ? 'pobieram…' : status !== 'live' ? 'łączę…' : online !== null ? `${online} online` : 'na żywo'}</span>
           </span>
 
           <nav className="actions">
@@ -457,14 +457,14 @@ export default function App() {
                 <Bell on={prefs.notify} /><span className="lbl">Powiadomienia</span>
               </button>
             )}
-            <button className="act icon" onClick={refresh} disabled={loading} title="Odśwież teraz">
+            <button className="act icon" onClick={refresh} disabled={loading} title="Odśwież teraz" aria-label="Odśwież teraz">
               <Refresh className={loading ? 'spin' : ''} />
             </button>
             <button className="act icon" onClick={() => updatePrefs({ theme: dark ? 'light' : 'dark' })}
-              title={dark ? 'Jasny motyw' : 'Ciemny motyw'}>
+              title={dark ? 'Jasny motyw' : 'Ciemny motyw'} aria-label={dark ? 'Jasny motyw' : 'Ciemny motyw'}>
               {dark ? <Sun /> : <Moon />}
             </button>
-            <button className="act icon" onClick={() => setSettingsOpen(true)} title="Ustawienia">
+            <button className="act icon" onClick={() => setSettingsOpen(true)} title="Ustawienia" aria-label="Ustawienia">
               <Gear />
             </button>
           </nav>
@@ -502,7 +502,7 @@ export default function App() {
               spellCheck={false} autoComplete="off" autoCapitalize={market ? 'characters' : undefined} enterKeyHint={market ? 'go' : undefined}
               role={market ? 'combobox' : undefined} aria-expanded={market ? searching && choices.length > 0 : undefined}
               aria-controls={market ? 'symbol-choices' : undefined} aria-activedescendant={market && searching && choices.length ? `symbol-${Math.min(choice, choices.length - 1)}` : undefined} />
-            {searchValue && <button onClick={() => setSearch('')} title="Wyczyść"><Close size={14} /></button>}
+            {searchValue && <button onClick={() => setSearch('')} title="Wyczyść" aria-label="Wyczyść"><Close size={14} /></button>}
           </label>
           {market && searching && choices.length > 0 && (
             <ul id="symbol-choices" className="symbol-choices" role="listbox" aria-label="Podpowiedzi">

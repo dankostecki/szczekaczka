@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { FEEDS, HAS_ENGLISH, feedKey, sourceName, orderedSources, moveSource, type Source } from '@/lib/sources'
 import type { Prefs, Theme } from '@/lib/prefs'
@@ -12,6 +12,7 @@ import type { AwakeState } from '@/lib/wakeLock'
 import type { LiveStatus } from '@/lib/live'
 import { Close, Speaker, Bell, Play, Eye, ArrowUp, ArrowDown } from './Icons'
 import { ImportanceLegend } from './Importance'
+import { useModal } from './useModal'
 
 interface Props {
   prefs: Prefs
@@ -120,12 +121,8 @@ export default function Settings(p: Props) {
     speak('Hello, this is Szczekaczka. This is how this voice sounds.', { ...prefs, voiceURIEn: uri }, p.voices, undefined, 'en')
   }
 
-  const { onClose } = p
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  const panel = useRef<HTMLElement>(null)
+  useModal(panel, p.onClose)
 
   // Removes everything the site keeps in this browser (also the copy for working without a network), then starts afresh
   async function clearAllData() {
@@ -155,10 +152,10 @@ export default function Settings(p: Props) {
 
   return (
     <div className="overlay" onClick={p.onClose}>
-      <aside className="panel" role="dialog" aria-modal="true" aria-label="Ustawienia" onClick={(e) => e.stopPropagation()}>
+      <aside ref={panel} className="panel" role="dialog" aria-modal="true" aria-label="Ustawienia" tabIndex={-1} onClick={(e) => e.stopPropagation()}>
         <div className="panel-head">
           <h2>Ustawienia</h2>
-          <button className="act icon" onClick={p.onClose} title="Zamknij"><Close /></button>
+          <button className="act icon" onClick={p.onClose} title="Zamknij" aria-label="Zamknij"><Close /></button>
         </div>
 
         <section>

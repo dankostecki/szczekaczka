@@ -8,20 +8,23 @@
   --border-strong: #d4d4d8;
   --text: #18181b;
   --text-2: #52525b;
-  --text-3: #85858f;
-  --accent: #e5484d;
-  --accent-soft: rgba(229, 72, 77, 0.1);
-  --fresh: rgba(229, 72, 77, 0.07);
+  --text-3: #6e6e78; /* the weakest text still reads on white and on the soft background (4.5:1) */
+  --accent: #d6363c;
+  --accent-fill: #d6363c; /* under white text: the buttons, the NOWE badge */
+  --accent-soft: rgba(214, 54, 60, 0.1);
+  --fresh: rgba(214, 54, 60, 0.07);
   /* the four steps of a news' importance (components/Importance.tsx): quiet, moderate, important, very important */
-  --imp-1: #16a34a; --imp-2: #ca8a04; --imp-3: #ea580c; --imp-4: #dc2626;
+  --imp-1: #16a34a; --imp-2: #b87d03; --imp-3: #ea580c; --imp-4: #dc2626;
+  --seg-track: var(--bg-soft); --seg-on: var(--surface); /* a choice of a few (the theme): its track and the one chosen */
   --header: rgba(255, 255, 255, 0.86);
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.14);
   --src-espi: #4f46e5;
-  --src-gpw: #059669;
-  --src-stooq: #d97706;
+  --src-gpw: #15803d;
+  --src-stooq: #b45309;
   --src-walter: #c026d3;
+  --src-investinglive: #0f766e;
   --src-seekingalpha: #db2777;
-  --src-pap: #0284c7;
+  --src-pap: #0369a1;
   --src-macronext: #4d7c0f;
   color-scheme: light;
 }
@@ -36,17 +39,20 @@
     --border-strong: #3f3f46;
     --text: #f4f4f5;
     --text-2: #a8a8b2;
-    --text-3: #75757f;
+    --text-3: #8a8a94;
     --accent: #ff6369;
+    --accent-fill: #d93a40;
     --accent-soft: rgba(255, 99, 105, 0.14);
     --fresh: rgba(255, 99, 105, 0.08);
     --imp-1: #22c55e; --imp-2: #eab308; --imp-3: #fb923c; --imp-4: #f87171;
+    --seg-track: #111113; --seg-on: #2b2b30;
     --header: rgba(17, 17, 19, 0.86);
     --shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
     --src-espi: #9b9cfa;
-    --src-gpw: #3dd6a3;
+    --src-gpw: #4ade80;
     --src-stooq: #f8c24a;
     --src-walter: #e879f9;
+    --src-investinglive: #2dd4bf;
     --src-seekingalpha: #f472b6;
     --src-pap: #5cc8f5;
     --src-macronext: #a3e635;
@@ -63,17 +69,20 @@
   --border-strong: #3f3f46;
   --text: #f4f4f5;
   --text-2: #a8a8b2;
-  --text-3: #75757f;
+  --text-3: #8a8a94;
   --accent: #ff6369;
+  --accent-fill: #d93a40;
   --accent-soft: rgba(255, 99, 105, 0.14);
   --fresh: rgba(255, 99, 105, 0.08);
   --imp-1: #22c55e; --imp-2: #eab308; --imp-3: #fb923c; --imp-4: #f87171;
+  --seg-track: #111113; --seg-on: #2b2b30;
   --header: rgba(17, 17, 19, 0.86);
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
   --src-espi: #9b9cfa;
-  --src-gpw: #3dd6a3;
+  --src-gpw: #4ade80;
   --src-stooq: #f8c24a;
   --src-walter: #e879f9;
+  --src-investinglive: #2dd4bf;
   --src-seekingalpha: #f472b6;
   --src-pap: #5cc8f5;
   --src-macronext: #a3e635;
@@ -134,17 +143,18 @@ button:disabled { cursor: default; opacity: 0.5; }
 .notice-beta { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 16px; padding: 10px 12px; border-radius: 11px; background: var(--accent-soft); font-size: 14px; line-height: 1.45; color: var(--text-2); }
 .notice-beta .beta { margin-top: 1px; }
 
-.updated { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-3); font-variant-numeric: tabular-nums; }
-.pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--border-strong); }
+.updated { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.updated-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pulse { flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--border-strong); }
 .pulse.on { background: #22c55e; animation: pulse 2s ease-in-out infinite; }
 
-.actions { margin-left: auto; display: flex; gap: 6px; }
+.actions { margin-left: auto; flex-shrink: 0; display: flex; gap: 6px; }
 
 .act {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
   height: 38px; min-width: 38px; padding: 0 12px;
   border: 1px solid var(--border); border-radius: 10px;
-  color: var(--text-2); font-size: 14px; font-weight: 500;
+  color: var(--text-2); font-size: 14px; font-weight: 500; text-decoration: none; white-space: nowrap;
   transition: background-color 0.15s, color 0.15s, border-color 0.15s;
 }
 .act.icon { padding: 0; }
@@ -281,9 +291,10 @@ button:disabled { cursor: default; opacity: 0.5; }
   padding: 1px 7px; border-radius: 999px;
   font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
 }
-.badge.new { background: var(--accent); color: #fff; }
+.badge.new { background: var(--accent-fill); color: #fff; }
 .badge.watch { border: 1px solid var(--c); color: var(--c); font-weight: 600; letter-spacing: 0; }
 .badge.tr { border: 1px solid var(--border-strong); color: var(--text-2); font-weight: 600; letter-spacing: 0; }
+.badge .short { display: none; }
 /* The importance of a news (components/Importance.tsx): four bars, as many lit as its step, in the step's colour */
 .imp { display: inline-flex; align-items: flex-end; gap: 2px; height: 13px; flex-shrink: 0; }
 .imp i { width: 4px; border-radius: 1.5px; background: var(--border-strong); }
@@ -447,7 +458,7 @@ body.reading { overflow: hidden; padding-right: var(--scrollbar, 0px); }
 .reader-foot { flex: none; display: flex; align-items: center; gap: 8px; padding: 12px 12px 14px 20px; border-top: 1px solid var(--border); background: var(--surface); }
 .reader-open {
   display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 11px;
-  background: var(--accent); color: #fff; font-size: 14.5px; font-weight: 600; text-decoration: none;
+  background: var(--accent-fill); color: #fff; font-size: 14.5px; font-weight: 600; text-decoration: none;
   transition: filter 0.15s, transform 0.15s;
 }
 .reader-open:hover { filter: brightness(1.07); }
@@ -529,7 +540,7 @@ body.reading { overflow: hidden; padding-right: var(--scrollbar, 0px); }
 .charts-consent-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
 .charts-consent-row a { font-size: 14px; color: var(--text-2); }
 .charts-on {
-  height: 40px; padding: 0 16px; border-radius: 11px; background: var(--accent); color: #fff; font-size: 14.5px; font-weight: 600;
+  height: 40px; padding: 0 16px; border-radius: 11px; background: var(--accent-fill); color: #fff; font-size: 14.5px; font-weight: 600;
   transition: filter 0.15s, transform 0.15s;
 }
 .charts-on:hover { filter: brightness(1.07); }
@@ -573,7 +584,7 @@ body.reading { overflow: hidden; padding-right: var(--scrollbar, 0px); }
 .panel {
   width: min(440px, 100%); height: 100%; overflow-y: auto;
   background: var(--surface); box-shadow: var(--shadow);
-  padding: 0 20px 28px;
+  padding: 0 20px 28px; outline: none; overscroll-behavior: contain;
   animation: slide 0.2s ease-out;
 }
 .panel-head {
@@ -648,9 +659,9 @@ body.reading { overflow: hidden; padding-right: var(--scrollbar, 0px); }
 .row-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .row-buttons .btn { margin-top: 0; }
 
-.segmented { display: inline-flex; padding: 3px; gap: 2px; background: var(--bg-soft); border-radius: 10px; }
+.segmented { display: inline-flex; padding: 3px; gap: 2px; background: var(--seg-track); border-radius: 10px; }
 .segmented button { height: 30px; padding: 0 12px; border-radius: 8px; font-size: 13.5px; color: var(--text-2); }
-.segmented button.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); font-weight: 600; }
+.segmented button.on { background: var(--seg-on); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); font-weight: 600; }
 
 .channels { width: 100%; border-collapse: collapse; font-size: 14px; }
 .channels th { text-align: left; font-weight: 500; color: var(--text-3); padding: 4px 0 8px; }
@@ -699,7 +710,7 @@ body.reading { overflow: hidden; padding-right: var(--scrollbar, 0px); }
 .site-foot a:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
 
 .brand.back { text-decoration: none; color: inherit; }
-.back-link { margin-left: auto; text-decoration: none; }
+.act.back-link { margin-left: auto; padding: 0 12px; }
 
 .legal { max-width: 720px; padding: 28px 0 64px; font-size: 15.5px; line-height: 1.65; color: var(--text-2); }
 .legal h1 { margin: 0; font-size: 30px; line-height: 1.2; letter-spacing: -0.02em; color: var(--text); }
@@ -730,7 +741,7 @@ body.reading { overflow: hidden; padding-right: var(--scrollbar, 0px); }
 
 .notice-overlay { z-index: 30; align-items: center; justify-content: center; padding: 16px; }
 .notice {
-  width: min(480px, 100%); max-height: calc(100dvh - 32px); overflow-y: auto;
+  width: min(480px, 100%); max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain;
   padding: 24px 24px 20px; border-radius: 16px;
   background: var(--surface); box-shadow: var(--shadow);
   animation: slide-up 0.2s ease-out;
@@ -752,7 +763,7 @@ body.reading { overflow: hidden; padding-right: var(--scrollbar, 0px); }
 .notice-links a { color: var(--text-2); }
 .notice-ok {
   width: 100%; height: 44px; border-radius: 11px;
-  background: var(--accent); color: #fff; font-size: 15px; font-weight: 600;
+  background: var(--accent-fill); color: #fff; font-size: 15px; font-weight: 600;
 }
 .notice-ok:hover { filter: brightness(1.05); }
 
@@ -763,7 +774,7 @@ body.reading { overflow: hidden; padding-right: var(--scrollbar, 0px); }
   .legal-table thead { display: none; }
   .legal-table tr { padding: 10px 0; border-bottom: 1px solid var(--border); }
   .legal-table td { padding: 2px 0; border: 0; white-space: normal !important; }
-  .back-link { font-size: 13px; padding: 0 10px; }
+  .act.back-link { font-size: 13px; padding: 0 10px; }
 }
 
 /* ── Motion ────────────────────────────────────────────────────────────── */
@@ -779,13 +790,18 @@ body.reading { overflow: hidden; padding-right: var(--scrollbar, 0px); }
 }
 
 /* ── Small screens ─────────────────────────────────────────────────────── */
-@media (max-width: 720px) {
+/* The words of the bar's buttons only where the bar has its full width; below it the buttons alone (a tablet held upright had the last ones
+   off the screen) */
+@media (max-width: 860px) {
   .act .lbl { display: none; }
   .act { padding: 0; }
 }
+/* The status beside the logo: gone before it would push the buttons off a narrow screen */
+@media (max-width: 640px) {
+  .updated { display: none; }
+}
 @media (max-width: 560px) {
   .bar { height: 56px; gap: 8px; }
-  .updated { display: none; }
   .actions { gap: 4px; }
   .filters { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 10px; }
   .filters .scroll-row { margin: 0 -16px; max-width: none; }
@@ -795,6 +811,8 @@ body.reading { overflow: hidden; padding-right: var(--scrollbar, 0px); }
   .search { margin-left: 0; flex: none; max-width: none; }
   .title { font-size: 15.5px; }
   .ago { display: none; }
+  .meta .badge .long { display: none; }
+  .meta .badge .short { display: inline; }
   .tools button, .tools a { width: 28px; }
   .row { margin: 0 -10px; padding-left: 10px; padding-right: 10px; border-radius: 12px; }
   .row::after { left: 10px; right: 10px; }
@@ -822,8 +840,8 @@ body.reading { overflow: hidden; padding-right: var(--scrollbar, 0px); }
 .briefing-status.test { border-color: color-mix(in srgb, var(--accent) 35%, transparent); background: var(--accent-soft); color: var(--accent); }
 .briefing-edition h2 { margin-top: 26px; }
 .briefing-audio { display: block; width: 100%; margin: 14px 0 6px; }
-.briefing-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 0 12px; font-size: 13.5px; color: var(--text-3); }
-.briefing-meta span:last-child { color: var(--accent); font-weight: 500; }
+.briefing-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0 0 12px; font-size: 13.5px; color: var(--text-3); }
+.briefing-ai { padding: 1px 9px; border: 1px solid var(--border-strong); border-radius: 999px; font-size: 12.5px; font-weight: 600; color: var(--text-2); }
 .briefing-times { display: grid; gap: 4px; margin: 0 0 22px; font-size: 14px; }
 .briefing-times div { display: flex; flex-wrap: wrap; gap: 0 8px; }
 .briefing-times dt { min-width: 104px; color: var(--text-3); }

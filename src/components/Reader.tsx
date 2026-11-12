@@ -95,11 +95,12 @@ export default function Reader({ item, origin, now, saved, speaking, onClose, on
           <span className="reader-tools">
             {onSpeak && (
               <button className={`speak${speaking ? ' on' : ''}`} onClick={() => onSpeak(item)} aria-pressed={speaking}
-                title={speaking ? 'Zatrzymaj czytanie' : 'Przeczytaj na głos'}>
+                title={speaking ? 'Zatrzymaj czytanie' : 'Przeczytaj na głos'} aria-label={speaking ? 'Zatrzymaj czytanie' : 'Przeczytaj na głos'}>
                 <Speaker on={speaking} quiet size={18} />
               </button>
             )}
-            <button className={`save${saved ? ' on' : ''}`} onClick={() => onSave(item)} title={saved ? 'Usuń z zapisanych' : 'Zapisz na później'}>
+            <button className={`save${saved ? ' on' : ''}`} onClick={() => onSave(item)} aria-pressed={saved}
+              title={saved ? 'Usuń z zapisanych' : 'Zapisz na później'} aria-label={saved ? 'Usuń z zapisanych' : 'Zapisz na później'}>
               <Star filled={saved} size={18} />
             </button>
           </span>
