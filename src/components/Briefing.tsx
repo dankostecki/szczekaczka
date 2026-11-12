@@ -149,7 +149,7 @@ function Edition({ edition: e }: { edition: PublicEdition }) {
       <audio className="briefing-audio" controls preload="metadata" src={`${API_ORIGIN}${e.audio.url}`} aria-label={`Nagranie przeglądu, ${day}`}>
         <a href={`${API_ORIGIN}${e.audio.url}`}>Pobierz nagranie</a>
       </audio>
-      <p className="briefing-meta"><span>{duration(e.audio.seconds)}</span><span>Głos wygenerowany przez sztuczną inteligencję</span></p>
+      <p className="briefing-meta"><span>{duration(e.audio.seconds)}</span><span className="briefing-ai">Głos wygenerowany przez sztuczną inteligencję</span></p>
       <dl className="briefing-times">
         <div><dt>Obejmuje</dt><dd>wiadomości od {weekdayOf(e.window.from)}, godz. {clock(e.window.from)}, do {weekdayOf(e.cutoff)}, godz. {clock(e.cutoff)}</dd></div>
         <div><dt>Przygotowano</dt><dd>{clock(e.generatedAt)}</dd></div>

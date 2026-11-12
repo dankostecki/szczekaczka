@@ -38,7 +38,11 @@ function NewsRow({ item, now, read, saved, fresh, watched, onRead, onSave, onSpe
         {fresh && <span className="badge new">NOWE</span>}
         {rating !== undefined && <Importance ai={rating} />}
         {watched && <span className="badge watch">obserwowana</span>}
-        {item.translated && <span className="badge tr" title="Tłumaczenie maszynowe (AI) z angielskiego. Oryginał można włączyć w ustawieniach.">tłumaczenie AI</span>}
+        {item.translated && (
+          <span className="badge tr" title="Tłumaczenie maszynowe (AI) z angielskiego. Oryginał można włączyć w ustawieniach." aria-label="tłumaczenie AI">
+            <span className="long">tłumaczenie</span><span className="short">tłum.</span> AI
+          </span>
+        )}
         <span className="tools">
           {link && (
             <a className="open" href={link} target="_blank" rel="noopener noreferrer" title="Otwórz źródło" aria-label="Otwórz źródło"
@@ -48,11 +52,12 @@ function NewsRow({ item, now, read, saved, fresh, watched, onRead, onSave, onSpe
           )}
           {onSpeak && (
             <button className={`speak${speaking ? ' on' : ''}`} onClick={() => onSpeak(item)} aria-pressed={speaking}
-              title={speaking ? 'Zatrzymaj czytanie' : 'Przeczytaj na głos'}>
+              title={speaking ? 'Zatrzymaj czytanie' : 'Przeczytaj na głos'} aria-label={speaking ? 'Zatrzymaj czytanie' : 'Przeczytaj na głos'}>
               <Speaker on={speaking} quiet size={16} />
             </button>
           )}
-          <button className={`save${saved ? ' on' : ''}`} onClick={() => onSave(item)} title={saved ? 'Usuń z zapisanych' : 'Zapisz na później'}>
+          <button className={`save${saved ? ' on' : ''}`} onClick={() => onSave(item)} aria-pressed={saved}
+            title={saved ? 'Usuń z zapisanych' : 'Zapisz na później'} aria-label={saved ? 'Usuń z zapisanych' : 'Zapisz na później'}>
             <Star filled={saved} size={16} />
           </button>
         </span>
