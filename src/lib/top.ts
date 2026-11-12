@@ -1,8 +1,9 @@
 // The "Top" tab: the most important news of the last hours, by the rating of a model of Workers AI (NewsItem.ai, worker/rate.ts). The same
-// news from several channels is one story (lib/stories.ts, as in the morning briefing), under its best rated headline. The order is always the
-// rating's, the most important first: of two rated the same, the one that more sources report, then the newer. (A bonus for the sources once
-// put a news of a lower step above one of a higher, against what the colours show.) Worked out here, from the list the page already has: no
-// request of its own, and it works without the network.
+// news from several channels is one story (lib/stories.ts, as in the morning briefing), under its best rated headline. The order is what the
+// page shows: the step of the importance (the four bars), the most important first, and within a step the newest first. The number behind
+// the bars is not shown, so an order by it looked like hours thrown about among news of the same four bars; a bonus for the sources once
+// put a news of a lower step above one of a higher. Worked out here, from the list the page already has: no request of its own, and it
+// works without the network.
 import { groupStories } from './stories'
 import { langOf, type Lang } from './sources'
 import { originalOf, type Item } from './news'
@@ -34,7 +35,7 @@ export function topStories(items: Item[], hours: number, now: number, langs: rea
       const sources = [...new Set(news.map((n) => n.source))]
       return { item, others, sources, ai: item.ai! }
     })
-    .sort((a, b) => b.ai - a.ai || b.sources.length - a.sources.length || b.item.time - a.item.time)
+    .sort((a, b) => importanceLevel(b.ai) - importanceLevel(a.ai) || b.item.time - a.item.time || b.ai - a.ai)
 }
 
 // What the page shows of a rating (0 to 10): one of four steps, by colour, from a quiet news (green) to a very important one (red). The number

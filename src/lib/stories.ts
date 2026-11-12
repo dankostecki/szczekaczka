@@ -12,7 +12,19 @@ export function tokens(text: string): string[] {
   return out
 }
 
-const bare = (link: string) => link.replace(/^https?:\/\/(www\.)?/, '').replace(/[?#].*$/, '').replace(/\/$/, '')
+// The page a link points to: without "https://", "www.", what comes after "#" and what only says where the reader came from
+// ("?utm_source=rss"), so that one article linked in two ways is one. What tells the pages of a site apart stays: Stooq's news differ only in
+// "?f=…" (with all of the query cut off they were one page, and every Stooq news of a day was one story, with all their sources)
+const TRACKING = /^(?:utm_\w+|fbclid|gclid|dclid|msclkid|yclid|mc_[ce]id|igshid|ref|ref_src|source)$/i
+export function pageOf(link: string): string {
+  const rest = link.trim().replace(/^https?:\/\/(www\.)?/i, '').replace(/#.*$/, '')
+  const q = rest.indexOf('?')
+  const path = (q < 0 ? rest : rest.slice(0, q)).replace(/\/$/, '')
+  const slash = path.indexOf('/')
+  const page = slash < 0 ? path.toLowerCase() : path.slice(0, slash).toLowerCase() + path.slice(slash) // the host's letters do not matter
+  const params = q < 0 ? [] : rest.slice(q + 1).split('&').filter((p) => p && !TRACKING.test(p.split('=')[0])).sort()
+  return params.length ? `${page}?${params.join('&')}` : page
+}
 
 function jaccard(a: Set<string>, b: Set<string>): number {
   let common = 0
@@ -21,15 +33,30 @@ function jaccard(a: Set<string>, b: Set<string>): number {
 }
 
 // The subject of a headline: its first word ("MICROSOFT 1Q REV…", "WARSH: …", "FED'S WALLER…", "Orlen: …"), unless it is one that
-// starts headlines about anything ("U.S. …", "USA: …", "Spółka …"): a country is one (its data and its markets are different news)
-const NOT_A_SUBJECT = new Set(['u.s', 'us', 'usa', 'u.k', 'uk', 'eu', 'china', 'japan', 'germany', 'europe', 'euro', 'eurozone',
-  'chiny', 'japonia', 'niemcy', 'polska', 'europa', 'strefa', 'the', 'breaking', 'update', 'exclusive', 'watch', 'just', 'alert', 'report', 'reports',
+// starts headlines about anything ("U.S. …", "USA: …", "Spółka …"). A country, a part of the world or what is theirs ("Rosja: …",
+// "RUSSIAN …") is one: its politics, its data and its markets are different news, and an agency starts every dispatch with the country
+const PLACES = ('u.s us usa u.k uk eu china japan germany europe euro eurozone russia ukraine iran israel france italy spain britain england ' +
+  'canada mexico brazil india korea south north saudi turkey türkiye poland switzerland australia taiwan hong singapore netherlands sweden ' +
+  'norway denmark finland austria belgium greece portugal ireland hungary czech romania slovakia lithuania latvia estonia belarus argentina ' +
+  'venezuela egypt qatar uae iraq syria lebanon pakistan indonesia vietnam thailand philippines malaysia nigeria asia africa america united ' +
+  'american russian ukrainian iranian israeli chinese japanese german french italian spanish british european polish canadian mexican ' +
+  'brazilian indian korean turkish swiss australian dutch swedish norwegian saudi ' +
+  'chiny japonia niemcy polska europa strefa rosja ukraina izrael francja włochy hiszpania wielka brytania kanada meksyk brazylia indie ' +
+  'arabia turcja szwajcaria tajwan holandia szwecja norwegia dania finlandia belgia grecja portugalia irlandia węgry czechy rumunia ' +
+  'słowacja litwa łotwa białoruś argentyna wenezuela egipt katar irak liban azja afryka ameryka stany unia').split(' ')
+const NOT_A_SUBJECT = new Set([...PLACES, 'the', 'breaking', 'update', 'exclusive', 'watch', 'just', 'alert', 'report', 'reports',
   'what', 'how', 'why', 'here', 'heres', 'new', 'more', 'some', 'another', 'all', 'most', 'today', 'this', 'these', 'those',
   'spółka', 'spółki', 'zarząd', 'raport', 'komunikat', 'informacja', 'zawiadomienie', 'ogłoszenie', 'uchwała', 'korekta'])
+// A first word that many names share: the subject is the name's next word with it ("BANK PEKAO …" is not "BANK MILLENNIUM …",
+// "Grupa Azoty" not "Grupa Kęty"; after "of", the word after it: "BANK OF JAPAN")
+const SHARED_FIRST = new Set(['bank', 'grupa', 'group'])
 export function subjectOf(title: string): string | null {
-  const m = /^[\s*"'„“«(]*(\p{L}[\p{L}\p{N}&.-]*)/u.exec(title)
+  const m = /^[\s*"'„“«(]*(\p{L}[\p{L}\p{N}&.-]*)(?:\s+(of\s+)?(\p{L}[\p{L}\p{N}&.-]*))?/iu.exec(title)
   const w = m?.[1].toLowerCase().replace(/[.-]+$/, '')
-  return w && w.length >= 3 && !STOP.has(w) && !NOT_A_SUBJECT.has(w) ? w : null
+  if (!w || w.length < 3 || STOP.has(w) || NOT_A_SUBJECT.has(w)) return null
+  if (!SHARED_FIRST.has(w)) return w
+  const next = m?.[3]?.toLowerCase().replace(/[.-]+$/, '')
+  return next ? `${w} ${m![2] ? 'of ' : ''}${next}` : null
 }
 // The headlines of one subject within this long of the first are one story
 const BURST_MS = 60 * 60_000
@@ -47,7 +74,7 @@ export function groupStories<T extends Groupable>(items: T[]): { it: T; words: S
   const byLink = new Map<string, number>()
   const byWord = new Map<string, number[]>()
   kept.forEach((k, i) => {
-    const link = k.it.link ? bare(k.it.link) : ''
+    const link = k.it.link ? pageOf(k.it.link) : ''
     if (link) { const j = byLink.get(link); if (j !== undefined) join(i, j); else byLink.set(link, i) }
     for (const w of k.words) { let l = byWord.get(w); if (!l) byWord.set(w, (l = [])); l.push(i) }
   })
