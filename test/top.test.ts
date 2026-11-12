@@ -15,7 +15,7 @@ function news(source: string, label: string, title: string, hoursAgo: number, ai
 }
 const titles = (s: ReturnType<typeof topStories>) => s.map((x) => x.item.title)
 
-test('the window: only the rated news of the last hours, best first; the newer first when two are rated the same', () => {
+test('the window: only the rated news of the last hours, the most important step first; the newer first within a step', () => {
   const items = [
     news('STOOQ', 'BIZNES', 'Orlen podnosi prognozę wydobycia', 1, 6),
     news('WALTER', 'TELEGRAM', 'FED CUTS RATES BY 25 BPS', 3, 9.5),
@@ -36,7 +36,7 @@ test('the window: only the rated news of the last hours, best first; the newer f
   assert.deepEqual(TOP_HOURS, [4, 8, 12, 24])
 })
 
-test('the same news from several channels is one story, under its best rated headline; more sources decide between two rated the same', () => {
+test('the same news from several channels is one story, under its best rated headline; within a step of the importance the newest story first', () => {
   const items = [
     news('WALTER', 'TELEGRAM', 'BINANCE HALTS WITHDRAWALS AFTER $1.8B HACK', 2, 8),
     news('INVESTINGLIVE', 'WIADOMOŚCI', 'Binance halts withdrawals after $1.8B hack', 1.9, 8.5),
@@ -46,15 +46,15 @@ test('the same news from several channels is one story, under its best rated hea
   ]
   const top = topStories(items, 4, NOW, ['en', 'pl'])
   assert.equal(top.length, 3)
-  assert.equal(top[0].item.title, 'ECB HOLDS RATES', 'the best rated first, however many sources the others have')
-  assert.equal(top[1].item.source, 'INVESTINGLIVE', 'the best rated of the three; above the other 8.5, which has one source')
-  assert.deepEqual(top[1].sources, ['INVESTINGLIVE', 'WALTER', 'SEEKINGALPHA'])
-  assert.equal(top[1].others.length, 2)
-  assert.equal(top[1].ai, 8.5)
-  assert.equal(top[2].item.title, 'KREMLIN AIDE WARNS ON STRIKES DURING HOLIDAY')
+  // all three have the four bars: the newest first, whatever the number behind the bars and however many sources
+  assert.deepEqual(top.map((s) => s.item.title.split(' ')[0]), ['KREMLIN', 'ECB', 'Binance'])
+  assert.equal(top[2].item.source, 'INVESTINGLIVE', 'the best rated of the three headlines of the story')
+  assert.deepEqual(top[2].sources, ['INVESTINGLIVE', 'WALTER', 'SEEKINGALPHA'])
+  assert.equal(top[2].others.length, 2)
+  assert.equal(top[2].ai, 8.5)
 })
 
-test('the order never goes against the colours: a news of a lower step is never above one of a higher, whatever its sources', () => {
+test('the order never goes against the colours, and within a colour never against the clock', () => {
   // as seen on the phone: orange news (7.6) that two channels reported were above red ones (8.0) of one channel
   const items = [
     news('WALTER', 'TELEGRAM', 'UKRAINE REPORTEDLY HALTS STRIKES ON RUSSIAN REFINERIES', 11, 7.6),
@@ -66,9 +66,42 @@ test('the order never goes against the colours: a news of a lower step is never 
     news('INVESTINGLIVE', 'WIADOMOŚCI', 'Ship on fire in the Strait of Hormuz near Oman', 9, 6.5),
   ]
   const top = topStories(items, 24, NOW, ['en', 'pl'])
-  const ratings = top.map((s) => s.ai)
-  assert.deepEqual(ratings, [...ratings].sort((a, b) => b - a))
-  assert.deepEqual(top.map((s) => s.item.title.split(' ')[0]), ['KREMLIN', 'ECB', 'UKRAINE', 'TRUMP', 'Ship'])
+  const levels = top.map((s) => importanceLevel(s.ai))
+  assert.deepEqual(levels, [...levels].sort((a, b) => b - a), 'a lower step is never above a higher one')
+  top.forEach((s, i) => { if (i && levels[i] === levels[i - 1]) assert.ok(s.item.time <= top[i - 1].item.time, `${s.item.title}: older than the one above it`) })
+  assert.deepEqual(top.map((s) => s.item.title.split(' ')[0]), ['ECB', 'KREMLIN', 'TRUMP', 'Ship', 'UKRAINE'])
+})
+
+test('news of the same four bars are in the order of their hours, and a site whose links differ only after "?" is not one story', () => {
+  // as seen on the phone (12 November 2026, 8 hours): three news with four bars at 13:25, 14:47 and 16:10, in that order, then one with
+  // three at 14:17; and under Stooq's news of Putin "Piszą o tym też: WALTER, ESPI, PAP": every Stooq news of the window was one story,
+  // as their links are all "stooq.pl/n/?f=…", and with them whatever any of them was put together with
+  const stooq = (n: number) => ({ link: `https://stooq.pl/n/?f=${1700000 + n}` })
+  const items = [
+    news('WALTER', 'TELEGRAM', 'PUTIN: FOR RUSSIA THERE IS ONLY ONE DEMARCATION LINE WITH UKRAINE, THE STATE BORDER - IFX', 4.6, 9.6),
+    news('INVESTINGLIVE', 'WIADOMOŚCI', "Fed's Hammack: We need to get to restrictive policy to bring inflation down", 3.2, 9.3),
+    news('WALTER', 'TELEGRAM', "FED'S HAMMACK: WE NEED TO GET TO RESTRICTIVE POLICY TO BRING INFLATION DOWN", 3.25, 8.4),
+    news('STOOQ', 'ŚWIAT', 'Rosja: Putin zaproponował misję humanitarną w Konstantynówce na wschodzie Ukrainy', 1.8, 8.8, stooq(1)),
+    news('INVESTINGLIVE', 'WIADOMOŚCI', 'Trump: We do not need a deal with Iran', 3.7, 7.4),
+    news('STOOQ', 'BIZNES', 'Orlen: zysk netto w trzecim kwartale wzrósł o 12 proc.', 5.5, 6.4, stooq(2)),
+    news('ESPI', 'BANKIER', 'ORLEN SA (41/2026) Szacunkowe wyniki za trzeci kwartał', 5.6, 6.1),
+    news('STOOQ', 'KRAJ', 'NBP: stopy procentowe bez zmian', 7, 7.9, stooq(3)),
+    news('STOOQ', 'ŚWIAT', 'Rosja: bank centralny obniżył stopę procentową do 15 proc.', 1.5, 6.6, stooq(4)),
+  ]
+  const top = topStories(items, 8, NOW, ['en', 'pl'])
+  assert.deepEqual(top.map((s) => `${importanceLevel(s.ai)} ${s.item.title.slice(0, 16)}`), [
+    '4 Rosja: Putin zap',  // 1.8 hours ago
+    "4 Fed's Hammack: W",  // 3.2
+    '4 PUTIN: FOR RUSSI',  // 4.6
+    '3 Rosja: bank cent',  // 1.5
+    '3 Trump: We do not',  // 3.7
+    '3 Orlen: zysk nett',  // 5.5
+    '3 NBP: stopy proce',  // 7
+  ])
+  const putin = top[0]
+  assert.deepEqual(putin.sources, ['STOOQ'], 'only its own source: no other Stooq news, and none of what they were put together with')
+  assert.deepEqual(top[1].sources, ['INVESTINGLIVE', 'WALTER'])
+  assert.deepEqual(top.find((s) => s.item.title.startsWith('Orlen'))!.sources, ['STOOQ', 'ESPI'], 'a company\'s news and its report: one story still')
 })
 
 test('news shown in Polish are put together by their text as published; the languages the server rates decide what is in', () => {
