@@ -64,7 +64,7 @@ function Panel({ symbol, dark, charts, online, onCharts }: { symbol: string; dar
   // How tall the page's bar is, and what comes after the table (the footer): the panel fits between them however far the page is scrolled
   const ref = useRef<HTMLElement>(null)
   useLayoutEffect(() => {
-    const el = ref.current, top = document.querySelector<HTMLElement>('.top')
+    const el = ref.current, top = document.querySelector<HTMLElement>('header.top')
     if (!el || !top) return
     const fit = () => {
       const below = document.documentElement.scrollHeight - (el.parentElement!.getBoundingClientRect().bottom + window.scrollY)

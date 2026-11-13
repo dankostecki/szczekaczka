@@ -25,7 +25,7 @@ export default function Top({ stories, hours, onHours, source, sources, onSource
   const list = topList(stories, levels, more)
   const toggle = (l: ImportanceLevel) => { onLevels(levels.includes(l) ? levels.filter((x) => x !== l) : [...levels, l]); setMore(false) }
   return (
-    <section className="top" aria-label="Najważniejsze wiadomości">
+    <section className="top-tab" aria-label="Najważniejsze wiadomości">
       <div className="top-head">
         <div className="chips" role="group" aria-label="Z ostatnich">
           {TOP_HOURS.map((h) => (

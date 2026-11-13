@@ -27,6 +27,7 @@ import type { BriefingPointer } from '@/lib/briefing'
 import type { TopMeta } from '@/lib/protocol'
 import { topStories, type TopStory } from '@/lib/top'
 import Top from './Top'
+import { useHideOnScroll } from './useHideOnScroll'
 
 const READ_KEY  = 'szczekaczka:read'
 const SAVED_KEY = 'szczekaczka:saved'
@@ -312,6 +313,8 @@ export default function App() {
   const activeLabel = label && isSource(activeFilter) && tabLabels(activeFilter).includes(label) ? label : null
   const market = activeFilter === 'MARKET'
   useEffect(() => { if (market) setMarketSeen(true) }, [market])
+  // On a phone or a tablet the bar slides away while the list is scrolled down; not on the market tab (its chart panel is laid out under the bar)
+  const barHidden = useHideOnScroll(ready && !market)
 
   const visible = useMemo(() => {
     const base =
@@ -414,7 +417,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="top">
+      <header className={`top${barHidden ? ' away' : ''}`}>
         <div className="bar wrap">
           <div className="brand">
             <button className="logo" onClick={() => choose('ALL')} title="Wszystkie newsy" aria-label="Wszystkie newsy">
