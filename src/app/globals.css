@@ -318,6 +318,10 @@ button:disabled { cursor: default; opacity: 0.5; }
   height: 30px; max-width: 100%; padding: 0 8px;
   border: 1px solid var(--border); border-radius: 8px; background: var(--bg); font-size: 13px;
 }
+/* The steps of the importance: a chip of bars each, any of them ticked; a ticked one keeps the colours of its bars */
+.top-levels { gap: 6px; }
+.chip.level { padding: 0 11px; }
+.chip.level.on { background: var(--bg-soft); border-color: var(--text); box-shadow: inset 0 0 0 1px var(--text); }
 .top-note { margin: 6px 0 4px; font-size: 13px; line-height: 1.45; color: var(--text-3); }
 .top-more { display: block; margin: 16px auto 0; }
 

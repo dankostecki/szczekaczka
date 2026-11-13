@@ -1,7 +1,7 @@
 // User settings, kept in this browser (localStorage).
 import { FEED_KEYS, SOURCES, orderedSources, renamedKey, type Source } from './sources'
 import { MAX_RECENT } from './market'
-import { DEFAULT_TOP_HOURS, isTopHours } from './top'
+import { DEFAULT_TOP_HOURS, isTopHours, topLevelsOf, type ImportanceLevel } from './top'
 
 export type Theme = 'system' | 'light' | 'dark'
 
@@ -26,6 +26,7 @@ export interface Prefs {
   marketRecent: string[] // the TradingView symbols whose charts were looked at last, newest first
   topHours: number       // the "Top" tab: the news of the last 4, 8, 12 or 24 hours (lib/top.ts)
   topSource: string      // …of one source, or of all ('')
+  topLevels: ImportanceLevel[] // …of these steps of the importance only (the bars ticked), or the most important of every step ([])
   showImportance: boolean // the AI's rating of each news (its step, components/Importance.tsx) in every list, not only in "Top"
   v: number              // the version of the settings: older ones are brought up to date when loaded (PREFS_VERSION)
 }
@@ -56,6 +57,7 @@ export const DEFAULT_PREFS: Prefs = {
   marketRecent: [],
   topHours: DEFAULT_TOP_HOURS,
   topSource: '',
+  topLevels: [],
   showImportance: false,
   v: PREFS_VERSION,
 }
@@ -95,7 +97,8 @@ export function loadPrefs(): Prefs {
       ...p, v: PREFS_VERSION, sourceOrder: orderedSources(p.sourceOrder), charts: p.charts === true,
       marketRecent: Array.isArray(p.marketRecent) ? p.marketRecent.filter((s) => typeof s === 'string').slice(0, MAX_RECENT) : [],
       topHours: isTopHours(p.topHours) ? p.topHours : DEFAULT_TOP_HOURS,
-      topSource: SOURCES.includes(p.topSource as Source) && p.topSource !== 'MACRONEXT' ? p.topSource : '', showImportance: p.showImportance === true,
+      topSource: SOURCES.includes(p.topSource as Source) && p.topSource !== 'MACRONEXT' ? p.topSource : '', topLevels: topLevelsOf(p.topLevels),
+      showImportance: p.showImportance === true,
       hiddenFeeds: existing(p.hiddenFeeds), originalFeeds: existing(p.originalFeeds), knownFeeds: FEED_KEYS,
       leadFeeds: [...existing(p.leadFeeds), ...added.filter((k) => DEFAULT_PREFS.leadFeeds.includes(k) && !p.leadFeeds.includes(k))],
       speakFeeds: [...existing(p.speakFeeds), ...[...added, ...brought].filter((k) => !p.speakFeeds.includes(k))],

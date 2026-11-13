@@ -41,6 +41,19 @@ export function topStories(items: Item[], hours: number, now: number, langs: rea
 // What the tab shows: the `n` most important stories, in the order of their hours, the newest first, whatever their step
 export const topShown = (stories: TopStory[], n: number): TopStory[] => stories.slice(0, n).sort((a, b) => b.item.time - a.item.time)
 
+// The list of the tab, and how many more "Pokaż więcej" would show. No step of the importance chosen: the most important stories, by their
+// hours (TOP_FIRST, then TOP_MORE). Steps chosen (the bars the reader ticked, any of the four): every story of those steps, by their
+// hours, the newest first (TOP_FIRST, then all of them)
+export function topList(stories: TopStory[], levels: readonly ImportanceLevel[], more: boolean): { shown: TopStory[]; more: number } {
+  if (levels.length === 0) {
+    const shown = topShown(stories, more ? TOP_MORE : TOP_FIRST)
+    return { shown, more: Math.min(stories.length, TOP_MORE) - shown.length }
+  }
+  const all = stories.filter((s) => levels.includes(importanceLevel(s.ai))).sort((a, b) => b.item.time - a.item.time)
+  const shown = more ? all : all.slice(0, TOP_FIRST)
+  return { shown, more: all.length - shown.length }
+}
+
 // What the page shows of a rating (0 to 10): one of four steps, by colour, from a quiet news (green) to a very important one (red). The number
 // itself is not shown: the steps say at a glance what a decimal would not
 export const IMPORTANCE = [
@@ -54,3 +67,7 @@ export const importanceLevel = (ai: number): ImportanceLevel => (ai >= 8 ? 4 : a
 export const importanceName = (ai: number) => IMPORTANCE[importanceLevel(ai) - 1].name
 
 export const isTopHours = (n: unknown): n is TopHours => TOP_HOURS.includes(n as TopHours)
+
+// The steps the reader can tick in the tab, the most important first; what is kept of a choice saved before (each once, in that order)
+export const TOP_LEVELS: readonly ImportanceLevel[] = [4, 3, 2, 1]
+export const topLevelsOf = (x: unknown): ImportanceLevel[] => (Array.isArray(x) ? TOP_LEVELS.filter((l) => x.includes(l)) : [])
