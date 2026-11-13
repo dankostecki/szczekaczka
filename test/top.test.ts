@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import type { NewsItem } from '../src/lib/parse'
 import { inLanguage, withTime, type Item } from '../src/lib/news'
 import { loadPrefs, PREFS_KEY } from '../src/lib/prefs'
-import { DEFAULT_TOP_HOURS, IMPORTANCE, importanceLevel, importanceName, TOP_HOURS, topStories } from '../src/lib/top'
+import { DEFAULT_TOP_HOURS, IMPORTANCE, importanceLevel, importanceName, TOP_FIRST, TOP_HOURS, TOP_MORE, topShown, topStories } from '../src/lib/top'
 
 const NOW = Date.parse('2026-10-30T12:00:00Z')
 let n = 0
@@ -15,7 +15,7 @@ function news(source: string, label: string, title: string, hoursAgo: number, ai
 }
 const titles = (s: ReturnType<typeof topStories>) => s.map((x) => x.item.title)
 
-test('the window: only the rated news of the last hours, the most important step first; the newer first within a step', () => {
+test('the window: only the rated news of the last hours, chosen by their rating (the newer first when two are rated the same)', () => {
   const items = [
     news('STOOQ', 'BIZNES', 'Orlen podnosi prognozę wydobycia', 1, 6),
     news('WALTER', 'TELEGRAM', 'FED CUTS RATES BY 25 BPS', 3, 9.5),
@@ -30,13 +30,16 @@ test('the window: only the rated news of the last hours, the most important step
   assert.deepEqual(titles(topStories(items, 4, NOW, ['en', 'pl'])),
     ['FED CUTS RATES BY 25 BPS', 'Orlen podnosi prognozę wydobycia', 'Zawieszenie obrotu akcjami spółki Beta', 'Spółka Alfa: umowa na dostawę części'],
     'Orlen (an hour ago) before the suspension (two hours ago): both rated 6')
+  // shown in the order of their hours, whatever their rating
+  assert.deepEqual(titles(topShown(topStories(items, 4, NOW, ['en', 'pl']), 10)),
+    ['Spółka Alfa: umowa na dostawę części', 'Orlen podnosi prognozę wydobycia', 'Zawieszenie obrotu akcjami spółki Beta', 'FED CUTS RATES BY 25 BPS'])
   assert.deepEqual(titles(topStories(items, 8, NOW, ['en', 'pl'])).slice(0, 2), ['FED CUTS RATES BY 25 BPS', 'Rząd przyjął projekt budżetu'])
   assert.equal(topStories(items, 12, NOW, ['en', 'pl']).length, 6)
   assert.equal(topStories(items, 24, NOW, ['en', 'pl']).length, 6, 'a news older than a day is not there (the server keeps a day)')
   assert.deepEqual(TOP_HOURS, [4, 8, 12, 24])
 })
 
-test('the same news from several channels is one story, under its best rated headline; within a step of the importance the newest story first', () => {
+test('the same news from several channels is one story, under its best rated headline', () => {
   const items = [
     news('WALTER', 'TELEGRAM', 'BINANCE HALTS WITHDRAWALS AFTER $1.8B HACK', 2, 8),
     news('INVESTINGLIVE', 'WIADOMOŚCI', 'Binance halts withdrawals after $1.8B hack', 1.9, 8.5),
@@ -46,16 +49,16 @@ test('the same news from several channels is one story, under its best rated hea
   ]
   const top = topStories(items, 4, NOW, ['en', 'pl'])
   assert.equal(top.length, 3)
-  // all three have the four bars: the newest first, whatever the number behind the bars and however many sources
-  assert.deepEqual(top.map((s) => s.item.title.split(' ')[0]), ['KREMLIN', 'ECB', 'Binance'])
-  assert.equal(top[2].item.source, 'INVESTINGLIVE', 'the best rated of the three headlines of the story')
-  assert.deepEqual(top[2].sources, ['INVESTINGLIVE', 'WALTER', 'SEEKINGALPHA'])
-  assert.equal(top[2].others.length, 2)
-  assert.equal(top[2].ai, 8.5)
+  assert.deepEqual(top.map((s) => s.item.title.split(' ')[0]), ['ECB', 'KREMLIN', 'Binance'], 'chosen by the rating: of two rated 8.5, the newer first')
+  const binance = top[2]
+  assert.equal(binance.item.source, 'INVESTINGLIVE', 'the best rated of the three headlines of the story')
+  assert.deepEqual(binance.sources, ['INVESTINGLIVE', 'WALTER', 'SEEKINGALPHA'])
+  assert.equal(binance.others.length, 2)
+  assert.equal(binance.ai, 8.5)
+  assert.deepEqual(topShown(top, 10).map((s) => s.item.title.split(' ')[0]), ['KREMLIN', 'ECB', 'Binance'], 'shown: the newest first')
 })
 
-test('the order never goes against the colours, and within a colour never against the clock', () => {
-  // as seen on the phone: orange news (7.6) that two channels reported were above red ones (8.0) of one channel
+test('the most important stories are chosen, and shown in the order of their hours, whatever their step: the newest first', () => {
   const items = [
     news('WALTER', 'TELEGRAM', 'UKRAINE REPORTEDLY HALTS STRIKES ON RUSSIAN REFINERIES', 11, 7.6),
     news('INVESTINGLIVE', 'WIADOMOŚCI', 'Ukraine reportedly halts strikes on Russian refineries', 10.9, 7.4),
@@ -64,15 +67,22 @@ test('the order never goes against the colours, and within a colour never agains
     news('INVESTINGLIVE', 'WIADOMOŚCI', 'Trump says US military operations against Iran going very well', 0.9, 6.8),
     news('WALTER', 'TELEGRAM', 'KREMLIN AIDE SAYS MASS UKRAINIAN STRIKES COULD AFFECT TALKS', 5, 8.2),
     news('INVESTINGLIVE', 'WIADOMOŚCI', 'Ship on fire in the Strait of Hormuz near Oman', 9, 6.5),
+    news('PAP', 'BIZNES', 'Spółka Gamma podpisała list intencyjny', 2, 3.1),
   ]
   const top = topStories(items, 24, NOW, ['en', 'pl'])
-  const levels = top.map((s) => importanceLevel(s.ai))
-  assert.deepEqual(levels, [...levels].sort((a, b) => b - a), 'a lower step is never above a higher one')
-  top.forEach((s, i) => { if (i && levels[i] === levels[i - 1]) assert.ok(s.item.time <= top[i - 1].item.time, `${s.item.title}: older than the one above it`) })
-  assert.deepEqual(top.map((s) => s.item.title.split(' ')[0]), ['ECB', 'KREMLIN', 'TRUMP', 'Ship', 'UKRAINE'])
+  assert.deepEqual(top.map((s) => s.item.title.split(' ')[0]), ['KREMLIN', 'ECB', 'UKRAINE', 'TRUMP', 'Ship', 'Spółka'], 'the order of the choice: the rating')
+  // the four most important, by their hours: the quiet news (2 hours ago) and the ship on fire are not chosen
+  const shown = topShown(top, 4)
+  assert.deepEqual(shown.map((s) => s.item.title.split(' ')[0]), ['TRUMP', 'ECB', 'KREMLIN', 'UKRAINE'])
+  shown.forEach((s, i) => { if (i) assert.ok(s.item.time <= shown[i - 1].item.time, `${s.item.title}: not newer than the one above it`) })
+  assert.deepEqual(topShown(top, 4).map((s) => importanceLevel(s.ai)), [3, 4, 4, 3], 'the steps as they come, not grouped')
+  // "Pokaż więcej": more of them, still by their hours; the tab's sizes
+  assert.deepEqual(topShown(top, 25).map((s) => s.item.title.split(' ')[0]), ['TRUMP', 'Spółka', 'ECB', 'KREMLIN', 'Ship', 'UKRAINE'])
+  assert.deepEqual([TOP_FIRST, TOP_MORE], [10, 25])
+  assert.equal(top.length, 6, 'the choice leaves the list of the window as it was')
 })
 
-test('news of the same four bars are in the order of their hours, and a site whose links differ only after "?" is not one story', () => {
+test('the stories shown are in the order of their hours, and a site whose links differ only after "?" is not one story', () => {
   // as seen on the phone (12 November 2026, 8 hours): three news with four bars at 13:25, 14:47 and 16:10, in that order, then one with
   // three at 14:17; and under Stooq's news of Putin "Piszą o tym też: WALTER, ESPI, PAP": every Stooq news of the window was one story,
   // as their links are all "stooq.pl/n/?f=…", and with them whatever any of them was put together with
@@ -89,18 +99,19 @@ test('news of the same four bars are in the order of their hours, and a site who
     news('STOOQ', 'ŚWIAT', 'Rosja: bank centralny obniżył stopę procentową do 15 proc.', 1.5, 6.6, stooq(4)),
   ]
   const top = topStories(items, 8, NOW, ['en', 'pl'])
-  assert.deepEqual(top.map((s) => `${importanceLevel(s.ai)} ${s.item.title.slice(0, 16)}`), [
-    '4 Rosja: Putin zap',  // 1.8 hours ago
+  // the newest first, whatever the bars (the screenshot's order once again: 16:10, 14:47, 14:17, 13:25)
+  assert.deepEqual(topShown(top, 10).map((s) => `${importanceLevel(s.ai)} ${s.item.title.slice(0, 16)}`), [
+    '3 Rosja: bank cent',  // 1.5 hours ago
+    '4 Rosja: Putin zap',  // 1.8
     "4 Fed's Hammack: W",  // 3.2
-    '4 PUTIN: FOR RUSSI',  // 4.6
-    '3 Rosja: bank cent',  // 1.5
     '3 Trump: We do not',  // 3.7
+    '4 PUTIN: FOR RUSSI',  // 4.6
     '3 Orlen: zysk nett',  // 5.5
     '3 NBP: stopy proce',  // 7
   ])
-  const putin = top[0]
+  const putin = top.find((s) => s.item.title.startsWith('Rosja: Putin'))!
   assert.deepEqual(putin.sources, ['STOOQ'], 'only its own source: no other Stooq news, and none of what they were put together with')
-  assert.deepEqual(top[1].sources, ['INVESTINGLIVE', 'WALTER'])
+  assert.deepEqual(top.find((s) => s.item.title.startsWith("Fed's Hammack"))!.sources, ['INVESTINGLIVE', 'WALTER'])
   assert.deepEqual(top.find((s) => s.item.title.startsWith('Orlen'))!.sources, ['STOOQ', 'ESPI'], 'a company\'s news and its report: one story still')
 })
 
