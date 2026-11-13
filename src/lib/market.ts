@@ -16,6 +16,7 @@ export interface Instrument {
 export const MARKET_GROUPS: { name: string; items: Instrument[] }[] = [
   { name: 'Waluty', items: [
     { symbol: 'CMCMARKETS:EURUSD', name: 'EUR/USD' },
+    { symbol: 'CMCMARKETS:USDJPY', name: 'USD/JPY', also: 'jen' },
     { symbol: 'CMCMARKETS:USDPLN', name: 'USD/PLN', also: 'dolar' },
     { symbol: 'CMCMARKETS:EURPLN', name: 'EUR/PLN', also: 'euro' },
     { symbol: 'CMCMARKETS:CHFPLN', name: 'CHF/PLN', also: 'frank' },
@@ -98,7 +99,7 @@ const MORE: Instrument[] = [
   { symbol: 'TVC:DXY', name: 'Indeks dolara', note: 'DXY', also: 'DXY dollar' },
   { symbol: 'TVC:VIX', name: 'VIX', note: 'zmienność S&P 500', also: 'indeks strachu' },
   ...[
-    ['USDJPY', 'USD/JPY', 'jen'], ['GBPUSD', 'GBP/USD'], ['USDCHF', 'USD/CHF'], ['EURCHF', 'EUR/CHF'], ['EURGBP', 'EUR/GBP'], ['JPYPLN', 'JPY/PLN'],
+    ['GBPUSD', 'GBP/USD'], ['USDCHF', 'USD/CHF'], ['EURCHF', 'EUR/CHF'], ['EURGBP', 'EUR/GBP'], ['JPYPLN', 'JPY/PLN'],
     ['NOKPLN', 'NOK/PLN'], ['SEKPLN', 'SEK/PLN'], ['CZKPLN', 'CZK/PLN', 'korona'], ['HUFPLN', 'HUF/PLN', 'forint'], ['CADPLN', 'CAD/PLN'], ['AUDPLN', 'AUD/PLN'],
   ].map(([t, name, also]) => ({ symbol: `FX_IDC:${t}`, name, also })),
   { symbol: 'CMCMARKETS:USCRUDEOIL', name: 'Ropa WTI', note: 'USD za baryłkę', also: 'oil USOIL' },
