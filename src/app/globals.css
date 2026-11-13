@@ -120,7 +120,10 @@ button:disabled { cursor: default; opacity: 0.5; }
   position: sticky; top: 0; z-index: 10;
   background: var(--header);
   border-bottom: 1px solid var(--border);
+  transition: transform 0.25s ease;
 }
+/* Scrolled down on a phone or a tablet (useHideOnScroll): the bar slides away, and back on the way up */
+.top.away { transform: translateY(-100%); box-shadow: none; }
 
 .bar { display: flex; align-items: center; gap: 12px; height: 60px; }
 
