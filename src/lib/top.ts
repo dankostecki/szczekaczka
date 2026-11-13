@@ -1,9 +1,8 @@
 // The "Top" tab: the most important news of the last hours, by the rating of a model of Workers AI (NewsItem.ai, worker/rate.ts). The same
-// news from several channels is one story (lib/stories.ts, as in the morning briefing), under its best rated headline. The order is what the
-// page shows: the step of the importance (the four bars), the most important first, and within a step the newest first. The number behind
-// the bars is not shown, so an order by it looked like hours thrown about among news of the same four bars; a bonus for the sources once
-// put a news of a lower step above one of a higher. Worked out here, from the list the page already has: no request of its own, and it
-// works without the network.
+// news from several channels is one story (lib/stories.ts, as in the morning briefing), under its best rated headline. The rating chooses
+// which stories are shown (the most important ones of the window, topStories); they are shown in the order of their hours, the newest
+// first, whatever their step of the importance (topShown): an order by the rating, or by the step and then the hour, read as hours thrown
+// about. Worked out here, from the list the page already has: no request of its own, and it works without the network.
 import { groupStories } from './stories'
 import { langOf, type Lang } from './sources'
 import { originalOf, type Item } from './news'
@@ -18,11 +17,12 @@ export interface TopStory {
   item: Item        // the best rated headline of the story, as the page shows it
   others: Item[]    // the story's other headlines, best rated first
   sources: string[] // its sources, the item's first
-  ai: number        // the item's rating, 0 to 10: what the order goes by
+  ai: number        // the item's rating, 0 to 10: what the choice of the stories goes by
 }
 
 // `items`: the news as the page shows them (in the language chosen, without the channels switched off or the other sources); `langs`: the
-// languages of the channels the server rates (a channel in another one has old ratings at most, from before it was switched off)
+// languages of the channels the server rates (a channel in another one has old ratings at most, from before it was switched off).
+// The stories of the window, the most important first: the order they are chosen in (of two rated the same, the newer)
 export function topStories(items: Item[], hours: number, now: number, langs: readonly Lang[]): TopStory[] {
   const from = now - hours * 3600_000
   const rated = items.filter((i) => typeof i.ai === 'number' && i.time >= from && i.time <= now + 5 * 60_000 && langs.includes(langOf(i.source, i.label)))
@@ -35,8 +35,11 @@ export function topStories(items: Item[], hours: number, now: number, langs: rea
       const sources = [...new Set(news.map((n) => n.source))]
       return { item, others, sources, ai: item.ai! }
     })
-    .sort((a, b) => importanceLevel(b.ai) - importanceLevel(a.ai) || b.item.time - a.item.time || b.ai - a.ai)
+    .sort((a, b) => b.ai - a.ai || b.item.time - a.item.time)
 }
+
+// What the tab shows: the `n` most important stories, in the order of their hours, the newest first, whatever their step
+export const topShown = (stories: TopStory[], n: number): TopStory[] => stories.slice(0, n).sort((a, b) => b.item.time - a.item.time)
 
 // What the page shows of a rating (0 to 10): one of four steps, by colour, from a quiet news (green) to a very important one (red). The number
 // itself is not shown: the steps say at a glance what a decimal would not

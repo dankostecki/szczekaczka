@@ -2,10 +2,10 @@
 
 import { useState, type ReactNode } from 'react'
 import { sourceName, type Source } from '@/lib/sources'
-import { TOP_FIRST, TOP_HOURS, TOP_MORE, type TopHours, type TopStory } from '@/lib/top'
+import { TOP_FIRST, TOP_HOURS, TOP_MORE, topShown, type TopHours, type TopStory } from '@/lib/top'
 
 interface Props {
-  stories: TopStory[]           // all of the window, best first (lib/top.ts)
+  stories: TopStory[]           // all of the window, the most important first (lib/top.ts)
   hours: number
   onHours: (h: TopHours) => void
   source: string                // '' all of them
@@ -16,10 +16,10 @@ interface Props {
   row: (story: TopStory) => ReactNode
 }
 
-// The "Top" tab: the hours and the source to look at, what the order means, the best stories of the window
+// The "Top" tab: the hours and the source to look at, what the list is, the most important stories of the window in the order of their hours
 export default function Top({ stories, hours, onHours, source, sources, onSource, englishOnly, loaded, row }: Props) {
   const [more, setMore] = useState(false)
-  const shown = stories.slice(0, more ? TOP_MORE : TOP_FIRST)
+  const shown = topShown(stories, more ? TOP_MORE : TOP_FIRST)
   return (
     <section className="top" aria-label="Najważniejsze wiadomości">
       <div className="top-head">
@@ -36,7 +36,7 @@ export default function Top({ stories, hours, onHours, source, sources, onSource
         </select>
       </div>
       <p className="top-note">
-        Kolejność ustala sztuczna inteligencja: ocenia, jak ważna jest każda wiadomość dla inwestora. Może się mylić.
+        Najważniejsze wiadomości wybiera sztuczna inteligencja: ocenia, jak ważna jest każda z nich dla inwestora. Może się mylić. Są ułożone od najnowszej.
         {englishOnly && ' Oceniane są tylko wiadomości z kanałów po angielsku.'}
       </p>
       {loaded && shown.length === 0 && (
