@@ -2,6 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { instrumentsIn, MAX_QUOTED, newsInstruments } from '../src/lib/news-instruments'
+import { INSTRUMENTS, MARKET_GROUPS, suggest } from '../src/lib/market'
 
 const OIL = ['CMCMARKETS:UKCRUDEOIL', 'CMCMARKETS:USCRUDEOIL']
 const news = (title: string, description = '', source = 'WALTER') => ({ title, description, source })
@@ -56,4 +57,13 @@ test('only the channels that have quotes: the topic does not add them to a chann
   assert.deepEqual(newsInstruments({ ...news('Iran war: strikes', '', 'PAP'), pl: null }, false), OIL)
   assert.deepEqual(newsInstruments({ ...news('Iran war: strikes', '', 'ESPI'), pl: null }, false), [])
   assert.deepEqual(newsInstruments({ ...news('Iran war: strikes', '', 'MACRONEXT'), pl: null }, false), [])
+})
+
+test('USD/JPY is in the table of the market tab, from CMC: a news naming the pair, and the symbol field, point to it', () => {
+  assert.ok(MARKET_GROUPS.find((g) => g.name === 'Waluty')!.items.some((i) => i.symbol === 'CMCMARKETS:USDJPY'))
+  assert.deepEqual(instrumentsIn(['USD/JPY rises above 155 after the BOJ decision']), ['CMCMARKETS:USDJPY'])
+  assert.deepEqual(instrumentsIn(['Jen najsłabszy od lipca, USDJPY powyżej 155']), ['CMCMARKETS:USDJPY'])
+  assert.equal(suggest('jen')[0].symbol, 'CMCMARKETS:USDJPY')
+  assert.equal(suggest('usdjpy')[0].symbol, 'CMCMARKETS:USDJPY')
+  assert.equal(INSTRUMENTS.filter((i) => i.name === 'USD/JPY').length, 1, 'once: not also from another provider')
 })
