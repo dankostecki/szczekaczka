@@ -2,6 +2,7 @@
 import type { NewsItem } from './parse'
 import { fixOrdinals } from './ordinals'
 import { fixRatings } from './ratings'
+import { fixPeriods } from './periods'
 import { SOURCES, feedKey, labelsOf, sourceName, type Source } from './sources'
 
 export interface Item extends NewsItem {
@@ -22,7 +23,9 @@ const originals = new WeakMap<Item, Item>()
 export function inLanguage(it: Item, originalFeeds: string[]): Item {
   if (!it.pl || originalFeeds.includes(keyOf(it))) return it
   const { title, description, body } = it.pl
-  const fix = (s: string) => fixRatings(fixOrdinals(s))
+  // the slips of the translation model that rules put right, also in the translations kept from before the rules (the periods by the original)
+  const original = [it.title, it.body || it.description].filter(Boolean).join('\n')
+  const fix = (s: string) => fixPeriods(fixRatings(fixOrdinals(s)), original)
   const shown: Item = { ...it, title: fix(title), description: fix(description), body: body && fix(body), translated: true }
   originals.set(shown, it)
   return shown

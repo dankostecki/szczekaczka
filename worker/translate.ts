@@ -4,6 +4,7 @@
 import type { NewsItem } from '../src/lib/parse'
 import { fixOrdinals } from '../src/lib/ordinals'
 import { fixRatings } from '../src/lib/ratings'
+import { fixPeriods } from '../src/lib/periods'
 import type { CheckResult } from './feeds'
 
 export const MODEL = '@cf/google/gemma-4-26b-a4b-it'
@@ -23,6 +24,7 @@ Zasady:
 - Tickery (np. $NVDA) oraz nazwy spółek, funduszy i osób zostaw w oryginalnej pisowni; nazwy spółek możesz odmieniać (akcje Nvidii). Instytucje z przyjętą polską nazwą nazywaj po polsku: Fed, EBC, Bank Japonii, Biały Dom, Departament Skarbu USA, Kongres.
 - Liczby po polsku: przecinek dziesiętny (0.3% → 0,3%); B lub BLN → mld, M lub MLN → mln, T lub TLN → bln, K → tys., BPS → pb; M/M → m/m, Y/Y → r/r, Q/Q → k/k. Kwoty w dolarach: $5B → 5 mld USD.
 - EST. lub EXP. (prognoza rynku) → „prognoza”, PREV. lub PRIOR → „poprzednio”.
+- Okresy: DAY to dni, WEEK to tygodnie, MONTH to miesiące, YEAR to lata; nie myl ich. THREE-MONTH LOW → najniższy poziom od trzech miesięcy (nie „trzyletnie minimum”), SIX-WEEK HIGH → najwyżej od sześciu tygodni, 52-WEEK HIGH → najwyżej od 52 tygodni, 10-YEAR YIELD → rentowność 10-letnich obligacji, MULTI-MONTH → od kilku miesięcy.
 - Liczebniki porządkowe pisz poprawnie po polsku i odmieniaj je przez przypadki: seventh straight session → siódma sesja z rzędu (w siódmej sesji z rzędu), eighth → ósmy, fifth → piąty, 10th → dziesiąty.
 - Rekomendacje analityków tłumacz tak jak polskie domy maklerskie, małymi literami w cudzysłowie „…”: Buy → „kupuj”, Strong Buy → „zdecydowanie kupuj”, Accumulate/Add → „akumuluj”, Hold → „trzymaj”, Neutral → „neutralnie”, Reduce → „redukuj”, Sell → „sprzedaj”, Strong Sell → „zdecydowanie sprzedaj”, Overweight → „przeważaj”, Equal-weight/Market Weight → „neutralnie”, Underweight → „niedoważaj”, Outperform → „lepiej niż rynek”, Market Perform/In-Line → „zgodnie z rynkiem”, Underperform → „gorzej niż rynek”, Sector Perform → „zgodnie z sektorem”. Nigdy dosłownie („ponad wagę”, „nadwaga”, „równa waga”). Upgrade → podnosi rekomendację, downgrade → obniża rekomendację, initiates at Buy → rozpoczyna wydawanie rekomendacji od „kupuj”, reiterates/maintains → podtrzymuje, PT/price target → cena docelowa.
 - Overweight, underweight i trim jako działanie inwestorów: przeważają, niedoważają, redukują (fundusze przeważają akcje, redukują pozycję w obligacjach).
@@ -36,6 +38,7 @@ const EXAMPLES: [en: string, pl: string][] = [
   ["FED'S WALLER: RATE CUTS SHOULD BE GRADUAL", 'Waller z Fed: obniżki stóp powinny być stopniowe'],
   ['FMC downgraded at Jefferies as visibility deteriorates again with guidance cut\nJefferies cut FMC (NYSE:FMC) to Hold from Buy and lowered its price target to $20 from $35.', 'Jefferies obniża rekomendację FMC: widoczność znów się pogarsza po cięciu prognoz\nJefferies obniżył rekomendację dla FMC (NYSE:FMC) do „trzymaj” z „kupuj” i zmniejszył cenę docelową do 20 USD z 35 USD.'],
   ['TRUMP: WE WILL IMPOSE 25% TARIFFS ON $50B OF CHINESE IMPORTS', 'Trump: nałożymy 25% cła na import z Chin o wartości 50 mld USD'],
+  ['US 10-YEAR YIELD FALLS TO THREE-MONTH LOW; DOLLAR AT SIX-WEEK HIGH', 'Rentowność 10-letnich obligacji USA spada do najniższego poziomu od trzech miesięcy; dolar najwyżej od sześciu tygodni'],
   ['Coca-Cola shares rise for a seventh straight session as investors favor defensive stocks', 'Akcje Coca-Coli rosną siódmą sesję z rzędu, bo inwestorzy wybierają spółki defensywne'],
   ['$NVDA - MORGAN STANLEY UPGRADES NVIDIA TO OVERWEIGHT FROM EQUAL-WEIGHT; PT $250', '$NVDA - Morgan Stanley podnosi rekomendację dla Nvidii do „przeważaj” z „neutralnie”; cena docelowa 250 USD'],
   ['Barclays cuts Tesla to Underweight, sees Outperform rating at peers unjustified', 'Barclays obniża rekomendację dla Tesli do „niedoważaj”, rekomendacje „lepiej niż rynek” dla konkurentów uważa za nieuzasadnione'],
@@ -46,9 +49,10 @@ type Text = { title: string; description: string; body?: string }
 // What the model is given: the title, and the lead on the next line; a post with lines (a list) in the lines it has them, so that the translation keeps them
 export const sourceText = (it: Text) => (it.body ? `${it.title}\n${it.body}` : it.description ? `${it.title}\n${it.description}` : it.title)
 
-// The model's answer as a title and a lead, or null when it is not a translation (empty, or far longer than the post)
+// The model's answer as a title and a lead, or null when it is not a translation (empty, or far longer than the post). Its slips that
+// rules can put right are put right: ordinals, analysts' ratings, periods of time (by the original's)
 export function readTranslation(out: string | null | undefined, src: Text): Text | null {
-  const text = fixRatings(fixOrdinals((out ?? '').replace(/<think>[\s\S]*?<\/think>/g, '').replace(/^\s*(?:tłumaczenie|translation)\s*:\s*/i, '').replace(/\*\*/g, '').trim()))
+  const text = fixPeriods(fixRatings(fixOrdinals((out ?? '').replace(/<think>[\s\S]*?<\/think>/g, '').replace(/^\s*(?:tłumaczenie|translation)\s*:\s*/i, '').replace(/\*\*/g, '').trim())), sourceText(src))
   const lines = text.split(/\n+/).map((l) => l.trim().replace(/^["„“](.*)["”“]$/, '$1').trim()).filter(Boolean)
   if (lines.length === 0) return null
   // a post without a lead is one title, however the answer is cut
