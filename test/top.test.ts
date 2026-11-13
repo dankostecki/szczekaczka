@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import type { NewsItem } from '../src/lib/parse'
 import { inLanguage, withTime, type Item } from '../src/lib/news'
 import { loadPrefs, PREFS_KEY } from '../src/lib/prefs'
-import { DEFAULT_TOP_HOURS, IMPORTANCE, importanceLevel, importanceName, TOP_FIRST, TOP_HOURS, TOP_MORE, topShown, topStories } from '../src/lib/top'
+import { DEFAULT_TOP_HOURS, IMPORTANCE, importanceLevel, importanceName, TOP_FIRST, TOP_HOURS, TOP_LEVELS, TOP_MORE, topList, topShown, topStories } from '../src/lib/top'
 
 const NOW = Date.parse('2026-10-30T12:00:00Z')
 let n = 0
@@ -141,6 +141,14 @@ test('a rating as the page shows it: four steps, from a quiet news to a very imp
     assert.deepEqual([loadPrefs().topHours, loadPrefs().topSource], [DEFAULT_TOP_HOURS, ''], 'what the tab does not have: the defaults')
     store.set(PREFS_KEY, JSON.stringify({ topSource: 'NOWHERE' }))
     assert.equal(loadPrefs().topSource, '')
+    // the steps of the importance ticked: kept, each once, the most important first; nothing else
+    assert.deepEqual(loadPrefs().topLevels, [], 'none ticked at first')
+    store.set(PREFS_KEY, JSON.stringify({ topLevels: [3, 4, 3] }))
+    assert.deepEqual(loadPrefs().topLevels, [4, 3])
+    store.set(PREFS_KEY, JSON.stringify({ topLevels: [5, 0, '4', 2] }))
+    assert.deepEqual(loadPrefs().topLevels, [2])
+    store.set(PREFS_KEY, JSON.stringify({ topLevels: 'all' }))
+    assert.deepEqual(loadPrefs().topLevels, [])
     // the importance in every list: off until the reader switches it on
     assert.equal(loadPrefs().showImportance, false)
     store.set(PREFS_KEY, JSON.stringify({ showImportance: true }))
@@ -150,4 +158,37 @@ test('a rating as the page shows it: four steps, from a quiet news to a very imp
   } finally {
     delete (globalThis as { localStorage?: unknown }).localStorage
   }
+})
+
+test('the steps of the importance ticked: every story of those steps, the newest first; none ticked, the most important ones', () => {
+  // 30 stories in 24 hours, one every 45 minutes, each of another company (one story each): steps 4, 3, 2, 1 in turn (9.0, 7.0, 5.0, 2.0, a
+  // little less as they get older)
+  const steps = [9, 7, 5, 2]
+  const items = Array.from({ length: 30 }, (_, i) => news('WALTER', 'TELEGRAM', `FIRM${i} REPORTS ${'XYZW'[i % 4]} RESULTS ${i}`, 0.5 + i * 0.75, steps[i % 4] - i / 100))
+  const top = topStories(items, 24, NOW, ['en', 'pl'])
+  const hoursAgo = (s: { item: { time: number } }) => Math.round((NOW - s.item.time) / 360_000) / 10
+  // only the four bars: all eight of them (fewer than TOP_FIRST), the newest first
+  const red = topList(top, [4], false)
+  assert.equal(red.shown.length, 8)
+  assert.ok(red.shown.every((s) => importanceLevel(s.ai) === 4))
+  assert.deepEqual(red.shown.map(hoursAgo), [0.5, 3.5, 6.5, 9.5, 12.5, 15.5, 18.5, 21.5])
+  assert.equal(red.more, 0)
+  // four and three bars together: sixteen, ten at first, the rest after "Pokaż więcej", by the hour whatever the step
+  const two = topList(top, [4, 3], false)
+  assert.equal(two.shown.length, TOP_FIRST)
+  assert.equal(two.more, 6)
+  assert.deepEqual(two.shown.map((s) => importanceLevel(s.ai)), [4, 3, 4, 3, 4, 3, 4, 3, 4, 3])
+  const all = topList(top, [3, 4], true)
+  assert.equal(all.shown.length, 16)
+  assert.equal(all.more, 0)
+  all.shown.forEach((s, i) => { if (i) assert.ok(s.item.time <= all.shown[i - 1].item.time) })
+  // a step with nothing in the window: nothing
+  assert.deepEqual(topList(topStories(items.slice(0, 3), 24, NOW, ['en', 'pl']), [1], false).shown, [])
+  // none ticked: the most important ones, by the hour (10, then 25)
+  const chosen = topList(top, [], false)
+  assert.equal(chosen.shown.length, TOP_FIRST)
+  assert.ok(chosen.shown.every((s) => importanceLevel(s.ai) === 4 || importanceLevel(s.ai) === 3), 'the ten best rated: the red ones and the orange')
+  assert.equal(chosen.more, TOP_MORE - TOP_FIRST)
+  assert.equal(topList(top, [], true).shown.length, TOP_MORE)
+  assert.deepEqual(TOP_LEVELS, [4, 3, 2, 1])
 })

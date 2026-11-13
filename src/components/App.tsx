@@ -563,6 +563,7 @@ export default function App() {
         {topTab && (
           <Top stories={stories} hours={prefs.topHours} onHours={(h) => updatePrefs({ topHours: h })}
             source={topSource ?? ''} sources={topSources} onSource={(src) => updatePrefs({ topSource: src })}
+            levels={prefs.topLevels} onLevels={(l) => updatePrefs({ topLevels: l })}
             englishOnly={!top.langs.includes('pl')} loaded={loaded}
             row={(story: TopStory) => {
               const it = story.item
