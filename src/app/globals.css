@@ -16,7 +16,7 @@
   /* the four steps of a news' importance (components/Importance.tsx): quiet, moderate, important, very important */
   --imp-1: #16a34a; --imp-2: #b87d03; --imp-3: #ea580c; --imp-4: #dc2626;
   --seg-track: var(--bg-soft); --seg-on: var(--surface); /* a choice of a few (the theme): its track and the one chosen */
-  --header: rgba(255, 255, 255, 0.86);
+  --header: #ffffff; /* opaque: a see-through bar with a blur let the news show through it on some phones */
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.14);
   --src-espi: #4f46e5;
   --src-gpw: #15803d;
@@ -46,7 +46,7 @@
     --fresh: rgba(255, 99, 105, 0.08);
     --imp-1: #22c55e; --imp-2: #eab308; --imp-3: #fb923c; --imp-4: #f87171;
     --seg-track: #111113; --seg-on: #2b2b30;
-    --header: rgba(17, 17, 19, 0.86);
+    --header: #111113;
     --shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
     --src-espi: #9b9cfa;
     --src-gpw: #4ade80;
@@ -76,7 +76,7 @@
   --fresh: rgba(255, 99, 105, 0.08);
   --imp-1: #22c55e; --imp-2: #eab308; --imp-3: #fb923c; --imp-4: #f87171;
   --seg-track: #111113; --seg-on: #2b2b30;
-  --header: rgba(17, 17, 19, 0.86);
+  --header: #111113;
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
   --src-espi: #9b9cfa;
   --src-gpw: #4ade80;
@@ -119,8 +119,6 @@ button:disabled { cursor: default; opacity: 0.5; }
 .top {
   position: sticky; top: 0; z-index: 10;
   background: var(--header);
-  backdrop-filter: saturate(180%) blur(14px);
-  -webkit-backdrop-filter: saturate(180%) blur(14px);
   border-bottom: 1px solid var(--border);
 }
 
@@ -240,7 +238,7 @@ button:disabled { cursor: default; opacity: 0.5; }
 .search button { display: grid; place-items: center; color: var(--text-3); }
 
 /* ── List ──────────────────────────────────────────────────────────────── */
-.list { padding-top: 4px; padding-bottom: 80px; }
+.list { padding-top: 4px; padding-bottom: 80px; position: relative; z-index: 0; } /* the list is one layer, under the bar above it, whatever its rows draw */
 
 .day {
   margin: 22px 0 2px; font-size: 12.5px; font-weight: 600;
