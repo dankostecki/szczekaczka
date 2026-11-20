@@ -71,3 +71,15 @@ test('kept in parts small enough for a row of SQLite, put back together as it wa
   assert.equal(parts.join(''), json)
   assert.deepEqual(partsOf(''), [''])
 })
+
+test('a file made after 8:30 (after a deploy) still holds the 24 hours up to 8:30, not up to the moment it was made', () => {
+  const at830 = Date.parse('2026-11-20T07:30:00Z')
+  const later = Date.parse('2026-11-20T09:40:00Z')
+  const item = (id: string, iso: string): NewsItem => ({ id, title: id, description: '', link: `https://t.me/x/${id}`, pubDate: iso, source: 'WALTER', label: 'TELEGRAM', ai: 9 })
+  const feeds = new Map([['WALTER:TELEGRAM', state([item('after', '2026-11-20T08:00:00Z'), item('before', '2026-11-20T07:00:00Z'), item('day-before', '2026-11-19T07:40:00Z'), item('too-old', '2026-11-19T07:20:00Z')])]])
+  const d = JSON.parse(buildDigest(feeds, later, at830))
+  assert.deepEqual(d.news.map((n: { id: string }) => n.id), ['before', 'day-before'])
+  assert.equal(d.window.to, '2026-11-20T07:30:00.000Z')
+  assert.equal(d.window.toWarsaw, '2026-11-20 08:30')
+  assert.equal(d.generatedAt, '2026-11-20T09:40:00.000Z')
+})
