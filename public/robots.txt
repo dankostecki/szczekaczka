@@ -2,7 +2,13 @@
 User-agent: *
 Disallow: /
 
-# Jedyny wyjątek: ChatGPT, gdy użytkownik sam poda mu adres materiału dla porannego przeglądu, tylko ten jeden adres
+# Wyjątki: ChatGPT, gdy użytkownik sam poda mu adres materiału dla porannego przeglądu albo pliku technicznego, tylko te adresy
 User-agent: ChatGPT-User
 Allow: /api/briefing/pack.md$
+Allow: /api/digest.json$
+Disallow: /
+
+# Plik techniczny z wiadomościami z 24 godzin (/api/digest.json), dla asystenta, któremu właściciel poda adres
+User-agent: Claude-User
+Allow: /api/digest.json$
 Disallow: /

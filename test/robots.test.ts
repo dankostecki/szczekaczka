@@ -17,3 +17,14 @@ test('ChatGPT may open the pack and nothing else; every other robot, AI crawlers
     assert.equal(allowed(agent, '/'), false, agent)
   }
 })
+
+test('the technical file of the last 24 hours: ChatGPT and Claude may open it when given its address; crawlers may not', () => {
+  const chatgpt = 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ChatGPT-User/1.0; +https://openai.com/bot'
+  const claude = 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Claude-User/1.0; +Claude-User@anthropic.com)'
+  for (const agent of [chatgpt, claude]) {
+    assert.equal(allowed(agent, '/api/digest.json'), true, agent)
+    for (const path of ['/', '/api/news', '/api/digest.json.bak', '/api/digest']) assert.equal(allowed(agent, path), false, path)
+  }
+  assert.equal(allowed(claude, '/api/briefing/pack.md'), false)
+  for (const agent of ['GPTBot/1.1', 'ClaudeBot/1.0', 'Googlebot/2.1', 'SomeCrawler']) assert.equal(allowed(agent, '/api/digest.json'), false, agent)
+})
