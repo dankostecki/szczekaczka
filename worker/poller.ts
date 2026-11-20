@@ -11,7 +11,8 @@ import { checkMacro, macroDueAt } from './macro'
 import { translateNew } from './translate'
 import { rateConfig, ratedFeed, rateNew, topMeta, type RateConfig } from './rate'
 import { type Env, hub } from './env'
-import { buildDigest, digestDue, nextDigestAt, partsOf, type DigestMeta } from './digest'
+import { buildDigest, DIGEST_AT, DIGEST_VERSION, digestDue, nextDigestAt, partsOf, type DigestMeta } from './digest'
+import { warsawAt } from './briefing/time'
 
 const MIN_GAP_MS = 2000 // never wake up more often than this
 const RETRY_SECONDS = 60 // after a failed check: try again in 1, 2, 4… minutes (never later than usual)
@@ -129,11 +130,11 @@ export class Poller extends DurableObject<Env> {
 
   private makeDigest(forDay: string | null) {
     const now = Date.now()
-    const parts = partsOf(buildDigest(this.feeds, now))
+    const parts = partsOf(buildDigest(this.feeds, now, forDay ? warsawAt(forDay, DIGEST_AT) : now))
     const sql = this.ctx.storage.sql
     sql.exec('DELETE FROM digest')
     parts.forEach((text, i) => sql.exec('INSERT INTO digest (part, text) VALUES (?, ?)', i, text))
-    this.digestMeta = { forDay, builtAt: now, parts: parts.length }
+    this.digestMeta = { forDay, builtAt: now, parts: parts.length, version: DIGEST_VERSION }
     sql.exec("INSERT OR REPLACE INTO briefing (k, v) VALUES ('digest', ?)", JSON.stringify(this.digestMeta))
     console.log(`digest${forDay ? ` ${forDay}` : ''}: ${parts.reduce((n, p) => n + p.length, 0)} characters in ${parts.length} part(s)`)
   }
