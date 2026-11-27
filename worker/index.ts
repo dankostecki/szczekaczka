@@ -1,6 +1,7 @@
 // Cloudflare Worker: the page itself is static files (served by Cloudflare without running
 // this code); only /api/news and /ws come here.
 import { HUBS } from '../src/lib/sources'
+import { digestOf, type DigestSpec } from './digest'
 import { type Env, poller, hub } from './env'
 
 import { briefing, briefingApi } from './briefing/api'
@@ -41,9 +42,9 @@ async function news(req: Request, env: Env, url: URL): Promise<Response> {
   return new Response(body, { headers })
 }
 
-// The technical file of the last 24 hours (worker/digest.ts), for the owner's agent: not linked from the page, not kept by crawlers
-async function digest(env: Env): Promise<Response> {
-  const body = await poller(env).digest()
+// The technical files (worker/digest.ts), for the owner's agent: not linked from the page, not kept by crawlers
+async function digest(env: Env, spec: DigestSpec): Promise<Response> {
+  const body = await poller(env).digest(spec)
   return new Response(body, { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Robots-Tag': 'noindex, nofollow, noarchive' } })
 }
 
@@ -59,7 +60,8 @@ export default {
     const url = new URL(req.url)
     if (url.pathname === '/ws') return connect(req, env, url)
     if (url.pathname === '/api/news') return news(req, env, url)
-    if (url.pathname === '/api/digest.json') return digest(env)
+    const spec = digestOf(url.pathname)
+    if (spec) return digest(env, spec)
     if (url.pathname === '/api/briefing' || url.pathname.startsWith('/api/briefing/')) {
       const origin = otherSite(req, url, env)
       return briefingApi(req, env, url, { Vary: 'Origin', ...(origin ? { 'Access-Control-Allow-Origin': origin } : {}) })

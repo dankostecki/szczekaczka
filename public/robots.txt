@@ -6,9 +6,15 @@ Disallow: /
 User-agent: ChatGPT-User
 Allow: /api/briefing/pack.md$
 Allow: /api/digest.json$
+Allow: /api/digest-night.json$
+Allow: /api/digest-morning.json$
+Allow: /api/digest-midday.json$
 Disallow: /
 
-# Plik techniczny z wiadomościami z 24 godzin (/api/digest.json), dla asystenta, któremu właściciel poda adres
+# Pliki techniczne z wiadomościami (/api/digest*.json), dla asystenta, któremu właściciel poda adres
 User-agent: Claude-User
 Allow: /api/digest.json$
+Allow: /api/digest-night.json$
+Allow: /api/digest-morning.json$
+Allow: /api/digest-midday.json$
 Disallow: /
