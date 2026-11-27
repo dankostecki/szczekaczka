@@ -67,9 +67,10 @@ export const FEEDS: FeedConfig[] = [
   { source: 'STOOQ', label: 'BIZNES',      url: 'https://static.stooq.pl/rss/pl/b.rss' },
   { source: 'STOOQ', label: 'KRAJ',        url: 'https://static.stooq.pl/rss/pl/c.rss' },
   { source: 'STOOQ', label: 'ŚWIAT',       url: 'https://static.stooq.pl/rss/pl/w.rss' },
-  // Walter Bloomberg (@DeItaone on X): short market headlines in English. The channel has no RSS; its
-  // public preview on Telegram shows the latest ~20 posts
-  { source: 'WALTER', label: 'TELEGRAM',   url: 'https://t.me/s/WalterBloomberg', format: 'telegram', lang: 'en',
+  // Walter Bloomberg (@DeItaone on X): short market headlines in English. The channel has no RSS; its public preview on Telegram shows the
+  // latest ~20 posts. Since 27 November 2026 Telegram marks @WalterBloomberg FAKE and shows no preview of it, so the headlines come from a
+  // copy of it, @walter_bloomberg (each post with "🚨" before it, left out by parseTelegram)
+  { source: 'WALTER', label: 'TELEGRAM',   url: 'https://t.me/s/walter_bloomberg', format: 'telegram', lang: 'en',
     linkTo: 'https://x.com/DeItaone', translate: true },
   // Seeking Alpha's market news ("Market Currents"): the feed holds only the latest few, so they are kept by the rules of every channel (24 hours
   // from publication, retain in worker/feeds.ts); the title and the lead in English are translated like Walter's posts
@@ -139,8 +140,8 @@ export const SOURCE_INFO: Record<Source, { name: string; publisher: string; site
   WALTER: {
     name: 'Walter Bloomberg na Telegramie',
     publisher: 'Walter Bloomberg (@DeItaone)',
-    site: 'https://t.me/s/WalterBloomberg',
-    about: 'Krótkie wiadomości z rynków na świecie z publicznego kanału Walter Bloomberg na Telegramie (ten sam autor co @DeItaone w serwisie X). Autor pisze po angielsku; Szczekaczka pokazuje je domyślnie po polsku, w tłumaczeniu maszynowym (model AI Gemma 4 w Cloudflare Workers AI), które może zawierać błędy. Oryginał po angielsku, czytany angielskim głosem, można wybrać w ustawieniach. Każda wiadomość prowadzi do profilu autora w serwisie X (x.com/DeItaone). To niezależny kanał, niezwiązany z agencją Bloomberg.',
+    site: 'https://t.me/s/walter_bloomberg',
+    about: 'Krótkie wiadomości z rynków na świecie w stylu Waltera Bloomberga (@DeItaone w serwisie X), z publicznego kanału @walter_bloomberg na Telegramie, który powtarza jego wiadomości. Pierwotny kanał @WalterBloomberg Telegram oznaczył jako „FAKE” i nie pokazuje już jego podglądu. Autor pisze po angielsku; Szczekaczka pokazuje je domyślnie po polsku, w tłumaczeniu maszynowym (model AI Gemma 4 w Cloudflare Workers AI), które może zawierać błędy. Oryginał po angielsku, czytany angielskim głosem, można wybrać w ustawieniach. Każda wiadomość prowadzi do profilu autora w serwisie X (x.com/DeItaone). To niezależny kanał, niezwiązany z agencją Bloomberg.',
   },
   PAP: {
     name: 'PAP MediaRoom',
