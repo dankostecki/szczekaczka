@@ -318,6 +318,9 @@ export function parseTelegram(html: string, feed: FeedConfig, limit = Infinity):
       const last = lines.pop()!.replace(own, '')
       if (last) { lines.push(last); break }
     }
+    // A mark before the headline ("🚨 $ANT - …", as a copy of a channel adds to every post) is not a part of it
+    lines[0] = lines[0].replace(/^(?:[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\uFE0F\u200D]+\s*)+/u, '').trim()
+    if (!lines[0]) lines.shift()
     if (!lines.length) return
     const date = (block.match(/class="tgme_widget_message_date\b[\s\S]*?<time\b[^>]*\bdatetime="([^"]+)"/) ?? block.match(/<time\b[^>]*\bdatetime="([^"]+)"/))?.[1] ?? ''
     const item = makeItem(feed, lines[0], `https://t.me/${channel}/${id}`, '', date)
