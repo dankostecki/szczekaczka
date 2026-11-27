@@ -11,8 +11,7 @@ import { checkMacro, macroDueAt } from './macro'
 import { translateNew } from './translate'
 import { rateConfig, ratedFeed, rateNew, topMeta, type RateConfig } from './rate'
 import { type Env, hub } from './env'
-import { buildDigest, DIGEST_AT, DIGEST_VERSION, digestDue, nextDigestAt, partsOf, type DigestMeta } from './digest'
-import { warsawAt } from './briefing/time'
+import { buildDigest, DIGESTS, DIGEST_VERSION, digestDue, nextDigestAt, partsOf, spanOf, type DigestMeta, type DigestSpec } from './digest'
 
 const MIN_GAP_MS = 2000 // never wake up more often than this
 const RETRY_SECONDS = 60 // after a failed check: try again in 1, 2, 4… minutes (never later than usual)
@@ -35,8 +34,8 @@ export class Poller extends DurableObject<Env> {
   // The ratings of importance (rate.ts): their settings, and what the snapshot says of them (null: none, the page has no "Top" tab)
   private rate: RateConfig
   private topJson: string | null
-  // The technical file of the last 24 hours (digest.ts): what is kept of the latest one
-  private digestMeta: DigestMeta | null = null
+  // The technical files (digest.ts): what is kept of the latest one of each kind
+  private digestMeta = new Map<string, DigestMeta>()
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
@@ -50,9 +49,11 @@ export class Poller extends DurableObject<Env> {
       sql.exec('CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v INTEGER NOT NULL)')
       sql.exec('CREATE TABLE IF NOT EXISTS briefing (k TEXT PRIMARY KEY, v TEXT NOT NULL)')
       this.briefingJson = sql.exec<{ v: string }>("SELECT v FROM briefing WHERE k = 'latest'").toArray()[0]?.v ?? null
-      sql.exec('CREATE TABLE IF NOT EXISTS digest (part INTEGER PRIMARY KEY, text TEXT NOT NULL)')
-      const digest = sql.exec<{ v: string }>("SELECT v FROM briefing WHERE k = 'digest'").toArray()[0]?.v
-      this.digestMeta = digest ? JSON.parse(digest) : null
+      // one file of each kind, in parts (the table of the single file before: gone)
+      sql.exec('DROP TABLE IF EXISTS digest')
+      sql.exec("DELETE FROM briefing WHERE k = 'digest'")
+      sql.exec('CREATE TABLE IF NOT EXISTS digests (kind TEXT NOT NULL, part INTEGER NOT NULL, text TEXT NOT NULL, PRIMARY KEY (kind, part))')
+      for (const row of sql.exec<{ k: string; v: string }>("SELECT k, v FROM briefing WHERE k LIKE 'digest:%'")) this.digestMeta.set(row.k.slice(7), JSON.parse(row.v))
       const known = new Set(FEEDS.map((f) => feedKey(f.source, f.label)))
       const removed: string[] = []
       const renamed: [string, string][] = []
@@ -121,22 +122,33 @@ export class Poller extends DurableObject<Env> {
 
   async kick(): Promise<void> { await this.ensureAlarm() }
 
-  // The technical file of the last 24 hours (/api/digest.json, digest.ts) as it was made; made at once when there is none yet
-  async digest(): Promise<string> {
+  // A technical file (digest.ts) as it was made: the latest span of its kind that has ended (made at once when it is not there yet)
+  async digest(spec: DigestSpec): Promise<string> {
     await this.ensureAlarm()
-    if (!this.digestMeta) this.makeDigest(null)
-    return this.ctx.storage.sql.exec<{ text: string }>('SELECT text FROM digest ORDER BY part').toArray().map((r) => r.text).join('')
+    const day = digestDue(spec, Date.now(), this.digestMeta.get(spec.key) ?? null)
+    if (day) this.makeDigest(spec, day)
+    return this.ctx.storage.sql.exec<{ text: string }>('SELECT text FROM digests WHERE kind = ? ORDER BY part', spec.key).toArray().map((r) => r.text).join('')
   }
 
-  private makeDigest(forDay: string | null) {
+  private makeDigest(spec: DigestSpec, forDay: string) {
     const now = Date.now()
-    const parts = partsOf(buildDigest(this.feeds, now, forDay ? warsawAt(forDay, DIGEST_AT) : now))
+    const parts = partsOf(buildDigest(this.feeds, now, spanOf(spec, forDay), spec))
     const sql = this.ctx.storage.sql
-    sql.exec('DELETE FROM digest')
-    parts.forEach((text, i) => sql.exec('INSERT INTO digest (part, text) VALUES (?, ?)', i, text))
-    this.digestMeta = { forDay, builtAt: now, parts: parts.length, version: DIGEST_VERSION }
-    sql.exec("INSERT OR REPLACE INTO briefing (k, v) VALUES ('digest', ?)", JSON.stringify(this.digestMeta))
-    console.log(`digest${forDay ? ` ${forDay}` : ''}: ${parts.reduce((n, p) => n + p.length, 0)} characters in ${parts.length} part(s)`)
+    sql.exec('DELETE FROM digests WHERE kind = ?', spec.key)
+    parts.forEach((text, i) => sql.exec('INSERT INTO digests (kind, part, text) VALUES (?, ?, ?)', spec.key, i, text))
+    const meta: DigestMeta = { forDay, builtAt: now, parts: parts.length, version: DIGEST_VERSION }
+    this.digestMeta.set(spec.key, meta)
+    sql.exec('INSERT OR REPLACE INTO briefing (k, v) VALUES (?, ?)', `digest:${spec.key}`, JSON.stringify(meta))
+    console.log(`digest ${spec.key} ${forDay}: ${parts.reduce((n, p) => n + p.length, 0)} characters in ${parts.length} part(s)`)
+  }
+
+  // The first file due, if any: one a turn
+  private dueDigest(now: number): [DigestSpec, string] | null {
+    for (const spec of DIGESTS) {
+      const day = digestDue(spec, now, this.digestMeta.get(spec.key) ?? null)
+      if (day) return [spec, day]
+    }
+    return null
   }
 
   // ── Called by the morning briefing (worker/briefing) ──
@@ -200,9 +212,9 @@ export class Poller extends DurableObject<Env> {
   async alarm() {
     try {
       // the day's technical file at its time, in a turn of its own (not with a feed's check)
-      const day = digestDue(Date.now(), this.digestMeta)
-      const feed = day ? undefined : this.mostOverdue(Date.now())
-      if (day) this.makeDigest(day)
+      const due = this.dueDigest(Date.now())
+      const feed = due ? undefined : this.mostOverdue(Date.now())
+      if (due) this.makeDigest(...due)
       if (feed) await this.check(feed)
       if (this.connected && Date.now() - this.lastPublish >= HEARTBEAT_SECONDS * 1000) await this.publish(this.heartbeat())
     } catch (e) {
@@ -240,7 +252,7 @@ export class Poller extends DurableObject<Env> {
     const now = Date.now()
     let next = this.connected ? this.lastPublish + HEARTBEAT_SECONDS * 1000 : Infinity
     for (const f of FEEDS) next = Math.min(next, this.dueAt(f, now))
-    next = Math.min(next, digestDue(now, this.digestMeta) ? now : nextDigestAt(now))
+    next = Math.min(next, this.dueDigest(now) ? now : Math.min(...DIGESTS.map((d) => nextDigestAt(d, now))))
     return Math.max(next, now + MIN_GAP_MS)
   }
 

@@ -1,34 +1,55 @@
-// A technical file for the owner: every news of the last 24 hours, as published (no AI translations), with the AI's rating of its
-// importance, as JSON, to hand to another agent that writes from it. The news of little importance (steps 1 and 2: quiet and moderate) are
-// left out; those not rated (MacroNext's announcements, a rating that failed) stay. One file only: each new one replaces the last, no history is kept. Made once a day at DIGEST_AT, Polish time, by the Poller (which keeps
-// the news), and served as it was made at /api/digest.json until the next one. Not linked from the page. Before the first one of a
-// day's time is made (right after a deploy), the address has one made at once, which the next DIGEST_AT replaces.
+// Technical files for the owner: the news of a span of time, as published (no AI translations), with the AI's rating of their importance,
+// as JSON, to hand to another agent that writes from them. The news of little importance (steps 1 and 2: quiet and moderate) are left out;
+// those not rated (MacroNext's announcements, a rating that failed) stay. Four files, each at its own address (DIGESTS): the 24 hours up to
+// 8:30, the evening and night from 16:00 to 7:30, the morning from 7:30 to 11:40, the midday from 11:40 to 15:40, Polish time. Each is made by
+// the Poller (which keeps the news) when its span ends, every day, and replaces the one before: no history is kept. An address always has
+// the latest span that has ended (right after a deploy, it is made at once). Not linked from the page.
 import type { NewsItem } from '../src/lib/parse'
 import { FEEDS, feedKey, linkOf, SOURCE_INFO, sourceName, type Source } from '../src/lib/sources'
 import { IMPORTANCE, importanceLevel } from '../src/lib/top'
 import { editionIdAt, warsawAt } from './briefing/time'
 import type { FeedState } from './feeds'
 
-export const DIGEST_AT = '08:30'
-export const DIGEST_HOURS = 24
 const MAX_TEXT = 6000 // characters of a news's text (the longest kept are about 3000)
 
-// What is kept of the latest one: the Polish day of its DIGEST_AT (null: made at once, before any), when it was made
-export interface DigestMeta { forDay: string | null; builtAt: number; parts: number; version?: number }
+// A file: its address, the end of its span (Polish time) and its start: a time of the same day, of the day before (dayShift -1), or `hours` before
+export interface DigestSpec { key: string; path: string; name: string; to: string; from: { at: string; dayShift: number } | { hours: number } }
+export const DIGESTS: DigestSpec[] = [
+  { key: 'day', path: '/api/digest.json', name: '24 godziny do 8:30', to: '08:30', from: { hours: 24 } },
+  { key: 'night', path: '/api/digest-night.json', name: 'od 16:00 do 7:30 następnego dnia', to: '07:30', from: { at: '16:00', dayShift: -1 } },
+  { key: 'morning', path: '/api/digest-morning.json', name: 'od 7:30 do 11:40', to: '11:40', from: { at: '07:30', dayShift: 0 } },
+  { key: 'midday', path: '/api/digest-midday.json', name: 'od 11:40 do 15:40', to: '15:40', from: { at: '11:40', dayShift: 0 } },
+]
+export const digestOf = (path: string) => DIGESTS.find((d) => d.path === path)
 
-// What a digest is made like: a new one, and today's is made again at once after the deploy (not only at the next DIGEST_AT)
-export const DIGEST_VERSION = 3 // 2: without the news of little importance; 3: up to the day's 8:30, whenever made
+// What is kept of the latest file of a kind: the Polish day its span ends on, when it was made
+export interface DigestMeta { forDay: string; builtAt: number; parts: number; version?: number }
 
-// The day whose digest is due now: past its DIGEST_AT, and not made for it yet (or made like an older version)
-export function digestDue(now: number, latest: DigestMeta | null): string | null {
-  const day = editionIdAt(now)
-  return now >= warsawAt(day, DIGEST_AT) && (latest?.forDay !== day || latest.version !== DIGEST_VERSION) ? day : null
+// What a file is made like: a new one, and the latest of each kind is made again at once after the deploy
+export const DIGEST_VERSION = 4 // 2: without the news of little importance; 3: up to the end of its span, whenever made; 4: four kinds
+
+// The span of a kind that ends on `day`
+export function spanOf(spec: DigestSpec, day: string): { from: number; to: number } {
+  const to = warsawAt(day, spec.to)
+  return { from: 'hours' in spec.from ? to - spec.from.hours * 3600_000 : warsawAt(day, spec.from.at, spec.from.dayShift), to }
 }
 
-// The next DIGEST_AT after `now`
-export function nextDigestAt(now: number): number {
-  const today = warsawAt(editionIdAt(now), DIGEST_AT)
-  return today > now ? today : warsawAt(editionIdAt(now), DIGEST_AT, 1)
+// The day of the latest span of a kind that has ended by `now`
+export function lastEnded(spec: DigestSpec, now: number): string {
+  const today = editionIdAt(now)
+  return now >= warsawAt(today, spec.to) ? today : editionIdAt(warsawAt(today, spec.to, -1))
+}
+
+// The day whose file of this kind is due now: its span has ended and it is not made for it yet (or made like an older version)
+export function digestDue(spec: DigestSpec, now: number, latest: DigestMeta | null): string | null {
+  const day = lastEnded(spec, now)
+  return latest?.forDay !== day || latest.version !== DIGEST_VERSION ? day : null
+}
+
+// The next end of a span of this kind after `now`
+export function nextDigestAt(spec: DigestSpec, now: number): number {
+  const today = warsawAt(editionIdAt(now), spec.to)
+  return today > now ? today : warsawAt(editionIdAt(now), spec.to, 1)
 }
 
 const iso = (ms: number) => new Date(ms).toISOString()
@@ -54,10 +75,9 @@ function entry(it: NewsItem, t: number) {
 // The news of these steps are left out: of little importance
 export const SKIPPED_LEVELS = [1, 2]
 
-// The digest as JSON: the news of the 24 hours up to `to` of every channel, newest first, without those of little importance. `to`: the day's
-// DIGEST_AT (a file made later, after a deploy, still ends at 8:30), or now for one made before any
-export function buildDigest(feeds: ReadonlyMap<string, FeedState>, now: number, to = now): string {
-  const from = to - DIGEST_HOURS * 3600_000
+// A file as JSON: the news of [from, to] of every channel, newest first, without those of little importance
+export function buildDigest(feeds: ReadonlyMap<string, FeedState>, now: number, span: { from: number; to: number }, spec: DigestSpec = DIGESTS[0]): string {
+  const { from, to } = span
   const news: ReturnType<typeof entry>[] = []
   const bySource: Record<string, number> = {}
   let skipped = 0
@@ -77,8 +97,8 @@ export function buildDigest(feeds: ReadonlyMap<string, FeedState>, now: number, 
   return JSON.stringify({
     generatedAt: iso(now),
     generatedWarsaw: warsaw.format(now),
-    window: { from: iso(from), to: iso(to), toWarsaw: warsaw.format(to), hours: DIGEST_HOURS },
-    about: 'Wiadomości Szczekaczki z ostatnich 24 godzin w oryginalnym brzmieniu (bez tłumaczeń AI), od najnowszej, bez mało istotnych ' +
+    window: { name: spec.name, from: iso(from), to: iso(to), fromWarsaw: warsaw.format(from), toWarsaw: warsaw.format(to), hours: Math.round((to - from) / 360_000) / 10 },
+    about: 'Wiadomości Szczekaczki z okresu w window (czas polski: fromWarsaw–toWarsaw) w oryginalnym brzmieniu (bez tłumaczeń AI), od najnowszej, bez mało istotnych ' +
       '(stopnie 1 i 2 pominięte; zostają 3 i 4 oraz nieoceniane). ' +
       'importance: ocena ważności dla inwestora nadana automatycznie przez model AI (Cloudflare Workers AI) przy pobraniu wiadomości, 0–10, ' +
       'i jej stopień 1–4 (1 spokojna: poniżej 4, 2 umiarkowana: od 4, 3 ważna: od 6, 4 bardzo ważna: od 8); null: wiadomość nieoceniana ' +
